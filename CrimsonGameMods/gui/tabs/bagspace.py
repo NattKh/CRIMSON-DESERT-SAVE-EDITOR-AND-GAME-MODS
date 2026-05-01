@@ -381,6 +381,15 @@ class BagSpaceTab(QWidget):
             f"BagSpace Character slots staged: {default_slots}/{max_slots}"
         )
 
+    def get_staged_files(self) -> dict[str, bytes]:
+        if not self._dirty or self._inventory_data is None:
+            return {}
+        try:
+            pabgb, pabgh = self._final_inventory_data()
+            return {"inventory.pabgb": bytes(pabgb), "inventory.pabgh": bytes(pabgh)}
+        except Exception:
+            return {}
+
     def _final_inventory_data(self) -> Tuple[bytes, bytes]:
         if self._inventory_data is None:
             self._load_from_game()

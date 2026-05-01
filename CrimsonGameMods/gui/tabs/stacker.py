@@ -1326,6 +1326,7 @@ class StackerTab(QWidget):
         self._config = config if config is not None else {}
         self._show_guide_fn = show_guide_fn
         self._buffs_tab = buffs_tab  # for shared state + Apply to Game
+        self._mod_tabs: dict = {}  # populated by main_window after all tabs created
         self._game_path: str = self._config.get("game_install_path", "")
         self._mods: list[ModEntry] = []
         self._merged_items: list = []
@@ -1749,6 +1750,17 @@ class StackerTab(QWidget):
         pull_btn.clicked.connect(self._pull_from_itembuffs)
         blay.addWidget(pull_btn)
 
+        pull_all_btn = _size_button(QPushButton("⇅ Pull All Edits"))
+        pull_all_btn.setObjectName("flatBtn")
+        pull_all_btn.setStyleSheet(
+            "QPushButton { background-color: #00695C; color: white; font-weight: bold; }")
+        pull_all_btn.setToolTip(
+            "Pull edits from ALL tabs: ItemBuffs + MercPets + SkillTree + "
+            "BagSpace + ReserveSlot + FieldEdit. Creates one mod entry per "
+            "tab that has modifications.")
+        pull_all_btn.clicked.connect(self._pull_all_edits)
+        blay.addWidget(pull_all_btn)
+
         pull_dmm_btn = _size_button(QPushButton("⇅ Pull DMM"))
         pull_dmm_btn.setObjectName("flatBtn")
         pull_dmm_btn.setToolTip(
@@ -1986,6 +1998,74 @@ class StackerTab(QWidget):
         self._mods.append(entry)
         self._refresh_mod_list()
         self._log_line(f"✓ Pulled from ItemBuffs: {summary}.")
+
+    # ------------------------------------------------------------
+    def _pull_all_edits(self):
+        """Pull edits from ALL tabs that have modifications."""
+        pulled = []
+
+        if self._buffs_tab is not None:
+            has_items = bool(getattr(self._buffs_tab, "_buff_rust_items", None))
+            if has_items:
+                self._pull_from_itembuffs()
+                pulled.append("ItemBuffs")
+
+        _TAB_LABELS = {
+            "mercpets": "MercPets",
+            "bagspace": "BagSpace",
+            "skilltree": "SkillTree",
+            "reserveslot": "ReserveSlot",
+            "fieldedit": "FieldEdit",
+        }
+
+        for tab_key, tab_obj in self._mod_tabs.items():
+            if tab_obj is None:
+                continue
+            get_fn = getattr(tab_obj, "get_staged_files", None)
+            if get_fn is None:
+                continue
+            try:
+                staged = get_fn()
+            except Exception as e:
+                log.warning("Pull all: %s.get_staged_files() failed: %s", tab_key, e)
+                continue
+            if not staged:
+                continue
+
+            label = _TAB_LABELS.get(tab_key, tab_key)
+            file_names = sorted(staged.keys())
+            summary = f"{label}: {', '.join(file_names)}"
+
+            self._mods = [
+                m for m in self._mods
+                if not (m.kind == "companion_files"
+                        and m.name == f"{label} tab (staged files)")
+            ]
+
+            entry = ModEntry(
+                name=f"{label} tab (staged files)",
+                path="<in-memory>",
+                kind="companion_files",
+                ok=True,
+                note=summary,
+            )
+            entry.staged_companion_files = staged
+            self._mods.append(entry)
+            pulled.append(label)
+            self._log_line(f"  ✓ {summary}")
+
+        self._refresh_mod_list()
+        if pulled:
+            self._log_line(f"✓ Pull All: {', '.join(pulled)}")
+            QMessageBox.information(
+                self, "Pull All Edits",
+                f"Pulled edits from: {', '.join(pulled)}\n\n"
+                f"Run PREVIEW then Export Field JSON to build multi-target mod.")
+        else:
+            QMessageBox.information(
+                self, "Pull All Edits",
+                "No tabs have modifications to pull.\n\n"
+                "Load and edit data in ItemBuffs, MercPets, SkillTree, etc. first.")
 
     # ------------------------------------------------------------
     def _regenerate_equipslotinfo_for_up_v2(self) -> dict:

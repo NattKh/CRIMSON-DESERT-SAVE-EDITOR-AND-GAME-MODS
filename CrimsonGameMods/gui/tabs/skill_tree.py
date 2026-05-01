@@ -561,6 +561,40 @@ class SkillTreeTab(QWidget):
             log.exception("SkillTree apply failed")
             QMessageBox.critical(self, "Apply failed", str(e))
 
+    def get_staged_files(self) -> dict[str, bytes]:
+        if not self._loaded or not self._original_pabgh:
+            return {}
+        try:
+            from skilltreeinfo_parser import (
+                CHAR_MELEE_ROOT, parse_all, serialize_all,
+                parse_groups, serialize_groups,
+            )
+            records = parse_all(self._original_pabgh, self._original_pabgb)
+            groups = parse_groups(self._original_grp_pabgh, self._original_grp_pabgb)
+            any_change = False
+            root_combos = getattr(self, '_root_combos', {})
+            for rec in records:
+                if rec.key not in root_combos:
+                    continue
+                combo = root_combos[rec.key]
+                new_root = combo.currentData()
+                native_root = CHAR_MELEE_ROOT.get(rec.key)
+                if native_root is not None and new_root != native_root:
+                    rec.patch_root_package(native_root, new_root)
+                    any_change = True
+            if not any_change:
+                return {}
+            result = {}
+            pabgh, pabgb = serialize_all(records)
+            grp_gh, grp_gb = serialize_groups(groups)
+            result["skilltreeinfo.pabgb"] = bytes(pabgb)
+            result["skilltreeinfo.pabgh"] = bytes(pabgh)
+            result["skilltreegroupinfo.pabgb"] = bytes(grp_gb)
+            result["skilltreegroupinfo.pabgh"] = bytes(grp_gh)
+            return result
+        except Exception:
+            return {}
+
     def _apply_to_game(self, game_path: str) -> None:
         import crimson_rs
         from skilltreeinfo_parser import (

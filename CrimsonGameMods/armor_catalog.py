@@ -82,12 +82,18 @@ def parse_transmog_items_crimson_rs(data: bytes) -> list[ArmorItem]:
         sk = it.get('string_key', '')
         if not sk:
             continue
-        prefab_lists = it.get('gimmick_visual_prefab_data_list', []) or []
         hash_values = []
-        for pv in prefab_lists:
-            for h in (pv.get('prefab_names') or []):
-                if h and h != 0:
+        seen_hv = set()
+        for pd in (it.get('prefab_data_list', []) or []):
+            for h in (pd.get('prefab_names') or []):
+                if h and h != 0 and int(h) not in seen_hv:
                     hash_values.append(int(h))
+                    seen_hv.add(int(h))
+        for pv in (it.get('gimmick_visual_prefab_data_list', []) or []):
+            for h in (pv.get('prefab_names') or []):
+                if h and h != 0 and int(h) not in seen_hv:
+                    hash_values.append(int(h))
+                    seen_hv.add(int(h))
         if not hash_values:
             continue
 
@@ -138,13 +144,14 @@ def parse_transmog_items_crimson_rs(data: bytes) -> list[ArmorItem]:
 
 
 def parse_transmog_items(data: bytes, loc_dict: Optional[dict] = None) -> list[ArmorItem]:
-    legacy = _parse_transmog_items_legacy(data, loc_dict)
-    if legacy:
-        return legacy
     try:
-        return parse_transmog_items_crimson_rs(data)
+        rs = parse_transmog_items_crimson_rs(data)
     except Exception:
-        return []
+        rs = []
+    legacy = _parse_transmog_items_legacy(data, loc_dict)
+    if rs and len(rs) >= len(legacy):
+        return rs
+    return legacy or []
 
 
 def _parse_transmog_items_legacy(data: bytes, loc_dict: Optional[dict] = None) -> list[ArmorItem]:

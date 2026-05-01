@@ -341,6 +341,15 @@ class MercPetsTab(QWidget):
         self._collect_edits()
         return mip.serialize_all(self._records)
 
+    def get_staged_files(self) -> dict[str, bytes]:
+        if not self._records or not self._modified:
+            return {}
+        try:
+            pabgb, pabgh = self._serialize()
+            return {"mercenaryinfo.pabgb": bytes(pabgb), "mercenaryinfo.pabgh": bytes(pabgh)}
+        except Exception:
+            return {}
+
     def _apply_to_game(self) -> None:
         if not self._records:
             QMessageBox.information(self, "Apply", "Load first.")

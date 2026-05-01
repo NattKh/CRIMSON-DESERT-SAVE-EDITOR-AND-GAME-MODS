@@ -280,6 +280,15 @@ class ReserveSlotTab(QWidget):
         self._collect_edits()
         return rsp.serialize_all(self._entries)
 
+    def get_staged_files(self) -> dict[str, bytes]:
+        if not self._entries or not self._modified:
+            return {}
+        try:
+            pabgb, pabgh = self._serialize()
+            return {"reserveslot.pabgb": bytes(pabgb), "reserveslot.pabgh": bytes(pabgh)}
+        except Exception:
+            return {}
+
     def _apply_to_game(self) -> None:
         if not self._entries:
             QMessageBox.information(self, "Apply", "Load first.")

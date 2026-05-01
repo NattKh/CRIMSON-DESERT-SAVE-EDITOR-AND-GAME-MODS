@@ -94,6 +94,24 @@ class FieldEditTab(QWidget):
         if path:
             self._config["game_install_path"] = path
 
+    def get_staged_files(self) -> dict[str, bytes]:
+        result = {}
+        _PAIRS = [
+            ("characterinfo", "_charinfo_data", "_charinfo_original"),
+            ("gameplaytrigger", "_gptrigger_data", "_gptrigger_original"),
+            ("regioninfo", "_regioninfo_data", "_regioninfo_original"),
+            ("wantedinfo", "_wantedinfo_data", "_wantedinfo_original"),
+            ("allygroupinfo", "_allygroup_data", "_allygroup_original"),
+            ("relationinfo", "_relationinfo_data", "_relationinfo_original"),
+            ("factionrelationgroupinfo", "_factionrelgrp_data", "_factionrelgrp_original"),
+        ]
+        for name, data_attr, orig_attr in _PAIRS:
+            data = getattr(self, data_attr, None)
+            orig = getattr(self, orig_attr, None)
+            if data is not None and orig is not None and bytes(data) != bytes(orig):
+                result[f"{name}.pabgb"] = bytes(data)
+        return result
+
     def set_experimental_mode(self, enabled: bool) -> None:
         for w in getattr(self, '_dev_export_btns_field', []):
             w.setVisible(bool(enabled))

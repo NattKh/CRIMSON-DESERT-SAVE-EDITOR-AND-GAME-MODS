@@ -1825,6 +1825,14 @@ class ItemBuffsTab(QWidget):
         stacks_btn.clicked.connect(
             lambda: self._eb_apply_preset("max_stacks"))
         grid_buttons.append(stacks_btn)
+
+        abyss_socket_btn = QPushButton("Abyss + 5 Sockets")
+        abyss_socket_btn.setToolTip(
+            "Unlock abyss restriction (equipable_hash = 0) AND\n"
+            "extend to 5 sockets on the selected item.")
+        abyss_socket_btn.clicked.connect(self._eb_abyss_plus_sockets)
+        grid_buttons.append(abyss_socket_btn)
+
         godmode_desc = textwrap.dedent("""
             - No Cooldown   
             - Max Charges
@@ -2312,6 +2320,17 @@ class ItemBuffsTab(QWidget):
             "so it stacks with all other mods and survives game updates.")
         abyss_btn.clicked.connect(self._eb_unlock_all_abyss_gear)
         row5.addWidget(abyss_btn)
+
+        abyss_sockets_bulk_btn = QPushButton("All Inventory → Abyss + 5 Sockets")
+        abyss_sockets_bulk_btn.setToolTip(
+            "For every item in your loaded inventory:\n"
+            "  1. Unlock abyss restriction (equipable_hash = 0)\n"
+            "  2. Extend to 5 sockets\n\n"
+            "Combines 'Unlock All Abyss Gear' + 'All → 5 Sockets'\n"
+            "but only on items you actually own.")
+        abyss_sockets_bulk_btn.clicked.connect(self._eb_bulk_abyss_plus_sockets)
+        row5.addWidget(abyss_sockets_bulk_btn)
+
         row5.addStretch(1)
         tl.addLayout(row5)
 
@@ -6493,6 +6512,64 @@ class ItemBuffsTab(QWidget):
         self._buff_status_label.setText(
             f"Sockets on {display_name}: {target_count} max, {target_valid} pre-unlocked. "
             f"Export as Mod to write.")
+
+    def _eb_bulk_abyss_plus_sockets(self) -> None:
+        if not hasattr(self, '_buff_rust_items') or not self._buff_rust_items:
+            QMessageBox.warning(self, "Bulk Abyss + Sockets", "Extract first.")
+            return
+        owned_keys = set()
+        for it in getattr(self, '_items', []) or []:
+            if hasattr(it, 'item_key'):
+                owned_keys.add(it.item_key)
+        if not owned_keys:
+            QMessageBox.warning(self, "Bulk Abyss + Sockets",
+                                "Load a save file first so we know which items you own.")
+            return
+        abyss_count = 0
+        socket_count = 0
+        for it in self._buff_rust_items:
+            if it.get('key') not in owned_keys:
+                continue
+            if it.get('equipable_hash', 0) != 0:
+                it['equipable_hash'] = 0
+                abyss_count += 1
+            if self._socketable_force_target(it):
+                self._force_enable_sockets(it, 5, 0)
+                socket_count += 1
+        if abyss_count or socket_count:
+            self._buff_modified = True
+            self._buff_refresh_stats()
+        self._buff_status_label.setText(
+            f"Bulk: {abyss_count} abyss unlocked, {socket_count} items → 5 sockets")
+        QMessageBox.information(self, "Bulk Abyss + Sockets",
+            f"Inventory items processed:\n\n"
+            f"  Abyss unlocked: {abyss_count}\n"
+            f"  Sockets → 5: {socket_count}\n\n"
+            f"Export as Mod or Apply to Game to write.")
+
+    def _eb_abyss_plus_sockets(self) -> None:
+        if not hasattr(self, '_buff_rust_items') or not self._buff_rust_items:
+            QMessageBox.warning(self, "Abyss + Sockets", "Extract first.")
+            return
+        if self._buff_current_item is None:
+            QMessageBox.warning(self, "Abyss + Sockets", "Select an item first.")
+            return
+        key = self._buff_current_item.item_key
+        rust_info = None
+        for it in self._buff_rust_items:
+            if it.get('key') == key:
+                rust_info = it
+                break
+        if rust_info is None:
+            QMessageBox.warning(self, "Abyss + Sockets", "Item not found in parsed data.")
+            return
+        rust_info['equipable_hash'] = 0
+        self._eb_apply_preset("open_sockets", skip=True)
+        self._buff_modified = True
+        self._buff_refresh_stats()
+        display_name = self._name_db.get_name(key)
+        self._buff_status_label.setText(
+            f"{display_name}: abyss unlocked + 5 sockets. Export to write.")
 
     def _eb_extend_all_sockets_to_5(self) -> None:
         if not hasattr(self, '_buff_rust_items') or not self._buff_rust_items:
@@ -11983,10 +12060,19 @@ class ItemBuffsTab(QWidget):
                 QMessageBox.critical(self, "Extract Failed", str(e))
                 return
 
-        if not self._buff_modified and not apply_stacks and not apply_inf_dura:
+        has_transmog = bool(getattr(self, '_transmog_swaps', None))
+        has_vfx = bool(getattr(self, '_vfx_size_changes', None)
+                       or getattr(self, '_vfx_swaps', None)
+                       or getattr(self, '_vfx_anim_swaps', None)
+                       or getattr(self, '_vfx_attach_changes', None))
+        has_cd = bool(getattr(self, '_cd_patches', None))
+        if (not self._buff_modified and not apply_stacks and not apply_inf_dura
+                and not has_transmog and not has_vfx and not has_cd):
             QMessageBox.information(
                 self, "No Changes",
-                "No modifications have been made. Apply buffs or check 'Also apply Max Stacks' first.",
+                "No modifications have been made.\n\n"
+                "Apply buffs, set up transmog swaps, or check\n"
+                "'Also apply Max Stacks' first.",
             )
             return
 

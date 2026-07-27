@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 from models import SaveItem, SaveData, UndoEntry
 from save_crypto import load_save_file, load_raw_stream, write_save_file
 from item_scanner import (
-    scan_items, apply_stack_edit, apply_enchant_edit,
+    scan_items, scan_items_smart, apply_stack_edit, apply_enchant_edit,
     apply_endurance_edit, apply_sharpness_edit, apply_item_swap, apply_item_swap_all,
     enrich_items_with_parc, smart_item_swap,
     apply_itemno_edit, get_max_itemno,
@@ -2413,6 +2413,11 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(800, 500)
 
         self._save_data: Optional[SaveData] = None
+        # One full parse per loaded save, reused by item extraction (and any
+        # future consumer). In-place byte edits keep it valid; replacing the
+        # blob makes the next call re-parse.
+        from parse_reuse import ParsedResultCache
+        self._parse_cache = ParsedResultCache()
         self._items: List[SaveItem] = []
         self._name_db = ItemNameDB()
         self._pack_mgr = PackManager()
@@ -31429,13 +31434,33 @@ QCheckBox::indicator {{
                 f"{len(duplicated_nos)} group(s) — each item now has a unique ID."
             )
 
+    def _get_parse_result(self):
+        """Full parse of the current save, cached until the blob is replaced."""
+        if not self._save_data:
+            return None
+        cached = self._parse_cache.get(self._save_data)
+        if cached is not None:
+            return cached
+        from save_parser import build_result_from_raw
+        result = build_result_from_raw(
+            bytes(self._save_data.decompressed_blob), {'input_kind': 'raw_blob'}
+        )
+        self._parse_cache.store(self._save_data, result)
+        return result
+
     def _scan_and_populate(self) -> None:
         if not self._save_data:
             return
 
         self._quest_entries = []
         self._mission_entries = []
-        self._items = scan_items(self._save_data.decompressed_blob)
+        try:
+            parse_result = self._get_parse_result()
+        except Exception:
+            parse_result = None
+        self._items = scan_items_smart(
+            self._save_data.decompressed_blob, parse_result
+        )
 
         for item in self._items:
             item.name = self._name_db.get_name(item.item_key)

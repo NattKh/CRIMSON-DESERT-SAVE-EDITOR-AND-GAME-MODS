@@ -17,7 +17,7 @@ MAIN_BAG_HASH = 0xEBEA2CD2
 SOURCE_NAMES = ["Equipment", "Inventory", "Store", "Mercenary", "Other"]
 
 
-@dataclass
+@dataclass(slots=True)
 class FieldDef:
     name: str
     type_name: str
@@ -28,7 +28,7 @@ class FieldDef:
     end_offset: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class TypeDef:
     index: int
     name: str
@@ -37,7 +37,7 @@ class TypeDef:
     end_offset: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class TocEntry:
     index: int
     class_index: int
@@ -99,7 +99,7 @@ class BagSlot:
     blockSize: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class GenericFieldValue:
     field_index: int
     name: str
@@ -140,7 +140,7 @@ class GenericFieldValue:
     list_elements: list[GenericFieldValue] | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class ObjectBlock:
     entry_index: int
     class_index: int

@@ -13625,6 +13625,31 @@ QCheckBox::indicator {{
         self._tabs.addTab(tab, "Teleport")
 
 
+    def _know_parse_entries(self):
+        """Yield (key, level, level_offset) for every knowledge entry."""
+        result = self._get_parse_result()
+        if not result:
+            return
+        import struct as _st
+        blob = self._save_data.decompressed_blob
+        for obj in result['objects']:
+            if obj.class_name != 'KnowledgeSaveData':
+                continue
+            for f in obj.fields:
+                if f.name != '_list' or not f.list_elements:
+                    continue
+                for elem in f.list_elements:
+                    key = level = level_offset = None
+                    for cf in (elem.child_fields or []):
+                        if cf.name == '_key' and cf.present:
+                            key = _st.unpack_from('<I', blob, cf.start_offset)[0]
+                        elif cf.name == '_level' and cf.present:
+                            level_offset = cf.start_offset
+                            level = _st.unpack_from('<I', blob, cf.start_offset)[0]
+                    if key is not None and level is not None:
+                        yield key, level, level_offset
+            return
+
     def _know_scan(self) -> None:
         if not self._save_data:
             QMessageBox.warning(self, "Knowledge", "Load a save file first.")
@@ -13642,19 +13667,13 @@ QCheckBox::indicator {{
             from save_parser import build_result_from_raw, parse_schema, parse_toc
             import struct as _st
 
-            blob = bytes(self._save_data.decompressed_blob)
-            schema = parse_schema(blob)
-            toc = parse_toc(blob, schema['schema_end'], [t.name for t in schema['types']])
-
+            # The 4-byte-stride pattern walk missed keys at unaligned
+            # offsets and counted level-0 leftovers as learned; the cached
+            # parse tree is exact and carries the level.
             self._know_learned_keys = set()
-            for e in toc['entries']:
-                if e.class_name == 'KnowledgeSaveData':
-                    block = blob[e.data_offset:e.data_offset + e.data_size]
-                    for off in range(0, len(block) - 3, 4):
-                        v = _st.unpack_from('<I', block, off)[0]
-                        if 1000000 <= v <= 1999999:
-                            self._know_learned_keys.add(v)
-                    break
+            for key, level, _off in self._know_parse_entries():
+                if level >= 1:
+                    self._know_learned_keys.add(key)
 
             know_path = os.path.join(
                 getattr(sys, '_MEIPASS', os.path.dirname(__file__)),
@@ -13810,27 +13829,20 @@ QCheckBox::indicator {{
 
         try:
             import struct as _st
-            entry, raw = self._find_parc_block("KnowledgeSaveData")
-            if not entry or not raw:
-                QMessageBox.warning(self, "Knowledge", "KnowledgeSaveData block not found.")
-                return
-
-            target_keys = set(to_unlearn)
-            abs_base = entry.data_offset
             blob = self._save_data.decompressed_blob
+            target_keys = set(to_unlearn)
             patches = []
             unlearned = 0
-
-            for i in range(len(raw) - 14):
-                key = _st.unpack_from("<I", raw, i)[0]
-                level = _st.unpack_from("<I", raw, i + 4)[0]
-                ts = _st.unpack_from("<Q", raw, i + 8)[0]
-                if key in target_keys and 1 <= level <= 5 and ts > 1000000:
-                    abs_off = abs_base + i + 4
-                    old_bytes = bytes(blob[abs_off:abs_off + 4])
+            # Patch the level field through the parse tree - the raw byte
+            # scan misread unaligned records and could overrun the block
+            # tail (it unpacked eight bytes at i+8 while iterating to
+            # len-14).
+            for key, level, level_offset in self._know_parse_entries():
+                if key in target_keys and level >= 1 and level_offset is not None:
+                    old_bytes = bytes(blob[level_offset:level_offset + 4])
                     new_bytes = _st.pack("<I", 0)
-                    blob[abs_off:abs_off + 4] = new_bytes
-                    patches.append((abs_off, old_bytes, new_bytes))
+                    blob[level_offset:level_offset + 4] = new_bytes
+                    patches.append((level_offset, old_bytes, new_bytes))
                     target_keys.discard(key)
                     unlearned += 1
 
@@ -14277,6 +14289,7 @@ QCheckBox::indicator {{
                     f"{msg} | {learned_count}/{len(self._know_all_entries)} learned"
                 )
 
+                self._know_filter()
                 QMessageBox.information(self, "Knowledge Injected",
                     f"{msg}\n\nSave (Ctrl+S) for changes to take effect.")
             else:
@@ -14707,7 +14720,7 @@ QCheckBox::indicator {{
             QMessageBox.warning(self, "Debug", "KnowledgeSaveData block not found in save.")
             return
         matches = []
-        for i in range(len(raw) - 14):
+        for i in range(len(raw) - 15):
             key = struct.unpack_from("<I", raw, i)[0]
             level = struct.unpack_from("<I", raw, i + 4)[0]
             ts = struct.unpack_from("<Q", raw, i + 8)[0]

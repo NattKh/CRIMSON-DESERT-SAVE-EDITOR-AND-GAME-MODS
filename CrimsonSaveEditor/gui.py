@@ -1136,7 +1136,10 @@ class QuestEditorWindow(QDialog):
                             entry['state_name'] = self.QUEST_STATE_NAMES.get(entry['state'], f'0x{entry["state"]:02X}')
                             entry['state_raw'] = entry['state']
                             entry['display'] = entry['name']
-                            chain = self._quest_chains.get(entry['key'])
+                            # Quest chains are keyed by quest keys; missions
+                            # number independently, so looking one up here
+                            # attaches an unrelated quest's chain.
+                            chain = None
                             entry['chain'] = chain
                             self._mission_entries.append(entry)
                 break
@@ -10539,23 +10542,24 @@ QCheckBox::indicator {{
             state_sz = entry.get('state_size', 4)
             mask_hex = entry.get('mask_hex', '')
 
+            kind_label = "Mission" if is_mission else "Quest"
             if has_ct:
-                type_str = "OK"
+                type_str = kind_label
                 type_color = COLORS['success']
-                tip = f"{'Mission' if is_mission else 'Quest'} | Has _completedTime | State: {state_sz}B | Mask: {mask_hex}"
+                tip = f"{kind_label} | Has _completedTime | State: {state_sz}B | Mask: {mask_hex}"
             elif needs_expand and is_mission:
-                type_str = "PARC"
+                type_str = f"{kind_label} · PARC"
                 type_color = COLORS['warning']
                 tip = (f"Mission | No _completedTime — needs PARC expansion to complete\n"
                        f"State: {state_sz}B | Mask: {mask_hex}\n"
                        f"Mark Completed will auto-insert timestamp fields")
             elif needs_expand:
-                type_str = "PARC"
+                type_str = f"{kind_label} · PARC"
                 type_color = COLORS['warning']
                 tip = (f"Quest | No _completedTime — may need PARC expansion\n"
                        f"State: {state_sz}B | Mask: {mask_hex}")
             else:
-                type_str = "OK"
+                type_str = kind_label
                 type_color = COLORS['text']
                 tip = f"{'Mission' if is_mission else 'Quest'} | State: {state_sz}B | Mask: {mask_hex}"
 

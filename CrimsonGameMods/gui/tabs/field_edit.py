@@ -4953,8 +4953,15 @@ class FieldEditTab(QWidget):
         def _has_diff(cur, orig):
             return cur is not None and orig is not None and bytes(cur) != bytes(orig)
 
+        # Bake any queued mesh swaps into characterinfo BEFORE diffing, so they
+        # are captured in the export. Every other export path (_export_mod/
+        # _export/_export_json) already does this; without it the main-tab
+        # "Export Field JSON v3" button silently drops queued mesh swaps.
+        self._field_edit_apply_mesh_swaps()
+
         _any_change = (
             self._field_edit_modified
+            or bool(self._mesh_swap_queue)
             or getattr(self, '_regioninfo_dmm_dirty', False)
             or getattr(self, '_vehicleinfo_dmm_dirty', False)
             or getattr(self, '_charinfo_dmm_dirty', False)

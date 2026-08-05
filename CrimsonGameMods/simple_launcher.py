@@ -1,6 +1,7 @@
 """CrimsonGameMods Simple — lightweight one-click mod launcher."""
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (
 
 log = logging.getLogger(__name__)
 
-APP_VERSION = "1.1.3"
+APP_VERSION = "1.1.9"
 
 # ─── Palette ──────────────────────────────────────────────────────────
 BG        = "#1a1510"
@@ -62,24 +63,35 @@ QOL_MEMBERS = {"no_cooldown", "max_charges", "max_stacks", "inf_durability"}
 EVERYTHING_MEMBERS = QOL_MEMBERS | {
     "make_dyeable", "five_sockets", "unlock_abyss", "universal_prof"}
 
-# All mods that write to the iteminfo overlay (0058+0066, +0059 if UP active)
+# All mods that write to the iteminfo overlay (0058+0066). universal_prof
+# additionally drives the 0059 equipslotinfo overlay (weapon component) via
+# _rebuild_equipslotinfo().
 ITEMINFO_MODS = {
     "no_cooldown", "max_charges", "max_stacks", "inf_durability",
     "make_dyeable", "five_sockets", "unlock_abyss", "universal_prof"}
 
-# All mods that write to the characterinfo overlay (0065)
-CHARINFO_MODS = {"kliff_gun_fix", "npcs_killable", "mounts_in_towns"}
-
 # Mods that write to the store overlay (0060)
-STORE_MODS = {"store_max_stock"}
+STORE_MODS = {"all_items_shop"}
+
+# All-Items Shop: the Hernandel grocer (Delkin) sells every SAFE item in the game.
+# npcinfo + storeinfo only (no characterinfo/scene) so it stacks with every other
+# mod. A fresh dedicated store (nobody else references it) keeps real vendors intact.
+AIS_NPCINFO_GROUP = "0067"          # own group — no other mod touches npcinfo
+AIS_DELKIN_NPCINFO = 4294967219     # Delkin(451)'s npc_info key (used only by him)
+# Fill Store_Dev (999) IN PLACE using its OWN stock entry as the template — this is
+# what the proven build does. Each stock entry carries lookup_a = its store key; if
+# you clone another store's entry the UI mis-resolves items (repeated icons/names).
+# 999 is dev-only (no real vendor references it), so filling it has no collateral.
+AIS_STORE_KEY = 999
+AIS_STOCK_QTY = 999                 # per-item purchase count
 
 # Mutual exclusion pairs
 MUTEX_PAIRS = [("drop_5x", "drop_max"), ("bagspace_240", "bagspace_700")]
 
 ALL_MODS_MEMBERS = EVERYTHING_MEMBERS | {
-    "mounts_in_towns", "npcs_killable",
+    "all_items_shop",
     "drop_max", "merc_max", "speed_3x", "hard_2x_hp",
-    "store_max_stock", "quest_unlock", "bagspace_700"}
+    "quest_unlock", "bagspace_700"}
 
 COMBO_DEFS = {
     "enable_all_mods": ALL_MODS_MEMBERS,
@@ -88,6 +100,11 @@ COMBO_DEFS = {
 }
 
 MOD_DEFS = [
+    # ── All-Items Shop (headline) ──
+    {"id": "all_items_shop", "title": "All-Items Grocer Shop",
+     "desc": "The Hernandel grocer sells every buyable item in the game "
+             "(~6,455, crash-unsafe items filtered out). No other vendor is changed.",
+     "section": "All-Items Shop"},
     # ── Combo Badges ──
     {"id": "enable_everything", "title": "Enable Everything",
      "desc": "QoL + Dyeable + 5 Sockets + Abyss Unlock + Universal Proficiency",
@@ -111,15 +128,11 @@ MOD_DEFS = [
     {"id": "unlock_abyss", "title": "Unlock Abyss Gear",
      "desc": "Remove abyss gate restriction (equipable_hash=0)", "section": "Item Mods"},
     {"id": "universal_prof", "title": "Universal Proficiency v3",
-     "desc": "All outfits wearable by Kliff / Damiane / Oongka", "section": "Item Mods"},
+     "desc": "All outfits + weapons usable by Kliff / Damiane / Oongka", "section": "Item Mods"},
     # ── Skills ──
     {"id": "infinite_stamina", "title": "Infinite Stamina",
      "desc": "Zero all skill stamina/spirit resource costs", "section": "Skills"},
     # ── World / Field Mods ──
-    {"id": "mounts_in_towns", "title": "Mounts in Towns",
-     "desc": "Allow mount summoning in town zones + unlimited ride duration", "section": "World Mods"},
-    {"id": "npcs_killable", "title": "All NPCs Killable",
-     "desc": "Remove kill-protection and invincibility flags from NPCs", "section": "World Mods"},
     # kliff_gun_fix removed — Kliff uses gun natively in 1.10+
     # ── Drop Mods ──
     {"id": "drop_5x", "title": "5x Drop Rates",
@@ -135,9 +148,6 @@ MOD_DEFS = [
     # ── Difficulty ──
     {"id": "hard_2x_hp", "title": "Hard Mode x2 Enemy HP",
      "desc": "Double enemy HP in Difficulty/Boss buff levels", "section": "Difficulty"},
-    # ── Stores ──
-    {"id": "store_max_stock", "title": "All Stores Max Stock",
-     "desc": "Set purchase limit to 999,999 on every item in every store", "section": "Stores"},
     {"id": "quest_unlock", "title": "Unlock All Quest Characters",
      "desc": "Remove character restrictions on all quests / missions / stages", "section": "Other"},
     {"id": "bagspace_240", "title": "Bag Space 240 / 700",
@@ -323,6 +333,88 @@ def _parse_table(name, gp, filename):
     return items, h, st
 
 
+def _ais_shop_unsafe(it) -> bool:
+    """Item that crashes the Buy panel: no price, no icon, or a currency (Money_*)."""
+    icons = it.get("item_icon_list") or []
+    no_icon = (not icons) or all(not e.get("icon_path") for e in icons)
+    no_price = not (it.get("price_list") or [])
+    currency = it.get("money_type_define") not in (None, 0)
+    return no_icon or no_price or currency
+
+
+# ── item-category buckets (from iteminfo.category_info — the game's own taxonomy)
+# Lets the user stock only a few categories instead of everything. First matching
+# predicate wins; "Other" is the catch-all. Mirrors custom_npc/store_stock_builder.
+_AIS_CATEGORY_BUCKETS = [
+    ("Weapons",              lambda ci: 100 <= ci < 300),
+    ("Armor",                lambda ci: 400 <= ci < 500),
+    ("Accessories",          lambda ci: 500 <= ci < 600),
+    ("Ammo",                 lambda ci: 2400 <= ci < 2500),
+    ("Gems / Enhancement",   lambda ci: 2500 <= ci < 2600),
+    ("Tools / Throwables",   lambda ci: 3000 <= ci < 3100),
+    ("Quest",                lambda ci: 4000 <= ci < 4100),
+    ("Materials / Gathering",
+        lambda ci: ci == 3201 or 3300 <= ci < 4000 or 7000 <= ci < 7100 or 9000 <= ci < 9100),
+    ("Food / Consumables",
+        lambda ci: 3100 <= ci < 3200 or 10000 <= ci < 13000 or 28000 <= ci < 29000),
+]
+AIS_CATEGORY_NAMES = [n for n, _ in _AIS_CATEGORY_BUCKETS] + ["Other"]
+
+
+def _ais_bucket_for(category_info) -> str:
+    ci = category_info if isinstance(category_info, int) else -1
+    for name, pred in _AIS_CATEGORY_BUCKETS:
+        if pred(ci):
+            return name
+    return "Other"
+
+
+def _ais_parse_items(gp: str) -> list:
+    import crimson_rs
+    return crimson_rs.parse_table(
+        "iteminfo",
+        bytes(crimson_rs.extract_file(gp, '0008', INTERNAL, 'iteminfo.pabgb')),
+        bytes(crimson_rs.extract_file(gp, '0008', INTERNAL, 'iteminfo.pabgh')))
+
+
+def _ais_safe_item_keys(gp: str, categories=None) -> list:
+    """Buyable item keys minus the crash-unsafe ones (see _ais_shop_unsafe).
+    If `categories` is given (a set/list of AIS_CATEGORY_NAMES), keep only items in
+    those buckets; None/empty-falsey means ALL categories."""
+    wanted = set(categories) if categories else None
+    out = []
+    for it in _ais_parse_items(gp):
+        if _ais_shop_unsafe(it):
+            continue
+        if wanted is not None and _ais_bucket_for(it.get("category_info")) not in wanted:
+            continue
+        out.append(it["key"])
+    return out
+
+
+def _ais_category_counts(gp: str) -> dict:
+    """{bucket: safe-item-count} for the picker's live totals."""
+    counts = {n: 0 for n in AIS_CATEGORY_NAMES}
+    for it in _ais_parse_items(gp):
+        if _ais_shop_unsafe(it):
+            continue
+        counts[_ais_bucket_for(it.get("category_info"))] += 1
+    return counts
+
+
+def _ais_stock_entry(template: dict, item_key: int, index: int, qty: int) -> dict:
+    """One stock_data_list entry for item_key, cloned from a real template entry."""
+    e = copy.deepcopy(template)
+    e["value"]["payload"]["body"] = item_key
+    e["value"]["raw_q"] = item_key
+    e["raw_d"] = index
+    e["raw_e"] = index
+    e["raw_c"] = qty
+    e["sub_data"] = None
+    e["effect_list"] = []
+    return e
+
+
 # ─── Worker ───────────────────────────────────────────────────────────
 class ModWorker(QThread):
     progress = Signal(str)
@@ -341,13 +433,7 @@ class ModWorker(QThread):
             # Determine which rebuilds are needed
             if is_all or mid in ITEMINFO_MODS or mid in COMBO_DEFS:
                 self._rebuild_iteminfo()
-            if is_all or mid in CHARINFO_MODS or mid == "enable_everything":
-                try:
-                    self._rebuild_charinfo()
-                except Exception as _ci_err:
-                    log.warning("Charinfo rebuild failed (non-fatal): %s", _ci_err)
-            if is_all or mid == "mounts_in_towns":
-                self._rebuild_regioninfo()
+                self._rebuild_equipslotinfo()
             if is_all or mid in ("drop_5x", "drop_max"):
                 self._rebuild_drops()
             if is_all or mid == "merc_max":
@@ -356,8 +442,12 @@ class ModWorker(QThread):
                 self._handle_speed()
             if is_all or mid == "hard_2x_hp":
                 self._handle_difficulty()
+            if is_all or mid == "infinite_stamina":
+                self._handle_stamina()
             if is_all or mid in STORE_MODS:
                 self._rebuild_stores()
+            if is_all or mid == "all_items_shop":
+                self._rebuild_all_items_npcinfo()
             if is_all or mid == "quest_unlock":
                 self._handle_quest()
             if is_all or mid in ("bagspace_240", "bagspace_700"):
@@ -389,12 +479,24 @@ class ModWorker(QThread):
         self.progress.emit(f"Applying {len(active_ii)} item mutations to {len(items)} items...")
         COSTS = [500, 1000, 2000, 3000, 4000, 5000, 6000, 7000]
         for it in items:
-            if "no_cooldown" in active_ii and _safe_iv(it.get('cooltime', 0)) > 1:
-                it['cooltime'] = 1
-                it['unk_post_cooltime_a'] = 1
-                it['unk_post_cooltime_b'] = 1
+            if "no_cooldown" in active_ii:
+                # 1.12: cooltime is a 3xi64 struct {a,b,c}, not a scalar. The 3
+                # values are the cooldown + 2 post fields (was unk_post_cooltime_a/b).
+                ct = it.get('cooltime')
+                if isinstance(ct, dict) and any(_safe_iv(ct.get(k, 0)) > 1 for k in ('a', 'b', 'c')):
+                    it['cooltime'] = {'a': 1, 'b': 1, 'c': 1}
+                elif _safe_iv(ct) > 1:  # pre-1.12 scalar fallback
+                    it['cooltime'] = 1
+                    it['unk_post_cooltime_a'] = 1
+                    it['unk_post_cooltime_b'] = 1
             if "max_charges" in active_ii:
-                if _safe_iv(it.get('item_charge_type', 0)) == 0 and _safe_iv(it.get('max_charged_useable_count', 0)) > 0:
+                # 1.12: max_charged_useable_count is also a {a,b,c} struct.
+                mc = it.get('max_charged_useable_count')
+                if isinstance(mc, dict):
+                    if _safe_iv(it.get('item_charge_type', 0)) == 0 and \
+                            any(_safe_iv(mc.get(k, 0)) > 0 for k in ('a', 'b', 'c')):
+                        it['max_charged_useable_count'] = {'a': 99, 'b': 99, 'c': 99}
+                elif _safe_iv(it.get('item_charge_type', 0)) == 0 and _safe_iv(mc) > 0:
                     it['max_charged_useable_count'] = 99
                     it['unk_post_max_charged_a'] = 99
                     it['unk_post_max_charged_b'] = 99
@@ -482,29 +584,10 @@ class ModWorker(QThread):
             "0066": (crimson_rs.Compression.NONE, [("iteminfo.pabgh", pabgh_out)]),
         }
 
-        if "universal_prof" in active_ii:
-            import equipslotinfo_parser as esp
-            eh = crimson_rs.extract_file(self.gp, '0008', INTERNAL, 'equipslotinfo.pabgh')
-            eb = crimson_rs.extract_file(self.gp, '0008', INTERNAL, 'equipslotinfo.pabgb')
-            recs = esp.parse_all(eh, eb)
-            PK = {1, 4, 6}
-            ch: dict[tuple[int, int], set[int]] = {}
-            for r in [x for x in recs if x.key in PK]:
-                for e in r.entries:
-                    ch.setdefault((e.category_a, e.category_b), set()).update(e.etl_hashes)
-            for r in recs:
-                if r.key not in PK:
-                    continue
-                for e in r.entries:
-                    to_add = sorted(ch.get((e.category_a, e.category_b), set()) - set(e.etl_hashes))
-                    if to_add:
-                        e.etl_hashes.extend(to_add)
-            ngh, ngb = esp.serialize_all(recs)
-            groups["0059"] = (crimson_rs.Compression.NONE,
-                              [("equipslotinfo.pabgb", bytes(ngb)),
-                               ("equipslotinfo.pabgh", bytes(ngh))])
-        else:
-            _remove_overlay(self.gp, "0059")
+        # equipslotinfo (the Universal Proficiency *weapon* component) is
+        # handled separately in _rebuild_equipslotinfo(), which owns the 0059
+        # overlay. The outfit component (clearing tribe_gender_list above)
+        # stays in this iteminfo overlay.
 
         with tempfile.TemporaryDirectory() as tmp:
             for grp, (comp, files) in groups.items():
@@ -523,93 +606,71 @@ class ModWorker(QThread):
             with open(os.path.join(self.gp, "0058", ".se_itembuffs"), "w") as f:
                 f.write("CrimsonGameMods Simple\n")
 
-    # ── Characterinfo Group (0065) ──
-    def _rebuild_charinfo(self):
-        active_ci = self.active & CHARINFO_MODS
-        if not active_ci:
-            _remove_overlay(self.gp, "0065")
+    # ── Equipslotinfo Group (0059) — Universal Proficiency weapon component ──
+    def _rebuild_equipslotinfo(self):
+        """Expand equip slots on the 3 player characters (Kliff=1, Damiane=4,
+        Oongka=6) so weapons/armor become cross-equippable.
+
+        1.12 note: equipslotinfo IS editable via crimson_rs.parse_table(
+        'equipslotinfo', ...) + serialize_table('equip_slot_info', ...). The
+        earlier assumption that the 1.12 table was unparseable (and the
+        Python equipslotinfo_parser, which still expects the 1.10 shape) is
+        obsolete — that path is what made Universal Proficiency outfits-only.
+        """
+        if "universal_prof" not in self.active:
+            _remove_overlay(self.gp, "0059")
             return
 
         import crimson_rs
-        import characterinfo_full_parser as cfp
+        self.progress.emit("Expanding equip slots (weapons)...")
 
-        self.progress.emit("Patching characterinfo...")
-        pabgb = bytes(crimson_rs.extract_file(
-            self.gp, '0008', INTERNAL, 'characterinfo.pabgb'))
-        pabgh = bytes(crimson_rs.extract_file(
-            self.gp, '0008', INTERNAL, 'characterinfo.pabgh'))
-        entries = cfp.parse_all_entries(pabgb, pabgh)
-        modified = bytearray(pabgb)
+        es_pabgb = bytes(crimson_rs.extract_file(
+            self.gp, '0008', INTERNAL, 'equipslotinfo.pabgb'))
+        es_pabgh = bytes(crimson_rs.extract_file(
+            self.gp, '0008', INTERNAL, 'equipslotinfo.pabgh'))
 
-        if "kliff_gun_fix" in active_ci:
-            by_name = {e.get('name'): e for e in entries}
-            if all(n in by_name for n in ('Kliff', 'Damian', 'Oongka')):
-                kliff = by_name['Kliff']
-                damian = by_name['Damian']
-                oongka = by_name['Oongka']
-                # Copy Damian's appearance key to Kliff
-                if '_appearanceName_offset' in kliff and '_appearanceName_key' in damian:
-                    struct.pack_into('<I', modified,
-                                    kliff['_appearanceName_offset'],
-                                    damian['_appearanceName_key'])
-                # Copy Oongka's skeleton key to Kliff
-                if '_skeletonName_offset' in kliff and '_skeletonName_key' in oongka:
-                    struct.pack_into('<I', modified,
-                                    kliff['_skeletonName_offset'],
-                                    oongka['_skeletonName_key'])
+        table = crimson_rs.parse_table('equipslotinfo', es_pabgb, es_pabgh)
+        es_records = sorted(table, key=lambda e: e['key'])
 
-        if "npcs_killable" in active_ci:
-            for e in entries:
-                if e.get('_vehicleInfo', 0) != 0:
-                    continue
-                if e.get('name', '').startswith('Riding_'):
-                    continue
-                # Set _invincibility to 0 and _isAttackable to 1
-                if '_invincibility_offset' in e and e.get('_invincibility', 0) != 0:
-                    modified[e['_invincibility_offset']] = 0
-                if '_isAttackable_offset' in e and e.get('_isAttackable', 1) != 1:
-                    modified[e['_isAttackable_offset']] = 1
+        PLAYER_KEYS = {1, 4, 6}  # Kliff, Damiane, Oongka
+        player_records = [r for r in es_records if r['key'] in PLAYER_KEYS]
+        # 1.12+ removed category_a/category_b from EquipInfoData. The 3 player
+        # records are structurally identical (22 entries, matching slot_index
+        # 0..21), differing only in each entry's etl_hashes — so slot_index is
+        # the correct grouping key: union the accepted equip-type hashes for
+        # each slot across all 3 chars, then grant every char the full union.
+        # (name_hash is NOT usable here — it repeats across slots 0/13/14, which
+        # hold very different etl sets, so grouping by it would over-permit.)
+        category_hashes: dict[int, set[int]] = {}
+        for rec in player_records:
+            for e in rec['entries']:
+                k = e['slot_index']
+                category_hashes.setdefault(k, set()).update(e['etl_hashes'])
 
-        if "mounts_in_towns" in active_ci:
-            for e in entries:
-                if e.get('_vehicleInfo', 0) == 0:
-                    continue
-                if '_callMercenarySpawnDuration_offset' in e:
-                    cur = e.get('_callMercenarySpawnDuration', 0)
-                    if cur > 0:
-                        struct.pack_into('<Q', modified,
-                                        e['_callMercenarySpawnDuration_offset'],
-                                        0x7FFFFFFF)
-                if '_callMercenaryCoolTime_offset' in e:
-                    cur = e.get('_callMercenaryCoolTime', 0)
-                    if cur > 0:
-                        struct.pack_into('<Q', modified,
-                                        e['_callMercenaryCoolTime_offset'], 0)
+        added = 0
+        for rec in es_records:
+            if rec['key'] not in PLAYER_KEYS:
+                continue
+            for e in rec['entries']:
+                k = e['slot_index']
+                to_add = sorted(category_hashes.get(k, set()) - set(e['etl_hashes']))
+                if to_add:
+                    e['etl_hashes'].extend(to_add)
+                    added += len(to_add)
 
-        _deploy_overlay(self.gp, "0065", [
-            ("characterinfo.pabgb", bytes(modified)),
-            ("characterinfo.pabgh", pabgh)])
+        # serialize_table needs the canonical name 'equip_slot_info' and the
+        # original pabgh so offsets regenerate after etl_hashes growth.
+        # Returns (pabgb, pabgh) — NOT the reverse.
+        new_pabgb, new_pabgh = crimson_rs.serialize_table(
+            'equip_slot_info', es_records, None, es_pabgh)
 
-    # ── Regioninfo (0039) — Mounts in Towns zone flags ──
-    def _rebuild_regioninfo(self):
-        if "mounts_in_towns" not in self.active:
-            _remove_overlay(self.gp, "0039")
-            return
+        self.progress.emit(f"Deploying equipslotinfo overlay (+{added} slot hashes)...")
+        _deploy_overlay(self.gp, "0059", [
+            ("equipslotinfo.pabgb", bytes(new_pabgb)),
+            ("equipslotinfo.pabgh", bytes(new_pabgh))])
+        log.info("equipslotinfo (UP weapons): +%d slot hashes deployed to 0059", added)
 
-        self.progress.emit("Patching regioninfo...")
-        items, pabgh, serialize = _parse_table('region_info', self.gp, 'regioninfo')
-        for rit in items:
-            if rit.get('is_wild', 0):
-                rit['is_wild'] = 0
-            if rit.get('is_town', 0):
-                rit['is_town'] = 0
-            if rit.get('limit_vehicle_run', 0):
-                rit['limit_vehicle_run'] = 0
-        new_pabgb = bytes(serialize('region_info', items))
-        _deploy_overlay(self.gp, "0039", [
-            ("regioninfo.pabgb", new_pabgb),
-            ("regioninfo.pabgh", pabgh)])
-
+    # ── Characterinfo Group (0065) ──
     # ── Drop Rates (0042) ──
     def _rebuild_drops(self):
         active_drops = self.active & {"drop_5x", "drop_max"}
@@ -662,14 +723,51 @@ class ModWorker(QThread):
 
         self.progress.emit("Patching stores...")
         items, pabgh, serialize = _parse_table('store_info', self.gp, 'storeinfo')
-        for store in items:
-            for stock in store.get('stock_data_list', []):
-                if "store_max_stock" in active_st:
-                    stock['raw_c'] = 999999
-        new_pabgb = bytes(serialize('store_info', items))
+        if "all_items_shop" in active_st:
+            self.progress.emit("Filling all-items store...")
+            by = {s["key"]: s for s in items}
+            store = by.get(AIS_STORE_KEY)
+            if store is None or not store.get("stock_data_list"):
+                raise RuntimeError(f"store {AIS_STORE_KEY} not found / has no template entry")
+            keys = _ais_safe_item_keys(self.gp)
+            # clone the store's OWN first entry -> its lookup_a/flag_a already match
+            tmpl_entry = store["stock_data_list"][0]
+            store["stock_data_list"] = [
+                _ais_stock_entry(tmpl_entry, k, i, AIS_STOCK_QTY)
+                for i, k in enumerate(keys)]
+            store["buyable_stock_count"] = len(keys)
+            self._log(f"  all-items store {AIS_STORE_KEY}: {len(keys)} items")
+        # size-changing edit (new store) needs the pabgh regenerated from original
+        new_pabgb, new_pabgh = serialize('store_info', items, None, pabgh)
         _deploy_overlay(self.gp, "0060", [
-            ("storeinfo.pabgb", new_pabgb),
-            ("storeinfo.pabgh", pabgh)])
+            ("storeinfo.pabgb", bytes(new_pabgb)),
+            ("storeinfo.pabgh", bytes(new_pabgh))])
+
+    # ── All-Items Shop npcinfo (0067) — point Delkin at the all-items store ──
+    def _rebuild_all_items_npcinfo(self):
+        if "all_items_shop" not in self.active:
+            _remove_overlay(self.gp, AIS_NPCINFO_GROUP)
+            return
+        self.progress.emit("Pointing grocer at all-items store...")
+        items, pabgh, serialize = _parse_table('npc_info', self.gp, 'npcinfo')
+        hit = False
+        for n in items:
+            if n.get("key") == AIS_DELKIN_NPCINFO:
+                n["store_info"] = AIS_STORE_KEY
+                hit = True
+                break
+        if not hit:
+            raise RuntimeError(f"Delkin npc_info {AIS_DELKIN_NPCINFO} not found")
+        new_pabgb, new_pabgh = serialize('npc_info', items, None, pabgh)
+        _deploy_overlay(self.gp, AIS_NPCINFO_GROUP, [
+            ("npcinfo.pabgb", bytes(new_pabgb)),
+            ("npcinfo.pabgh", bytes(new_pabgh))])
+
+    def _log(self, msg):
+        try:
+            self.progress.emit(msg)
+        except Exception:
+            pass
 
     # ── Player Speed (0071) ──
     def _handle_speed(self):
@@ -720,12 +818,14 @@ class ModWorker(QThread):
             ("buffinfo.pabgb", new_pabgb),
             ("buffinfo.pabgh", pabgh)])
 
-    # ── Infinite Stamina (0064) ──
+    # ── Infinite Stamina (0073) ──
+    # NOTE: must NOT reuse 0064 — _handle_quest deploys missioninfo.pabgb to
+    # 0064, so the two overlays would clobber each other (last writer wins).
     _STAMINA_HASH = 1000026
 
     def _handle_stamina(self):
         if "infinite_stamina" not in self.active:
-            _remove_overlay(self.gp, "0064")
+            _remove_overlay(self.gp, "0073")
             return
 
         self.progress.emit("Patching skill stamina costs...")
@@ -741,7 +841,7 @@ class ModWorker(QThread):
                         r['d'] = 0
 
         new_pabgb = bytes(serialize('skill_info', items))
-        _deploy_overlay(self.gp, "0064", [
+        _deploy_overlay(self.gp, "0073", [
             ("skill.pabgb", new_pabgb),
             ("skill.pabgh", pabgh)])
 

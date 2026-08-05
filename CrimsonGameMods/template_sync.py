@@ -10,8 +10,6 @@ import struct
 import sys
 import time
 from typing import Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 
 log = logging.getLogger(__name__)
 
@@ -36,22 +34,11 @@ def _machine_id() -> str:
 
 
 def download_master() -> dict:
-    try:
-        log.info("Downloading master template DB...")
-        req = Request(_MASTER_URL)
-        resp = urlopen(req, timeout=15)
-        data = json.loads(resp.read())
-        with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-            json.dump(data, f, separators=(',', ':'))
-        count = len(data.get('templates', {}))
-        log.info("Master DB: %d templates (cached locally)", count)
-        return data
-    except Exception as e:
-        log.warning("Failed to download master DB: %s", e)
-        if os.path.isfile(_LOCAL_MASTER):
-            with open(_LOCAL_MASTER, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {'version': 1, 'total_items': 0, 'templates': {}}
+    # OFFLINE BUILD: download removed — uses the locally cached master DB only.
+    if os.path.isfile(_LOCAL_MASTER):
+        with open(_LOCAL_MASTER, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {'version': 1, 'total_items': 0, 'templates': {}}
 
 
 def load_local_master() -> dict:
@@ -140,47 +127,8 @@ def find_new_templates(local: dict, master: dict) -> dict:
 
 
 def upload_contribution(new_templates: dict) -> tuple[bool, str]:
-    if not new_templates:
-        return True, "No new templates to contribute."
-
-    mid = _machine_id()
-    ts = int(time.time())
-    filename = f"contrib_{mid}_{ts}.json"
-
-    contrib = {
-        'submitted': ts,
-        'machine': mid,
-        'count': len(new_templates),
-        'templates': new_templates,
-    }
-
-    content = json.dumps(contrib, separators=(',', ':'))
-    encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-
-    try:
-        headers = {
-            'Authorization': f'token {_TOKEN}',
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-        }
-        data = json.dumps({
-            'message': f'Contribution: {len(new_templates)} templates from {mid}',
-            'content': encoded,
-        }).encode('utf-8')
-
-        path = f"contributions/{filename}"
-        req = Request(f"{_API_BASE}/{path}", data=data, headers=headers, method='PUT')
-        resp = urlopen(req, timeout=30)
-        result = json.loads(resp.read())
-
-        log.info("Uploaded %d templates as %s", len(new_templates), filename)
-        return True, f"Contributed {len(new_templates)} new templates! GitHub Action will merge them shortly."
-    except URLError as e:
-        log.error("Upload failed: %s", e)
-        return False, f"Upload failed: {e}"
-    except Exception as e:
-        log.error("Upload error: %s", e)
-        return False, f"Error: {e}"
+    # OFFLINE BUILD: community upload removed.
+    return False, "Online sync removed (offline build)"
 
 
 def get_sync_status() -> dict:

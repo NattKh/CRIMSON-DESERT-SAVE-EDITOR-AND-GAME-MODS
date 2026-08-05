@@ -4,8 +4,6 @@ import json
 import os
 import time
 from typing import Dict, List, Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 from dataclasses import dataclass, field, asdict
 
 SETS_REPO = "NattKh/CrimsonDesertCommunityItemMapping"
@@ -180,43 +178,14 @@ class SetManager:
 
 
     def fetch_remote_index(self) -> tuple[bool, str]:
-        try:
-            req = Request(SETS_INDEX_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return False, f"Failed to fetch set index: {e}"
-
-        self._remote_index = []
-        for entry in data.get("sets", []):
-            self._remote_index.append(SetIndexEntry(
-                filename=entry.get("filename", ""),
-                name=entry.get("name", "Unnamed"),
-                author=entry.get("author", "Unknown"),
-                description=entry.get("description", ""),
-                item_count=entry.get("itemCount", 0),
-                version=entry.get("version", 1),
-            ))
-
-        return True, f"Found {len(self._remote_index)} community sets."
-
+        # OFFLINE BUILD: online sync/download removed.
+        return (False, "Online sync removed (offline build)")
     def get_remote_index(self) -> List[SetIndexEntry]:
         return self._remote_index
 
     def download_set(self, filename: str) -> tuple[Optional[EquipmentSet], str]:
-        url = SETS_BASE_URL + filename
-        try:
-            req = Request(url, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return None, f"Download failed: {e}"
-
-        es = EquipmentSet.from_dict(data, filename=filename)
-        self.save_set(es, filename)
-        return es, f"Downloaded '{es.name}' ({len(es.items)} items)"
-
-
+        # OFFLINE BUILD: online sync/download removed.
+        return (None, "Online sync removed (offline build)")
     def export_set_json(self, es: EquipmentSet) -> str:
         return json.dumps(es.to_dict(), indent=2, ensure_ascii=False)
 

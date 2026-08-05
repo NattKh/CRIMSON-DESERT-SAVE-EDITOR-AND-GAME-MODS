@@ -130,6 +130,7 @@ from gui.tabs.patches import GamePatchesTab
 from gui.tabs.field_edit import FieldEditTab
 from gui.tabs.bagspace import BagSpaceTab
 from gui.tabs.skill_tree import SkillTreeTab
+from gui.tabs.npc_interactions import NpcInteractionsTab
 from gui.tabs.pas_editor import PasEditorTab
 from gui.tabs.quest_mods import QuestModsTab
 from gui.dialogs import (
@@ -849,6 +850,32 @@ class MainWindow(QMainWindow):
                 pass
         self._mods_tabs.addTab(self._skill_tree_tab, "SkillTree")
 
+        self._npc_inter_tab = NpcInteractionsTab(config=self._config)
+        self._npc_inter_tab.status_message.connect(self._update_status)
+        self._npc_inter_tab.config_save_requested.connect(self._save_config)
+        _saved_gp_npc = self._config.get("game_install_path", "")
+        if _saved_gp_npc:
+            try:
+                self._npc_inter_tab.set_game_path(_saved_gp_npc)
+            except Exception:
+                pass
+        self._mods_tabs.addTab(self._npc_inter_tab, "NPC Interactions")
+
+        try:
+            from gui.tabs.npc_store_swap import NpcStoreSwapTab
+            self._npc_store_tab = NpcStoreSwapTab(config=self._config)
+            self._npc_store_tab.status_message.connect(self._update_status)
+            self._npc_store_tab.config_save_requested.connect(self._save_config)
+            _saved_gp_nst = self._config.get("game_install_path", "")
+            if _saved_gp_nst:
+                try:
+                    self._npc_store_tab.set_game_path(_saved_gp_nst)
+                except Exception:
+                    pass
+            self._mods_tabs.addTab(self._npc_store_tab, "NPC Store Swap")
+        except Exception as e:
+            log.warning("NPC Store Swap tab load failed: %s", e)
+
         # PAS Editor disabled — uses byte-level npc_swap, needs migration to field-level.
         # self._pas_editor_tab = PasEditorTab(
         #     config=self._config,
@@ -1481,133 +1508,15 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(parent_dlg, "Import Error", str(e))
 
     def _settings_download_name_pack(self, parent_dlg) -> None:
-        lang_code = self._settings_lang.currentData()
-        if not lang_code or lang_code == 'en':
-            QMessageBox.information(parent_dlg, "Download",
-                "English is built-in — no download needed.\n"
-                "Select a different language first.")
-            return
-
-        filename = f"names_{lang_code}.json"
-        url = f"https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/main/language/{filename}"
-
-        locale_dir = os.path.join(self._app_dir(), 'locale')
-        os.makedirs(locale_dir, exist_ok=True)
-        dest = os.path.join(locale_dir, filename)
-
-        if os.path.isfile(dest):
-            reply = QMessageBox.question(parent_dlg, "Download",
-                f"{filename} already exists.\n\nRedownload and overwrite?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply != QMessageBox.Yes:
-                return
-
-        self._update_status(f"Downloading {filename}...")
-        QApplication.processEvents()
-
-        try:
-            from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
-            from PySide6.QtCore import QUrl, QEventLoop
-
-            manager = QNetworkAccessManager()
-            request = QNetworkRequest(QUrl(url))
-            request.setRawHeader(b"User-Agent", b"CrimsonSaveEditor")
-            reply_obj = manager.get(request)
-
-            loop = QEventLoop()
-            reply_obj.finished.connect(loop.quit)
-            loop.exec()
-
-            if reply_obj.error():
-                import urllib.request
-                urllib.request.urlretrieve(url, dest)
-            else:
-                data = reply_obj.readAll().data()
-                with open(dest, 'wb') as f:
-                    f.write(data)
-
-            if os.path.isfile(dest) and os.path.getsize(dest) > 100:
-                size_kb = os.path.getsize(dest) / 1024
-                self._update_status(f"Downloaded {filename} ({size_kb:.0f}KB)")
-                QMessageBox.information(parent_dlg, "Download Complete",
-                    f"Downloaded {filename} ({size_kb:.0f}KB)\n\n"
-                    f"17,267 translated names (items, quests, knowledge).\n"
-                    f"Restart the editor for changes to take effect.")
-            else:
-                QMessageBox.warning(parent_dlg, "Download Failed",
-                    f"Could not download {filename}.\n\n"
-                    f"Try downloading manually from:\n{url}\n\n"
-                    f"Place it in: {locale_dir}")
-
-        except Exception as e:
-            try:
-                import urllib.request
-                self._update_status(f"Downloading {filename} (fallback)...")
-                QApplication.processEvents()
-                urllib.request.urlretrieve(url, dest)
-                size_kb = os.path.getsize(dest) / 1024
-                QMessageBox.information(parent_dlg, "Download Complete",
-                    f"Downloaded {filename} ({size_kb:.0f}KB)\n\nRestart for changes.")
-            except Exception as e2:
-                QMessageBox.critical(parent_dlg, "Download Error",
-                    f"Failed: {e2}\n\nDownload manually from:\n{url}")
-
+        # OFFLINE BUILD: language pack downloads removed.
+        QMessageBox.information(parent_dlg, "Download Removed",
+            "Online downloads were removed from this build. To add a translation, "
+            "copy names_<lang>.json into the locale folder next to the exe and restart.")
     def _settings_download_all_lang_packs(self, parent_dlg) -> None:
-        import urllib.request
-
-        LANGS = ['de', 'es', 'es-mx', 'fr', 'it', 'ja', 'ko', 'pl', 'pt-br', 'ru', 'tr', 'zh', 'zh-tw']
-        GITHUB_BASE = "https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/main"
-
-        locale_dir = os.path.join(self._app_dir(), 'locale')
-        os.makedirs(locale_dir, exist_ok=True)
-
-        reply = QMessageBox.question(parent_dlg, "Download All Language Packs",
-            f"Download {len(LANGS)} language packs from GitHub?\n\n"
-            "Languages: " + ", ".join(LANGS) + "\n\n"
-            "This downloads both UI translations (locale/) and name packs.\n"
-            "Existing files will be overwritten with latest versions.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply != QMessageBox.Yes:
-            return
-
-        downloaded = 0
-        errors = 0
-        files_to_download = []
-
-        for lang in LANGS:
-            files_to_download.append((
-                f"{GITHUB_BASE}/language/names_{lang}.json",
-                os.path.join(locale_dir, f"names_{lang}.json"),
-                f"names_{lang}.json"
-            ))
-        for lang in LANGS:
-            files_to_download.append((
-                f"{GITHUB_BASE}/locale/{lang}.json",
-                os.path.join(locale_dir, f"{lang}.json"),
-                f"{lang}.json"
-            ))
-
-        for url, dest, fname in files_to_download:
-            self._update_status(f"Downloading {fname}...")
-            QApplication.processEvents()
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                if data and len(data) > 50:
-                    with open(dest, 'wb') as f:
-                        f.write(data)
-                    downloaded += 1
-            except Exception:
-                errors += 1
-
-        self._update_status(f"Downloaded {downloaded} language files ({errors} not available)")
-        QMessageBox.information(parent_dlg, "Download Complete",
-            f"Downloaded {downloaded} language files.\n"
-            f"{errors} files not available on GitHub yet (UI translations pending).\n\n"
-            f"Restart the editor to apply.\n"
-            f"Select your language in Settings after restart.")
-
+        # OFFLINE BUILD: language pack downloads removed.
+        QMessageBox.information(parent_dlg, "Download Removed",
+            "Online downloads were removed from this build. To add translations, "
+            "copy the language files into the locale folder next to the exe and restart.")
     def _settings_browse_path(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select Save Folder")
         if path:
@@ -1708,10 +1617,9 @@ class MainWindow(QMainWindow):
         discord_top.triggered.connect(lambda: self._open_discord())
         menu_bar.addAction(discord_top)
 
-        update_menu = menu_bar.addMenu("Update")
-        check_update_act = QAction(f"Check for Updates  (current: v{APP_VERSION})", self)
-        check_update_act.triggered.connect(self._check_for_update)
-        update_menu.addAction(check_update_act)
+        # OFFLINE BUILD: in-app update check removed — the Update menu only
+        # links to the releases page in the browser.
+        update_menu = menu_bar.addMenu(f"Update  (v{APP_VERSION})")
 
         changelog_act = QAction("Changelog / Releases", self)
         changelog_act.triggered.connect(lambda: __import__('webbrowser').open(

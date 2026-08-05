@@ -203,9 +203,8 @@ def _atomic_write(dest: Path, data: bytes) -> None:
 
 
 def _http_get(url: str, timeout: float = 20.0) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+    # OFFLINE BUILD: downloads removed.
+    raise OSError("Online sync removed (offline build)")
 
 
 def _download_one(
@@ -215,29 +214,10 @@ def _download_one(
     progress_cb: Optional[Callable[[str, int, int], None]] = None,
 ) -> bool:
     try:
-        if progress_cb:
-            progress_cb(label, 0, 0)
-        req = urllib.request.Request(url, headers={"User-Agent": _UA})
-        with urllib.request.urlopen(req, timeout=30.0) as resp:
-            total = 0
-            try:
-                total = int(resp.getheader("Content-Length") or "0")
-            except Exception:
-                total = 0
-            chunks: List[bytes] = []
-            received = 0
-            while True:
-                buf = resp.read(64 * 1024)
-                if not buf:
-                    break
-                chunks.append(buf)
-                received += len(buf)
-                if progress_cb:
-                    try:
-                        progress_cb(label, received, total)
-                    except Exception:
-                        pass
-            data = b"".join(chunks)
+        # OFFLINE BUILD: downloads removed — ship language packs in the locale folder.
+        log.info("lang_pack: download of %s skipped (offline build)", label)
+        return False
+        data = b""
         if len(data) < 20:
             log.warning("lang_pack: %s too small (%d bytes), rejecting.", url, len(data))
             return False

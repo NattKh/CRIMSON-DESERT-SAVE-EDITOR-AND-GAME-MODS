@@ -72,48 +72,8 @@ def _reload_db() -> dict:
 
 
 def download_master_templates() -> bool:
-    try:
-        from urllib.request import urlopen, Request
-        req = Request(MASTER_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-        with urlopen(req, timeout=30) as resp:
-            raw = resp.read()
-            data = json.loads(raw.decode('utf-8'))
-
-        templates = data.get('templates', data)
-        version = data.get('version', 0)
-
-        with open(MASTER_PATH, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
-
-        rows = []
-        for k, v in templates.items():
-            if isinstance(v, dict) and 'hex' in v:
-                rows.append((
-                    int(k),
-                    v['hex'],
-                    v.get('mask', ''),
-                    v.get('size', 0),
-                    v.get('item_no', v.get('item_key', 0)),
-                    v.get('stack', 1),
-                    v.get('location', ''),
-                    v.get('source', ''),
-                    json.dumps(v.get('field_positions', {})),
-                ))
-        conn = open_writable()
-        conn.executemany(
-            "INSERT OR REPLACE INTO item_templates VALUES (?,?,?,?,?,?,?,?,?)", rows
-        )
-        conn.commit()
-        conn.close()
-        reset_connection()
-
-        log.info("Downloaded %d templates (v%d) from GitHub", len(templates), version)
-        return True
-    except Exception as exc:
-        log.warning("GitHub template download failed: %s", exc)
-        return False
-
-
+    # OFFLINE BUILD: online sync/download removed.
+    return False
 def save_db(db: dict) -> None:
     global _db_cache
     with open(DB_PATH, 'w', encoding='utf-8') as f:

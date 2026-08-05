@@ -745,16 +745,20 @@ class BagSpaceTab(QWidget):
             van = van_by_name.get(name)
             if not van:
                 continue
+            # Field names must be the dmm-parser inventory_info schema names
+            # (default_slot_count/max_slot_count) — external V3 appliers
+            # (dmm-based mod managers) resolve fields against that schema,
+            # not this tab's local byte-parser names (default_slots/max_slots).
             if rec['default_slots'] != van['default_slots']:
                 intents.append({
                     'entry': name, 'key': rec.get('key', 0),
-                    'field': 'default_slots', 'op': 'set',
+                    'field': 'default_slot_count', 'op': 'set',
                     'new': rec['default_slots'],
                 })
             if rec['max_slots'] != van['max_slots']:
                 intents.append({
                     'entry': name, 'key': rec.get('key', 0),
-                    'field': 'max_slots', 'op': 'set',
+                    'field': 'max_slot_count', 'op': 'set',
                     'new': rec['max_slots'],
                 })
 
@@ -811,12 +815,19 @@ class BagSpaceTab(QWidget):
             if not target:
                 skipped += 1
                 continue
+            # Accept both the dmm schema names (default_slot_count/max_slot_count,
+            # what we export now) and the legacy local names (default_slots/max_slots,
+            # what older exports used).
             field = intent.get('field', '')
-            if intent.get('op') != 'set' or field not in ('default_slots', 'max_slots'):
+            field_map = {
+                'default_slot_count': 'default_offset', 'default_slots': 'default_offset',
+                'max_slot_count': 'max_offset', 'max_slots': 'max_offset',
+            }
+            if intent.get('op') != 'set' or field not in field_map:
                 skipped += 1
                 continue
             val = int(intent['new'])
-            offset_key = 'default_offset' if field == 'default_slots' else 'max_offset'
+            offset_key = field_map[field]
             struct.pack_into("<H", self._inventory_data, int(target[offset_key]), val)
             applied += 1
 

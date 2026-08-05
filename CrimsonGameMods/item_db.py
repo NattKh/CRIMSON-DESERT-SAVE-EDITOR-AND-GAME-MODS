@@ -5,8 +5,6 @@ import logging
 import os
 import struct
 from typing import Dict, List
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 
 from data_db import get_connection, get_db_path, open_writable, reset_connection
 from models import ItemInfo
@@ -31,14 +29,8 @@ class ItemNameDB:
         self.load()
         if self.items:
             return self.loaded_path
-
-        try:
-            ok, msg = self.sync_from_github()
-            if ok and self.items:
-                log.info("Bootstrap sync: %s", msg)
-                return self.loaded_path
-        except Exception as exc:
-            log.warning("Bootstrap GitHub sync failed: %s", exc)
+        # OFFLINE BUILD: GitHub bootstrap removed — the bundled database is the source.
+        log.warning("Item database empty and online bootstrap is removed (offline build)")
         return ""
 
     def load(self) -> None:
@@ -150,58 +142,9 @@ class ItemNameDB:
         return results
 
     def sync_from_github(self) -> tuple[bool, str]:
-        try:
-            req = Request(GITHUB_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=10) as resp:
-                raw = resp.read()
-                data = json.loads(raw.decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as exc:
-            return False, f"Download failed: {exc}"
-
-        remote_version = data.get("version", 0)
-        remote_items = data.get("items", [])
-
-        if remote_version <= self.version and self.items:
-            return True, f"Already up to date (v{self.version})."
-
-        added = 0
-        updated = 0
-        for entry in remote_items:
-            key = entry.get("itemKey", 0)
-            if key <= 0:
-                continue
-            name = entry.get("name", "")
-            category = entry.get("category", "Misc")
-            internal = entry.get("internalName", "")
-            max_stack = entry.get("maxStack", 0)
-
-            if key not in self.items:
-                self.items[key] = ItemInfo(
-                    item_key=key,
-                    name=name,
-                    internal_name=internal,
-                    category=category,
-                    max_stack=max_stack,
-                )
-                added += 1
-            else:
-                existing = self.items[key]
-                if name and (not existing.name or existing.name.startswith("Unknown")):
-                    existing.name = name
-                    updated += 1
-                if internal and not existing.internal_name:
-                    existing.internal_name = internal
-                if category != "Misc" and existing.category == "Misc":
-                    existing.category = category
-                if max_stack and not existing.max_stack:
-                    existing.max_stack = max_stack
-
-        if remote_version > self.version:
-            self.version = remote_version
-
-        self.save()
-        return True, f"Synced v{remote_version}: {added} new, {updated} updated."
-
+        # OFFLINE BUILD: GitHub item sync removed. Item names ship in the
+        # bundled database and can be rebuilt from the local game client.
+        return False, "Online sync removed (offline build) — item names come from the local database."
     def sync_from_local_game(self, game_path: str) -> tuple[bool, str]:
         try:
             import crimson_rs

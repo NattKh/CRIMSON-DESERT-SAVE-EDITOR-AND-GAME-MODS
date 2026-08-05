@@ -1,7 +1,6 @@
 import sys
 import os
 
-
 def _splash(text: str) -> None:
     try:
         import pyi_splash

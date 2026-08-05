@@ -467,64 +467,9 @@ class DatabaseBrowserTab(QWidget):
             self._db_freshness_badge.setVisible(False)
 
     def _sync_all_icons(self) -> None:
-        import json as _json
-        from urllib.request import urlopen, Request
-
-        keys = set()
-        for item in self._name_db._items.values():
-            keys.add(item.item_key)
-        for item in self._get_items_fn():
-            keys.add(item.item_key)
-
-        local_dir = self._icon_cache._local_dir
-        already = sum(1 for k in keys if os.path.isfile(os.path.join(local_dir, f"{k}.webp")))
-        needed = len(keys) - already
-
-        if needed == 0:
-            QMessageBox.information(self, tr("Sync Icons"), f"All {already} icons already downloaded.")
-            return
-
-        reply = QMessageBox.question(
-            self, tr("Sync All Icons"),
-            f"Download {needed} icons from GitHub?\n"
-            f"({already} already cached, {len(keys)} total)\n\n"
-            f"This requires internet and may take a few minutes.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        self.status_message.emit(f"Downloading {needed} icons...")
-        QApplication.processEvents()
-
-        from icon_cache import _GITHUB_ICON_BASE
-        downloaded = 0
-        errors = 0
-        for i, key in enumerate(sorted(keys)):
-            local_path = os.path.join(local_dir, f"{key}.webp")
-            if os.path.isfile(local_path):
-                continue
-            try:
-                url = f"{_GITHUB_ICON_BASE}/{key}.webp"
-                req = Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-                with urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                if data and len(data) > 100:
-                    with open(local_path, 'wb') as f:
-                        f.write(data)
-                    downloaded += 1
-                else:
-                    errors += 1
-            except Exception:
-                errors += 1
-
-            if (downloaded + errors) % 100 == 0:
-                self.status_message.emit(f"Icons: {downloaded} downloaded, {errors} failed, {needed - downloaded - errors} remaining...")
-                QApplication.processEvents()
-
-        msg = f"Downloaded {downloaded} icons, {errors} not available on GitHub.\nTotal cached: {already + downloaded}"
-        self.status_message.emit(msg)
-        QMessageBox.information(self, tr("Sync Complete"), msg)
+        # OFFLINE BUILD: icon downloads removed — ship the icons_local folder instead.
+        QMessageBox.information(self, tr("Sync Icons"),
+            tr("Online icon download was removed. Copy the icons_local folder next to the exe instead."))
 
 
 class RepurchaseTab(QWidget):
@@ -1688,28 +1633,8 @@ class DyeTab(QWidget):
 
 
     def _dye_sync_slot_db(self) -> None:
-        import urllib.request, json as _json
-        url = (
-            "https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-            "/main/dye_slot_counts.json"
-        )
-        self._dye_status.setText(tr("Syncing dye slot database..."))
-        QApplication.processEvents()
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-            remote = _json.loads(urllib.request.urlopen(req, timeout=10).read())
-        except Exception as e:
-            self._dye_status.setText(f"Sync failed: {e}")
-            return
-
-        local = self._load_dye_slot_db()
-        added = 0
-        for k, v in remote.items():
-            if k not in local:
-                local[k] = v
-                added += 1
-        self._save_dye_slot_db(local)
-        self._dye_status.setText(f"Synced: {added} new items added ({len(local)} total known)")
+        # OFFLINE BUILD: dye slot DB download removed — local database only.
+        self._dye_status.setText(tr("Online sync removed (offline build) — using local dye slot database."))
 
     DYE_COLOR_GROUPS = {
         0xC88211F5: "Herenon",
@@ -1729,7 +1654,6 @@ class DyeTab(QWidget):
         4: "Wool", 5: "Velvet", 6: "Silk", 7: "Linen",
         8: "Fur", 9: "Chain", 10: "Crystal",
     }
-
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)

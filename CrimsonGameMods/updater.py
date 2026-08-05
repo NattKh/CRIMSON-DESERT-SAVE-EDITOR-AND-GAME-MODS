@@ -6,13 +6,11 @@ import os
 import sys
 import tempfile
 from typing import Optional, Tuple
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 
 log = logging.getLogger(__name__)
 
 
-APP_VERSION = "2.0.7"
+APP_VERSION = "2.1.2"
 
 APP_VARIANT = "gamemods"
 
@@ -43,106 +41,15 @@ def _version_tuple(v: str) -> tuple:
 
 
 def check_for_update() -> Tuple[bool, str, str]:
-    try:
-        req = Request(VERSION_URL, headers={"User-Agent": "CrimsonSaveEditor"})
-        with urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        remote_version = data.get("version", "0")
-        download_url = data.get("url", "")
-
-        if not download_url:
-            return False, remote_version, ""
-
-        local = _version_tuple(APP_VERSION)
-        remote = _version_tuple(remote_version)
-
-        if remote > local:
-            return True, remote_version, download_url
-        else:
-            return False, remote_version, download_url
-
-    except (URLError, json.JSONDecodeError, OSError, KeyError) as e:
-        log.warning("Update check failed: %s", e)
-        return False, "", ""
+    # OFFLINE BUILD: auto-update removed. Get new versions from the releases page.
+    log.info("Update check skipped: offline build (auto-update removed)")
+    return False, "", ""
 
 
 def download_update(url: str, progress_callback=None) -> Optional[str]:
-    try:
-        if getattr(sys, "frozen", False):
-            current_exe = sys.executable
-        else:
-            current_exe = os.path.abspath(sys.argv[0])
-
-        exe_dir = os.path.dirname(current_exe)
-        is_zip = url.lower().endswith(".zip")
-        download_path = os.path.join(
-            exe_dir,
-            _UPDATE_ZIP_NAME if is_zip else _UPDATE_EXE_NAME,
-        )
-        update_path = os.path.join(exe_dir, _UPDATE_EXE_NAME)
-
-        req = Request(url, headers={
-            "User-Agent": "CrimsonSaveEditor/3.0",
-            "Accept": "application/octet-stream",
-        })
-        with urlopen(req, timeout=600) as resp:
-            total = int(resp.headers.get("Content-Length", 0))
-            downloaded = 0
-            chunk_size = 256 * 1024
-
-            with open(download_path, "wb") as f:
-                while True:
-                    chunk = resp.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if progress_callback:
-                        progress_callback(downloaded, total)
-
-        with open(download_path, "rb") as f:
-            magic = f.read(2)
-
-        if magic == b"PK":
-            import zipfile
-            with zipfile.ZipFile(download_path, "r") as zf:
-                exe_names = [n for n in zf.namelist() if n.lower().endswith(".exe")]
-                if not exe_names:
-                    os.remove(download_path)
-                    log.error("Zip contains no .exe files: %s", zf.namelist())
-                    return None
-                target = next(
-                    (n for n in exe_names if "crimsonsaveeditor" in n.lower()),
-                    exe_names[0],
-                )
-                with zf.open(target) as src, open(update_path, "wb") as dst:
-                    import shutil
-                    shutil.copyfileobj(src, dst)
-            os.remove(download_path)
-            log.info("Extracted %s from zip", target)
-        elif magic == b"MZ":
-            if download_path != update_path:
-                if os.path.exists(update_path):
-                    os.remove(update_path)
-                os.rename(download_path, update_path)
-        else:
-            os.remove(download_path)
-            log.error("Downloaded file is not a valid exe or zip (magic=%s)", magic.hex())
-            return None
-
-        with open(update_path, "rb") as f:
-            if f.read(2) != b"MZ":
-                os.remove(update_path)
-                log.error("Extracted file is not a valid executable")
-                return None
-
-        log.info("Downloaded update to %s (%d bytes)", update_path, downloaded)
-        return update_path
-
-    except Exception as e:
-        log.error("Download failed: %s", e)
-        return None
+    # OFFLINE BUILD: auto-update removed.
+    log.info("Update download skipped: offline build (auto-update removed)")
+    return None
 
 
 def apply_update_and_restart(update_path: str) -> None:

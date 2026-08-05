@@ -4,8 +4,6 @@ import json
 import os
 import time
 from typing import Dict, List, Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 from dataclasses import dataclass, field, asdict
 
 PACKS_REPO = "NattKh/CrimsonDesertCommunityItemMapping"
@@ -152,44 +150,14 @@ class PackManager:
 
 
     def fetch_remote_index(self) -> tuple[bool, str]:
-        try:
-            req = Request(INDEX_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return False, f"Failed to fetch pack index: {e}"
-
-        self._remote_index = []
-        for entry in data.get("packs", []):
-            self._remote_index.append(PackIndexEntry(
-                filename=entry.get("filename", ""),
-                name=entry.get("name", "Unnamed"),
-                author=entry.get("author", "Unknown"),
-                description=entry.get("description", ""),
-                item_count=entry.get("itemCount", 0),
-                version=entry.get("version", 1),
-            ))
-
-        return True, f"Found {len(self._remote_index)} community packs."
-
+        # OFFLINE BUILD: online sync/download removed.
+        return (False, "Online sync removed (offline build)")
     def get_remote_index(self) -> List[PackIndexEntry]:
         return self._remote_index
 
     def download_pack(self, filename: str) -> tuple[Optional[ItemPack], str]:
-        url = PACK_BASE_URL + filename
-        try:
-            req = Request(url, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return None, f"Download failed: {e}"
-
-        pack = ItemPack.from_dict(data, filename=filename)
-
-        self.save_pack(pack, filename)
-        return pack, f"Downloaded '{pack.name}' ({len(pack.items)} items)"
-
-
+        # OFFLINE BUILD: online sync/download removed.
+        return (None, "Online sync removed (offline build)")
     def export_pack_json(self, pack: ItemPack) -> str:
         return json.dumps(pack.to_dict(), indent=2, ensure_ascii=False)
 

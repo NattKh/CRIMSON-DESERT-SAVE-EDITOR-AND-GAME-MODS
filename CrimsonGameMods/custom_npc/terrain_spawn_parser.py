@@ -1,3 +1,5 @@
+import os as _os, sys as _sys  # noqa: E402 -- make crimson_rs (parent dir) importable
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 import logging
 import struct
 import json

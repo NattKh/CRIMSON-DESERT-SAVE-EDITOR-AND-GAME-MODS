@@ -27,6 +27,8 @@ a = Analysis(
         ('game_map.json', '.'),
         ('localizationstring_eng_items.tsv', '.'),
         ('editor_version_standalone.json', '.'),
+        ('../CrimsonGameMods/data/character_catalog.json', '.'),
+        ('../CrimsonGameMods/data/pet_catalog.json', '.'),
         ('locale', 'locale'),
         ('knowledge_packs', 'knowledge_packs'),
     ],

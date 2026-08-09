@@ -2485,6 +2485,7 @@ class MainWindow(QMainWindow):
         self._dirty: bool = False
         self._parc_status: str = ""
         self._config: dict = self._load_config()
+        self._character_catalog, self._confirmed_pet_keys, self._confirmed_mount_keys = self._load_companion_catalogs()
 
         saved_lang = self._config.get("language", "en")
         set_language(saved_lang)
@@ -2534,6 +2535,36 @@ class MainWindow(QMainWindow):
         if getattr(sys, 'frozen', False):
             return os.path.join(os.path.dirname(os.path.abspath(sys.executable)), self._CONFIG_FILE)
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), self._CONFIG_FILE)
+
+    def _load_companion_catalogs(self) -> tuple[dict, set, set]:
+        """Load locally extracted game metadata; never guess a pet classification."""
+        roots = [os.path.dirname(os.path.abspath(__file__))]
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            roots.insert(0, sys._MEIPASS)
+        roots.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'CrimsonGameMods', 'data'))
+        catalog = {}
+        pet_keys = set()
+        mount_keys = set()
+        for root in roots:
+            try:
+                char_path = os.path.join(root, 'character_catalog.json')
+                if os.path.isfile(char_path):
+                    data = json.loads(open(char_path, encoding='utf-8').read())
+                    catalog = {int(item['character_key']): item for item in data.get('characters', [])}
+                pet_path = os.path.join(root, 'pet_catalog.json')
+                if os.path.isfile(pet_path):
+                    groups = json.loads(open(pet_path, encoding='utf-8').read()).get('groups', {})
+                    for family in ('Dog', 'Cat'):
+                        for keys in groups.get(family, {}).values():
+                            pet_keys.update(int(key) for key in keys)
+                    for family in ('Horse', 'Special Mount'):
+                        for keys in groups.get(family, {}).values():
+                            mount_keys.update(int(key) for key in keys)
+                if catalog and pet_keys and mount_keys:
+                    break
+            except (OSError, ValueError, TypeError):
+                continue
+        return catalog, pet_keys, mount_keys
 
     def _load_config(self) -> dict:
         path = self._get_config_path()
@@ -2723,18 +2754,14 @@ class MainWindow(QMainWindow):
                     "color: #606070; font-size: 10px; font-weight: bold; "
                     "padding: 8px 16px 3px 16px; background: transparent;")
                 filter_layout.addWidget(filter_title)
-
-                for index, filter_label in enumerate((
-                    "All", "Equipment", "Inventory", "Quest", "Camp Warehouse",
-                    "Warehouse", "Bank", "Kuku", "Money", "Vendor", "Mercenary",
-                )):
-                    filter_btn = QPushButton(filter_label)
-                    filter_btn.setFixedHeight(30)
-                    filter_btn.setCursor(Qt.PointingHandCursor)
-                    filter_btn.clicked.connect(
-                        lambda checked, idx=index: self._set_inventory_filter(idx))
-                    filter_layout.addWidget(filter_btn)
-                    self._inventory_filter_buttons.append(filter_btn)
+                self._inventory_filter_layout = filter_layout
+                self._inventory_filter_title = filter_title
+                empty_label = QLabel("Load a save to list its storage containers.")
+                empty_label.setWordWrap(True)
+                empty_label.setStyleSheet(
+                    "color: #606070; font-size: 11px; padding: 6px 16px 8px 28px; "
+                    "background: transparent;")
+                filter_layout.addWidget(empty_label)
                 nav_layout.addWidget(self._inventory_filter_panel)
 
         nav_layout.addStretch()
@@ -4497,7 +4524,7 @@ QCheckBox::indicator {{
             "e.g. a stack of 90 stones appears as multiple slots in-game, but the save stores it as one entry."
         )
         inv_info.setWordWrap(True)
-        inv_info.setText("Search for an item, select it in the table, then use the actions below.")
+        inv_info.setText("Choose a storage container in the sidebar, search for an item, then select it to edit. Each saved container is kept separate.")
         inv_info.setStyleSheet(
             f"color: {COLORS['text_dim']}; padding: 4px; font-size: 11px; "
             f"border: 1px solid {COLORS['border']}; border-radius: 4px;"
@@ -4551,17 +4578,7 @@ QCheckBox::indicator {{
         from PySide6.QtWidgets import QTabBar
         self._inv_subtabs = QTabBar()
         self._inv_subtab_filters = [
-            ("All", None, None),
-            ("Equipment", "source", "Equipment"),
-            ("Inventory", "bag", "Character"),
-            ("Quest", "bag", "Quest"),
-            ("Camp Warehouse", "bag", "CampWarehouse"),
-            ("Warehouse", "bag", "Warehouse"),
-            ("Bank", "bag", "Bank"),
-            ("Kuku", "bag", "Kuku"),
-            ("Money", "bag", "Money"),
-            ("Vendor", "source_vendor", None),
-            ("Mercenary", "source", "Mercenary"),
+            ("All saved items", None, None),
         ]
         for label, _, _ in self._inv_subtab_filters:
             self._inv_subtabs.addTab(label)
@@ -4575,7 +4592,7 @@ QCheckBox::indicator {{
         self._inv_table = QTableWidget()
         self._inv_table.setColumnCount(9)
         self._inv_table.setHorizontalHeaderLabels([
-            "", "Item", "Item ID", "Location", "Type", "Key", "Slot", "Stack", "Upgrade"
+            "", "Item", "Item ID", "Storage", "Save section", "Key", "Slot", "Stack", "Upgrade"
         ])
         self._inv_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._inv_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -4594,7 +4611,7 @@ QCheckBox::indicator {{
         self._inv_table.itemSelectionChanged.connect(self._update_inventory_selection_summary)
         layout.addWidget(self._inv_table, 1)
 
-        actions_box = QGroupBox("Selected items")
+        actions_box = QGroupBox("Item actions")
         bottom = QHBoxLayout(actions_box)
         bottom.setContentsMargins(10, 8, 10, 8)
         self._inv_selection_label = QLabel("Select an item to edit it")
@@ -4613,16 +4630,16 @@ QCheckBox::indicator {{
         bottom.addWidget(set_stack_btn)
 
         give_btn = QPushButton("Transform item")
-        give_btn.setToolTip("Add a new item by transforming a donor item from your inventory")
-        give_btn.setObjectName("accentBtn")
+        give_btn.setToolTip("Replace the selected existing item with another item")
         give_btn.clicked.connect(self._give_item)
         bottom.addWidget(give_btn)
 
-        add_item_btn = QPushButton("Add Item")
+        add_item_btn = QPushButton("Add new item")
         add_item_btn.setObjectName("accentBtn")
+        add_item_btn.setToolTip("Create a new item in the storage container selected in the sidebar")
         add_item_btn.clicked.connect(self._parc_add_item)
         self._add_item_btn = add_item_btn
-        add_item_btn.setVisible(False)
+        bottom.addWidget(add_item_btn)
 
         del_btn = QPushButton("Delete")
         del_btn.setToolTip("Zero out selected items (set key=0, stack=0). Game will skip them on load.")
@@ -7946,6 +7963,17 @@ QCheckBox::indicator {{
         refresh_btn.clicked.connect(self._merc_refresh)
         btn_row1.addWidget(refresh_btn)
 
+        btn_row1.addWidget(QLabel("Add"))
+        self._merc_add_combo = QComboBox()
+        for char_key, (name, _template) in self.CHARACTER_TEMPLATES.items():
+            self._merc_add_combo.addItem(name, char_key)
+        self._merc_add_combo.setFixedWidth(110)
+        btn_row1.addWidget(self._merc_add_combo)
+        add_merc_btn = QPushButton("Add to save")
+        add_merc_btn.setToolTip("Add the selected supported companion template to the loaded save.")
+        add_merc_btn.clicked.connect(lambda: self._unlock_character(self._merc_add_combo.currentData()))
+        btn_row1.addWidget(add_merc_btn)
+
         self._merc_mounts_only = QCheckBox("Show mounts only")
         self._merc_mounts_only.setToolTip(
             "Show only rideable mounts. This does not modify the save file.")
@@ -7957,6 +7985,12 @@ QCheckBox::indicator {{
         rename_btn.setToolTip("Set a custom name for the selected mercenary/pet")
         rename_btn.clicked.connect(self._merc_rename)
         btn_row1.addWidget(rename_btn)
+
+        remove_btn = QPushButton("Remove selected")
+        remove_btn.setToolTip("Remove the selected mercenary after validating the modified save structure.")
+        remove_btn.clicked.connect(self._delete_selected_mercenary)
+        btn_row1.addWidget(remove_btn)
+
 
         clear_name_btn = QPushButton("Clear name")
         clear_name_btn.setToolTip("Remove the custom name from the selected mercenary")
@@ -7977,6 +8011,9 @@ QCheckBox::indicator {{
         stat_btn.setObjectName("accentBtn")
         stat_btn.clicked.connect(self._apply_selected_merc_stats)
         btn_row1.addWidget(stat_btn)
+        details_btn = QPushButton("More stats")
+        details_btn.clicked.connect(self._open_selected_merc_stats)
+        btn_row1.addWidget(details_btn)
 
         label_all_btn = QPushButton("Label All (M_<no>)")
         label_all_btn.setToolTip(
@@ -8165,6 +8202,12 @@ QCheckBox::indicator {{
         refresh_btn.setObjectName("accentBtn")
         refresh_btn.clicked.connect(self._mounts_refresh)
         toolbar.addWidget(refresh_btn)
+        remove_btn = QPushButton("Remove selected")
+        remove_btn.clicked.connect(self._delete_selected_mount)
+        toolbar.addWidget(remove_btn)
+        details_btn = QPushButton("More stats")
+        details_btn.clicked.connect(self._open_selected_mount_stats)
+        toolbar.addWidget(details_btn)
         layout.addLayout(toolbar)
 
         self._mount_table = QTableWidget()
@@ -8200,10 +8243,6 @@ QCheckBox::indicator {{
         layout.addWidget(hint)
 
         self._tabs.addTab(tab, "Mounts")
-
-    # These are the companion animals currently identified in the save data.
-    # Keep them separate from rideable mounts and hired/story mercenaries.
-    PET_CHARACTER_KEYS = {1003666, 468, 704, 1001844, 661, 1002989}
 
     def _build_pets_tab(self) -> None:
         tab = QWidget()
@@ -8241,9 +8280,61 @@ QCheckBox::indicator {{
         controls.addWidget(self._pet_mp_spin)
         apply_btn = QPushButton("Apply stats"); apply_btn.setObjectName("accentBtn"); apply_btn.clicked.connect(self._apply_pet_stats)
         controls.addWidget(apply_btn)
+        details_btn = QPushButton("More stats"); details_btn.clicked.connect(self._open_selected_pet_stats)
+        controls.addWidget(details_btn)
         rename_btn = QPushButton("Rename"); rename_btn.clicked.connect(self._rename_selected_pet)
         controls.addWidget(rename_btn)
+        remove_btn = QPushButton("Remove pet"); remove_btn.clicked.connect(self._delete_selected_pet)
+        controls.addWidget(remove_btn)
         layout.addLayout(controls)
+
+        equipment_group = QGroupBox("Pet equipment and outfits")
+        equipment_layout = QVBoxLayout(equipment_group)
+        equipment_hint = QLabel("Select an item to change its stack or upgrade. Edit item / outfit opens the selected item for replacement; Open Sockets edits gems.")
+        equipment_hint.setWordWrap(True)
+        equipment_hint.setStyleSheet(f"color: {COLORS['text_dim']};")
+        equipment_layout.addWidget(equipment_hint)
+        self._pet_equipment_table = QTableWidget()
+        self._pet_equipment_table.setColumnCount(4)
+        self._pet_equipment_table.setHorizontalHeaderLabels(["Item", "Stack", "Upgrade", "Item key"])
+        self._pet_equipment_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._pet_equipment_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._pet_equipment_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._pet_equipment_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self._pet_equipment_table.itemSelectionChanged.connect(self._sync_pet_item_editor)
+        equipment_layout.addWidget(self._pet_equipment_table)
+        equipment_actions = QHBoxLayout()
+        equipment_actions.addWidget(QLabel("Stack"))
+        self._pet_item_stack = QSpinBox(); self._pet_item_stack.setRange(1, 999999999); self._pet_item_stack.setFixedWidth(90)
+        equipment_actions.addWidget(self._pet_item_stack)
+        stack_btn = QPushButton("Apply stack"); stack_btn.clicked.connect(self._apply_pet_item_stack)
+        equipment_actions.addWidget(stack_btn)
+        equipment_actions.addWidget(QLabel("Upgrade"))
+        self._pet_item_enchant = QSpinBox(); self._pet_item_enchant.setRange(0, 10); self._pet_item_enchant.setFixedWidth(60)
+        equipment_actions.addWidget(self._pet_item_enchant)
+        enchant_btn = QPushButton("Apply upgrade"); enchant_btn.clicked.connect(self._apply_pet_item_enchant)
+        equipment_actions.addWidget(enchant_btn)
+        inventory_btn = QPushButton("Edit item / outfit"); inventory_btn.clicked.connect(self._open_pet_item_in_inventory)
+        equipment_actions.addWidget(inventory_btn)
+        sockets_btn = QPushButton("Open Sockets"); sockets_btn.clicked.connect(self._open_pet_item_sockets)
+        equipment_actions.addWidget(sockets_btn)
+        equipment_actions.addStretch()
+        equipment_layout.addLayout(equipment_actions)
+        layout.addWidget(equipment_group)
+
+        add_group = QGroupBox("Add pet from selected pet")
+        add_layout = QHBoxLayout(add_group)
+        add_layout.addWidget(QLabel("New pet"))
+        self._pet_add_combo = QComboBox()
+        for char_key in sorted(self._confirmed_pet_keys, key=lambda key: self._character_display_name(key).lower()):
+            self._pet_add_combo.addItem(self._character_display_name(char_key), char_key)
+        add_layout.addWidget(self._pet_add_combo, 1)
+        clone_btn = QPushButton("Add using selected pet")
+        clone_btn.setObjectName("accentBtn")
+        clone_btn.setToolTip("Copies the selected pet's compatible save record and changes it to the pet chosen above.")
+        clone_btn.clicked.connect(self._clone_selected_pet)
+        add_layout.addWidget(clone_btn)
+        layout.addWidget(add_group)
 
         self._pet_status = QLabel("Open this page after loading a save to scan pets automatically.")
         self._pet_status.setStyleSheet(f"color: {COLORS['accent']};")
@@ -8251,7 +8342,8 @@ QCheckBox::indicator {{
         self._tabs.addTab(tab, "Pets")
 
     def _is_pet_char_key(self, char_key: int) -> bool:
-        return char_key in self.PET_CHARACTER_KEYS
+        # Pets are listed only when their key is confirmed by pet_catalog.json.
+        return char_key in getattr(self, '_confirmed_pet_keys', set())
 
     def _populate_pets_table(self) -> None:
         if not hasattr(self, "_pet_table"):
@@ -8260,7 +8352,7 @@ QCheckBox::indicator {{
                 if self._is_pet_char_key(entry.get("char_key", 0))]
         self._pet_table.setRowCount(len(pets))
         for row, (index, pet) in enumerate(pets):
-            item = QTableWidgetItem(self.CHAR_KEY_NAMES.get(pet['char_key'], f"Pet {pet['char_key']}"))
+            item = QTableWidgetItem(self._character_display_name(pet['char_key']))
             item.setData(Qt.UserRole, index)
             self._pet_table.setItem(row, 0, item)
             self._pet_table.setItem(row, 1, _num_item(pet['char_key']))
@@ -8283,9 +8375,110 @@ QCheckBox::indicator {{
         if not pet:
             return
         extra = pet.get('raw_merc_info', {}).get('extra', {})
-        self._pet_selection_label.setText(self.CHAR_KEY_NAMES.get(pet['char_key'], "Selected pet"))
+        self._pet_selection_label.setText(self._character_display_name(pet['char_key']))
         self._pet_hp_spin.setValue(min(max(0, extra.get('_currentHp', 0)), self._pet_hp_spin.maximum()))
         self._pet_mp_spin.setValue(min(max(0, extra.get('_currentMp', 0)), self._pet_mp_spin.maximum()))
+        self._populate_pet_equipment(pet)
+        if getattr(self, '_pet_equipment', []):
+            self._pet_equipment_table.selectRow(0)
+
+    def _populate_pet_equipment(self, pet: dict) -> None:
+        import save_parser as sp
+        raw = bytes(self._save_data.decompressed_blob)
+        result = sp.build_result_from_raw(raw, {'input_kind': 'raw_blob'})
+        list_field = next((field for obj in result['objects'] if 'MercenaryClan' in obj.class_name for field in obj.fields if field.name == '_mercenaryDataList'), None)
+        element = next((candidate for candidate in (list_field.list_elements if list_field else []) if any(field.name == '_mercenaryNo' and field.present and struct.unpack_from('<Q', raw, field.start_offset)[0] == pet['merc_no'] for field in candidate.child_fields)), None)
+        equip = next((field for field in (element.child_fields if element else []) if field.name == '_equipItemList'), None)
+        self._pet_equipment = [item for item in self._items if equip and equip.start_offset <= item.offset < equip.end_offset]
+        self._pet_equipment_table.setRowCount(len(self._pet_equipment))
+        for row, item in enumerate(self._pet_equipment):
+            name = QTableWidgetItem(item.name); name.setData(Qt.UserRole, row)
+            self._pet_equipment_table.setItem(row, 0, name)
+            self._pet_equipment_table.setItem(row, 1, _num_item(item.stack_count))
+            self._pet_equipment_table.setItem(row, 2, QTableWidgetItem(f"+{item.enchant_level}" if item.has_enchant else "—"))
+            self._pet_equipment_table.setItem(row, 3, _num_item(item.item_key))
+
+    def _selected_pet_item(self):
+        row = self._pet_equipment_table.currentRow()
+        return self._pet_equipment[row] if 0 <= row < len(getattr(self, '_pet_equipment', [])) else None
+
+    def _apply_pet_item_stack(self) -> None:
+        item = self._selected_pet_item()
+        if item:
+            apply_stack_edit(self._save_data.decompressed_blob, item, self._pet_item_stack.value())
+            self._dirty = True; self._populate_pet_equipment(self._selected_pet_entry()); self._pet_status.setText("Pet item stack updated — save with Ctrl+S.")
+
+    def _apply_pet_item_enchant(self) -> None:
+        item = self._selected_pet_item()
+        if item and item.has_enchant:
+            apply_enchant_edit(self._save_data.decompressed_blob, item, self._pet_item_enchant.value())
+            self._dirty = True; self._populate_pet_equipment(self._selected_pet_entry()); self._pet_status.setText("Pet item upgrade updated — save with Ctrl+S.")
+
+    def _open_pet_item_in_inventory(self) -> None:
+        item = self._selected_pet_item()
+        if item:
+            self._inv_search.setText(str(item.item_key))
+            self._navigate_to_page('inventory')
+
+    def _sync_pet_item_editor(self) -> None:
+        """Keep the compact editor in sync with the selected equipped item."""
+        item = self._selected_pet_item()
+        if item:
+            self._pet_item_stack.setValue(max(1, item.stack_count))
+            self._pet_item_enchant.setValue(max(0, item.enchant_level if item.has_enchant else 0))
+
+    def _refresh_items_after_pet_edit(self) -> None:
+        """Re-scan the current blob so the pet equipment table shows written values."""
+        parc_items, _status = scan_items_parc(self._save_data.decompressed_blob)
+        self._items = parc_items or scan_items(self._save_data.decompressed_blob)
+        for scanned in self._items:
+            scanned.name = self._name_db.get_name(scanned.item_key)
+            scanned.category = self._name_db.get_category(scanned.item_key)
+
+    def _apply_pet_item_stack(self) -> None:
+        item = self._selected_pet_item()
+        if not item:
+            QMessageBox.information(self, "Pet equipment", "Select an equipped pet item first.")
+            return
+        apply_stack_edit(self._save_data.decompressed_blob, item, self._pet_item_stack.value())
+        self._dirty = True
+        self._refresh_items_after_pet_edit()
+        self._populate_pet_equipment(self._selected_pet_entry())
+        self._pet_status.setText("Pet item stack updated - save with Ctrl+S.")
+
+    def _apply_pet_item_enchant(self) -> None:
+        item = self._selected_pet_item()
+        if not item:
+            QMessageBox.information(self, "Pet equipment", "Select an equipped pet item first.")
+            return
+        if not item.has_enchant:
+            QMessageBox.information(self, "Pet equipment", "This item has no upgrade field in the save.")
+            return
+        apply_enchant_edit(self._save_data.decompressed_blob, item, self._pet_item_enchant.value())
+        self._dirty = True
+        self._refresh_items_after_pet_edit()
+        self._populate_pet_equipment(self._selected_pet_entry())
+        self._pet_status.setText("Pet item upgrade updated - save with Ctrl+S.")
+
+    def _open_pet_item_sockets(self) -> None:
+        """Open the existing socket editor with this companion item selected."""
+        item = self._selected_pet_item()
+        if not item:
+            QMessageBox.information(self, "Pet equipment", "Select an equipped pet item first.")
+            return
+        if not item.has_enchant:
+            QMessageBox.information(self, "Pet equipment", "This item cannot have sockets.")
+            return
+        target_offset = item.offset
+        self._sock_show_merc.setChecked(True)
+        self._populate_socket_items()
+        for index in range(self._sock_item_combo.count()):
+            selected_id = self._sock_item_combo.itemData(index)
+            selected = next((candidate for candidate in self._items if id(candidate) == selected_id), None)
+            if selected and selected.offset == target_offset:
+                self._sock_item_combo.setCurrentIndex(index)
+                break
+        self._navigate_to_page('sockets')
 
     def _apply_pet_stats(self) -> None:
         pet = self._selected_pet_entry()
@@ -8297,6 +8490,72 @@ QCheckBox::indicator {{
         if pet:
             self._rename_merc_entry(pet, self._pet_status)
 
+    def _delete_selected_pet(self) -> None:
+        pet = self._selected_pet_entry()
+        if pet:
+            self._delete_merc_entry(pet, self._pet_status, "pet")
+
+    def _clone_selected_pet(self) -> None:
+        """Add a catalog-confirmed pet by cloning a selected compatible pet record."""
+        pet = self._selected_pet_entry()
+        if not pet or not self._save_data:
+            QMessageBox.information(self, "Add pet", "Select an existing pet to use as a template first.")
+            return
+        new_key = self._pet_add_combo.currentData()
+        if not isinstance(new_key, int):
+            return
+        if new_key == pet['char_key']:
+            QMessageBox.information(self, "Add pet", "Choose a different pet type to add.")
+            return
+        if any(entry['char_key'] == new_key for entry in self._merc_entries):
+            QMessageBox.information(self, "Add pet", "That pet is already present in this save.")
+            return
+        reply = QMessageBox.question(self, "Add pet", f"Add {self._character_display_name(new_key)} using {self._character_display_name(pet['char_key'])} as template?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            import parc_inserter3 as pi
+            import parc_serializer as ps
+            import save_parser as sp
+            from save_pet_rename import find_mercenary_bitmap_positions, parse_reflection_layout
+            raw = bytes(self._save_data.decompressed_blob)
+            parc = ps.parse_parc_blob(raw)
+            result = sp.build_result_from_raw(raw, {'input_kind': 'raw_blob'})
+            list_field = next((field for obj in result['objects'] if 'MercenaryClan' in obj.class_name for field in obj.fields if field.name == '_mercenaryDataList'), None)
+            if not list_field or not list_field.list_elements:
+                raise ValueError("Mercenary list not found.")
+            source = pet['raw_merc_info']
+            start, end = source['bitmap_pos'], source['object_end']
+            new_record = bytearray(raw[start:end])
+            extra = source['extra']
+            struct.pack_into('<I', new_record, extra['_characterKey_offset'] - start, new_key)
+            struct.pack_into('<Q', new_record, extra['_mercenaryNo_offset'] - start, self._next_merc_no())
+            insert_pos = list_field.list_elements[-1].end_offset
+            for pos in range(len(new_record) - 12):
+                if new_record[pos:pos + 8] == b'\xff' * 8:
+                    struct.pack_into('<I', new_record, pos + 8, insert_pos + pos + 12)
+            blob = bytearray(raw)
+            blob[insert_pos:insert_pos] = new_record
+            growth = len(new_record)
+            pi._fixup_trailing_sizes(blob, raw, insert_pos, growth, 'MercenaryClanSaveData')
+            count_pos = list_field.start_offset
+            old_count = (blob[count_pos + 1] << 8) | blob[count_pos + 2]
+            blob[count_pos + 1] = ((old_count + 1) >> 8) & 0xFF
+            blob[count_pos + 2] = (old_count + 1) & 0xFF
+            toc_index = next(index for index, entry in enumerate(parc.toc_entries) if parc.type_by_index.get(entry.class_index) and 'MercenaryClan' in parc.type_by_index[entry.class_index].name)
+            pi._fixup_external(blob, raw, parc, toc_index, insert_pos, growth)
+            verified = find_mercenary_bitmap_positions(bytes(blob), parse_reflection_layout(bytes(blob)))
+            if len(verified) != old_count + 1 or not any(item['extra'].get('_characterKey') == new_key for item in verified):
+                raise ValueError("The new pet did not pass save validation.")
+            self._save_data.decompressed_blob = blob
+            self._dirty = True
+            self._merc_refresh()
+            self._pet_status.setText(f"{self._character_display_name(new_key)} added — save with Ctrl+S.")
+        except Exception as exc:
+            import traceback; traceback.print_exc()
+            QMessageBox.critical(self, "Add pet", str(exc))
+
+
     def _mounts_refresh(self) -> None:
         self._merc_refresh()
         self._populate_mounts_table()
@@ -8304,12 +8563,15 @@ QCheckBox::indicator {{
     def _populate_mounts_table(self) -> None:
         if not hasattr(self, "_mount_table"):
             return
-        mounts = [entry for entry in getattr(self, "_merc_entries", []) if self._is_mount_char_key(entry.get("char_key", 0))]
+        mounts = [(index, entry) for index, entry in enumerate(getattr(self, "_merc_entries", []))
+                  if self._is_mount_char_key(entry.get("char_key", 0))]
         self._mount_table.setRowCount(len(mounts))
-        for row, mount in enumerate(mounts):
+        for row, (index, mount) in enumerate(mounts):
             char_key = mount.get("char_key", 0)
-            display_name = self.CHAR_KEY_NAMES.get(char_key, f"Mount {char_key}")
-            self._mount_table.setItem(row, 0, QTableWidgetItem(display_name))
+            display_name = self._character_display_name(char_key)
+            name_item = QTableWidgetItem(display_name)
+            name_item.setData(Qt.UserRole, index)
+            self._mount_table.setItem(row, 0, name_item)
             self._mount_table.setItem(row, 1, QTableWidgetItem(self._merc_identify_type(char_key)))
             self._mount_table.setItem(row, 2, _num_item(char_key))
             self._mount_table.setItem(row, 3, QTableWidgetItem(mount.get("name") or "Default"))
@@ -8317,6 +8579,15 @@ QCheckBox::indicator {{
             self._mount_summary.setText(f"{len(mounts)} mount(s) found in this save.")
         else:
             self._mount_summary.setText("No mounts found. Refresh after saving in-game, or add a mount below.")
+
+    def _delete_selected_mount(self) -> None:
+        row = self._mount_table.currentRow()
+        item = self._mount_table.item(row, 0) if row >= 0 else None
+        index = item.data(Qt.UserRole) if item else None
+        if not isinstance(index, int) or index >= len(getattr(self, '_merc_entries', [])):
+            QMessageBox.information(self, "Mount", "Select a mount first.")
+            return
+        self._delete_merc_entry(self._merc_entries[index], self._mount_summary, "mount")
 
     def _set_merc_advanced_tools(self, visible: bool) -> None:
         for widget in getattr(self, "_merc_advanced_widgets", []):
@@ -8346,6 +8617,113 @@ QCheckBox::indicator {{
             QMessageBox.information(self, "Mercenary", "Select a mercenary first.")
             return
         self._apply_merc_stats(entries[row], self._merc_hp_spin.value(), self._merc_mp_spin.value(), self._merc_status)
+
+    def _open_companion_stats_editor(self, merc: dict, status: QLabel) -> None:
+        """Expose every scalar field the current save format marks editable."""
+        if not self._save_data:
+            return
+        try:
+            import save_parser as sp
+            raw = bytes(self._save_data.decompressed_blob)
+            result = sp.build_result_from_raw(raw, {'input_kind': 'raw_blob'})
+            list_field = next(
+                (field for obj in result['objects'] if 'MercenaryClan' in obj.class_name
+                 for field in obj.fields if field.name == '_mercenaryDataList'), None)
+            if list_field is None:
+                raise ValueError("Mercenary list not found.")
+            element = None
+            for candidate in list_field.list_elements:
+                key_field = next((field for field in candidate.child_fields if field.name == '_mercenaryNo' and field.present), None)
+                if key_field and struct.unpack_from('<Q', raw, key_field.start_offset)[0] == merc['merc_no']:
+                    element = candidate
+                    break
+            if element is None:
+                raise ValueError("Selected record was not found.")
+
+            scalar_fields = []
+            def collect(fields, prefix=""):
+                for field in fields or []:
+                    path = f"{prefix}.{field.name}" if prefix else field.name
+                    if field.name in ('_characterKey', '_mercenaryNo'):
+                        continue
+                    if field.present and field.editable and field.edit_format in ('<B', '<H', '<I', '<Q', '<b', '<h', '<i', '<q', '<f', '<d'):
+                        scalar_fields.append((path, field))
+                    collect(field.child_fields, path)
+            collect(element.child_fields)
+
+            dialog = QDialog(self)
+            dialog.setWindowTitle(f"All stats — {self._character_display_name(merc['char_key'])}")
+            dialog.resize(720, 520)
+            layout = QVBoxLayout(dialog)
+            note = QLabel("Only fields present in this save and confirmed editable by its reflection metadata are shown. Identity fields are protected.")
+            note.setWordWrap(True)
+            note.setStyleSheet(f"color: {COLORS['text_dim']};")
+            layout.addWidget(note)
+            table = QTableWidget(len(scalar_fields), 4)
+            table.setHorizontalHeaderLabels(["Field", "Type", "Current", "New value"])
+            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+            for row, (path, field) in enumerate(scalar_fields):
+                table.setItem(row, 0, QTableWidgetItem(path))
+                table.setItem(row, 1, QTableWidgetItem(field.type_name))
+                table.setItem(row, 2, QTableWidgetItem(field.value_repr))
+                editable = QTableWidgetItem(field.value_repr)
+                editable.setData(Qt.UserRole, field)
+                table.setItem(row, 3, editable)
+            layout.addWidget(table, 1)
+            buttons = QDialogButtonBox(QDialogButtonBox.Apply | QDialogButtonBox.Close)
+            layout.addWidget(buttons)
+            buttons.rejected.connect(dialog.reject)
+
+            def apply_changes():
+                blob = bytearray(self._save_data.decompressed_blob)
+                changed = 0
+                for row in range(table.rowCount()):
+                    cell = table.item(row, 3)
+                    field = cell.data(Qt.UserRole)
+                    text = cell.text().strip()
+                    if text == field.value_repr:
+                        continue
+                    value = float(text) if field.edit_format in ('<f', '<d') else int(text, 0)
+                    struct.pack_into(field.edit_format, blob, field.start_offset, value)
+                    changed += 1
+                if changed:
+                    self._save_data.decompressed_blob = blob
+                    self._dirty = True
+                    self._merc_refresh()
+                    status.setText(f"{changed} stat(s) updated — save with Ctrl+S.")
+                dialog.accept()
+            buttons.button(QDialogButtonBox.Apply).clicked.connect(apply_changes)
+            dialog.exec()
+        except (ValueError, struct.error) as exc:
+            QMessageBox.warning(self, "Stats", f"No changes were applied: {exc}")
+        except Exception as exc:
+            import traceback; traceback.print_exc()
+            QMessageBox.critical(self, "Stats", str(exc))
+
+    def _open_selected_merc_stats(self) -> None:
+        row = self._merc_table.currentRow()
+        entries = getattr(self, '_merc_visible_entries', [])
+        if row < 0 or row >= len(entries):
+            QMessageBox.information(self, "Mercenary", "Select a mercenary first.")
+            return
+        self._open_companion_stats_editor(entries[row], self._merc_status)
+
+    def _open_selected_pet_stats(self) -> None:
+        pet = self._selected_pet_entry()
+        if pet:
+            self._open_companion_stats_editor(pet, self._pet_status)
+
+    def _open_selected_mount_stats(self) -> None:
+        row = self._mount_table.currentRow()
+        item = self._mount_table.item(row, 0) if row >= 0 else None
+        index = item.data(Qt.UserRole) if item else None
+        if not isinstance(index, int) or index >= len(getattr(self, '_merc_entries', [])):
+            QMessageBox.information(self, "Mount", "Select a mount first.")
+            return
+        self._open_companion_stats_editor(self._merc_entries[index], self._mount_summary)
 
     def _merc_refresh(self) -> None:
         if not self._save_data:
@@ -8482,15 +8860,21 @@ QCheckBox::indicator {{
     }
 
     def _merc_identify_type(self, char_key: int) -> str:
+        catalog_entry = getattr(self, '_character_catalog', {}).get(char_key)
+        if catalog_entry:
+            return catalog_entry.get('display_name') or catalog_entry.get('internal_name') or f"Character {char_key}"
         name = self.CHAR_KEY_NAMES.get(char_key)
         if name:
             return name
-        if char_key < 100:
-            return f"Playable Character ({char_key})"
-        return f"Unknown ({char_key})"
+        return f"Unidentified character ({char_key})"
+
+    def _character_display_name(self, char_key: int) -> str:
+        return self._merc_identify_type(char_key)
 
     def _is_mount_char_key(self, char_key: int) -> bool:
         """Return whether a companion record is one of the known rideable mounts."""
+        if char_key in getattr(self, '_confirmed_mount_keys', set()):
+            return True
         if char_key in self.MOUNT_TEMPLATES:
             return True
         mount_words = (
@@ -8560,6 +8944,87 @@ QCheckBox::indicator {{
             self._merc_refresh()
         except Exception as exc:
             QMessageBox.critical(self, "Rename error", str(exc))
+
+    def _delete_merc_entry(self, merc: dict, status: QLabel, kind: str) -> None:
+        """Delete one entry and repair the PARC pointers shifted by its removal."""
+        if not self._save_data:
+            QMessageBox.warning(self, "Remove", "Load a save file first.")
+            return
+        display = self.CHAR_KEY_NAMES.get(merc.get('char_key', 0), f"record {merc.get('merc_no', '?')}")
+        reply = QMessageBox.warning(
+            self, "Remove from save",
+            f"Remove {display} from this save?\n\nThe change is only written when you save. A backup is created first.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            import parc_inserter3 as pi
+            import parc_serializer as ps
+            import save_parser as sp
+            from save_pet_rename import find_mercenary_bitmap_positions, parse_reflection_layout
+
+            raw = bytes(self._save_data.decompressed_blob)
+            original = find_mercenary_bitmap_positions(raw, parse_reflection_layout(raw))
+            target = merc.get('raw_merc_info', {})
+            start, end = target.get('bitmap_pos'), target.get('object_end')
+            if not isinstance(start, int) or not isinstance(end, int) or end <= start:
+                raise ValueError("The selected record has no valid serialized range.")
+
+            parc = ps.parse_parc_blob(raw)
+            result = sp.build_result_from_raw(raw, {'input_kind': 'raw_blob'})
+            list_field = next(
+                (field for obj in result['objects'] if 'MercenaryClan' in obj.class_name
+                 for field in obj.fields if field.name == '_mercenaryDataList'), None)
+            if list_field is None or len(list_field.list_elements) <= 1:
+                raise ValueError("The last companion record cannot be removed from this save.")
+
+            blob = bytearray(raw)
+            del blob[start:end]
+            growth = start - end
+
+            # This list stores its count as a 0x01 marker followed by a
+            # big-endian uint16.  Do not use the insertion-only size fixup.
+            count_pos = list_field.start_offset
+            if blob[count_pos] != 1:
+                raise ValueError("Unsupported mercenary-list count format.")
+            old_count = (blob[count_pos + 1] << 8) | blob[count_pos + 2]
+            if old_count != len(original):
+                raise ValueError("Mercenary-list count did not match the parsed save.")
+            new_count = old_count - 1
+            blob[count_pos + 1] = (new_count >> 8) & 0xFF
+            blob[count_pos + 2] = new_count & 0xFF
+
+            toc_index = next(
+                (index for index, entry in enumerate(parc.toc_entries)
+                 if (parc.type_by_index.get(entry.class_index)
+                     and 'MercenaryClan' in parc.type_by_index[entry.class_index].name)),
+                None,
+            )
+            if toc_index is None:
+                raise ValueError("Could not find the mercenary data block.")
+            pi._fixup_external(blob, raw, parc, toc_index, end, growth)
+
+            # Validate the candidate before it replaces the loaded save.
+            verified = find_mercenary_bitmap_positions(bytes(blob), parse_reflection_layout(bytes(blob)))
+            if len(verified) != new_count:
+                raise ValueError("Validation failed after removing the record; no changes were applied.")
+
+            self._save_data.decompressed_blob = blob
+            self._dirty = True
+            self._merc_refresh()
+            status.setText(f"{kind.capitalize()} removed — save with Ctrl+S to keep the change.")
+        except Exception as exc:
+            import traceback; traceback.print_exc()
+            QMessageBox.critical(self, "Remove error", str(exc))
+
+    def _delete_selected_mercenary(self) -> None:
+        row = self._merc_table.currentRow()
+        entries = getattr(self, '_merc_visible_entries', [])
+        if row < 0 or row >= len(entries):
+            QMessageBox.information(self, "Mercenary", "Select a mercenary first.")
+            return
+        self._delete_merc_entry(entries[row], self._merc_status, "mercenary")
 
     def _merc_rename(self) -> None:
         log.info("_merc_rename: entered (save=%s, entries=%d, current_row=%d)",
@@ -32289,6 +32754,8 @@ QCheckBox::indicator {{
         self._populate_equipment()
         self._populate_repurchase()
         self._populate_socket_items()
+        self._update_inv_subtab_counts()
+        self._populate_inventory()
 
         from PySide6.QtCore import QTimer
         if not parc_items:
@@ -32357,8 +32824,9 @@ QCheckBox::indicator {{
             ]
 
         if hasattr(self, "_inv_summary_label"):
+            active_label = self._inv_subtab_filters[subtab_idx][0] if 0 <= subtab_idx < len(self._inv_subtab_filters) else "All saved items"
             self._inv_summary_label.setText(
-                f"{len(filtered)} shown  |  {len(self._items)} parsed items  |  Use the sidebar to switch storage"
+                f"{active_label}: {len(filtered)} item(s)  |  {len(self._items)} total item(s) in this save"
             )
         if hasattr(self, "_inv_count_label"):
             self._inv_count_label.setText(f"{len(filtered)} shown")
@@ -32386,7 +32854,7 @@ QCheckBox::indicator {{
             no_item.setForeground(QBrush(QColor(COLORS["text_dim"])))
             table.setItem(row, 2, no_item)
 
-            source_item = QTableWidgetItem(item.source)
+            source_item = QTableWidgetItem(item.bag or item.source)
             table.setItem(row, 3, source_item)
 
             cat_item = QTableWidgetItem(item.category)
@@ -32660,9 +33128,65 @@ QCheckBox::indicator {{
             )
 
     def _update_inv_subtab_counts(self) -> None:
-        if not hasattr(self, '_inv_subtabs') or not self._items:
+        if not hasattr(self, '_inv_subtabs'):
             return
-        known_sources = {"Equipment", "Inventory", "Mercenary"}
+        current_filter = None
+        current_index = self._inv_subtabs.currentIndex()
+        if 0 <= current_index < len(self._inv_subtab_filters):
+            current_filter = self._inv_subtab_filters[current_index]
+
+        storage_keys = sorted(
+            {item.bag for item in self._items if item.source == "Inventory" and item.bag},
+            key=lambda label: int(label.rsplit(" ", 1)[-1]),
+        )
+        filters = [
+            ("All saved items", None, None),
+            ("Character equipment", "source", "Equipment"),
+        ]
+        filters.extend((storage_key, "bag", storage_key) for storage_key in storage_keys)
+        filters.extend([
+            ("Sold to vendors", "source", "Sold to Vendor"),
+            ("Companion equipment", "source", "Mercenary"),
+        ])
+        if any(item.source == "Inventory" and not item.bag for item in self._items):
+            filters.append(("Unmapped inventory data", "source_other", None))
+
+        self._inv_subtab_filters = filters
+        selected_index = next((index for index, item in enumerate(filters) if item == current_filter), 0)
+        blocker = QSignalBlocker(self._inv_subtabs)
+        while self._inv_subtabs.count():
+            self._inv_subtabs.removeTab(0)
+        for label, _filter_type, _filter_value in filters:
+            self._inv_subtabs.addTab(label)
+        self._inv_subtabs.setCurrentIndex(selected_index)
+        del blocker
+
+        panel_layout = getattr(self, '_inventory_filter_layout', None)
+        if panel_layout is not None:
+            while panel_layout.count() > 1:
+                child = panel_layout.takeAt(1)
+                if child.widget() is not None:
+                    child.widget().deleteLater()
+            self._inventory_filter_buttons = []
+            storage_heading = QLabel("STORAGE CONTAINERS IN THIS SAVE")
+            storage_heading.setStyleSheet(
+                "color: #606070; font-size: 10px; font-weight: bold; "
+                "padding: 8px 16px 3px 16px; background: transparent;")
+            panel_layout.addWidget(storage_heading)
+            storage_note = QLabel("Each storage key is read directly from this save, so separate containers are never mixed.")
+            storage_note.setWordWrap(True)
+            storage_note.setStyleSheet(
+                "color: #606070; font-size: 10px; padding: 2px 16px 6px 28px; "
+                "background: transparent;")
+            panel_layout.addWidget(storage_note)
+            for index, (label, _filter_type, _filter_value) in enumerate(filters):
+                filter_btn = QPushButton(label)
+                filter_btn.setFixedHeight(30)
+                filter_btn.setCursor(Qt.PointingHandCursor)
+                filter_btn.clicked.connect(lambda checked, idx=index: self._set_inventory_filter(idx))
+                panel_layout.addWidget(filter_btn)
+                self._inventory_filter_buttons.append(filter_btn)
+
         for idx, (label, filter_type, filter_val) in enumerate(self._inv_subtab_filters):
             if filter_type is None:
                 count = len(self._items)
@@ -32840,7 +33364,39 @@ QCheckBox::indicator {{
             QMessageBox.critical(self, "Insert Error", str(e))
 
 
-    def _tree_insert_item(self, item_key: int, stack_count: int) -> tuple[bool, str]:
+    def _active_inventory_storage_key(self) -> int | None:
+        """Return the actual InventoryKey currently selected in the sidebar."""
+        index = self._inv_subtabs.currentIndex() if hasattr(self, '_inv_subtabs') else -1
+        if not 0 <= index < len(getattr(self, '_inv_subtab_filters', [])):
+            return None
+        _label, filter_type, filter_value = self._inv_subtab_filters[index]
+        if filter_type != 'bag' or not isinstance(filter_value, str):
+            return None
+        try:
+            return int(filter_value.rsplit(' ', 1)[-1])
+        except (TypeError, ValueError):
+            return None
+
+    def _choose_inventory_storage_key(self) -> tuple[int | None, str]:
+        active_key = self._active_inventory_storage_key()
+        if active_key is not None:
+            return active_key, f"Storage key {active_key}"
+        choices = [item[0] for item in getattr(self, '_inv_subtab_filters', []) if item[1] == 'bag']
+        if not choices:
+            return None, ""
+        from PySide6.QtWidgets import QInputDialog
+        choice, accepted = QInputDialog.getItem(
+            self, "Choose storage", "Add the new item to:", choices, 0, False,
+        )
+        if not accepted:
+            return None, ""
+        try:
+            return int(choice.rsplit(' ', 1)[-1]), choice
+        except ValueError:
+            return None, ""
+
+    def _tree_insert_item(self, item_key: int, stack_count: int,
+                          target_bag_key: int | None = None) -> tuple[bool, str]:
         import sys, os, copy
         _de = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            'Communitydump', 'desktopeditor')
@@ -32887,6 +33443,13 @@ QCheckBox::indicator {{
         for elem in inv_list_field.list_elements:
             if not elem.child_fields:
                 continue
+            inventory_key = next((cf for cf in elem.child_fields if cf.name == '_inventoryKey'), None)
+            if target_bag_key is not None:
+                try:
+                    if not inventory_key or int(inventory_key.value_repr) != target_bag_key:
+                        continue
+                except (TypeError, ValueError):
+                    continue
             for cf in elem.child_fields:
                 if cf.name == '_itemList' and cf.list_elements and len(cf.list_elements) > 0:
                     item_list_field = cf
@@ -32896,23 +33459,14 @@ QCheckBox::indicator {{
                 break
 
         if item_list_field is None:
-            return False, "No _itemList with existing items found in inventory"
+            destination = f"Storage key {target_bag_key}" if target_bag_key is not None else "inventory"
+            return False, f"{destination} has no compatible item list to clone"
 
         target_limits = self._buff_item_limits.get(str(item_key), {}) if hasattr(self, '_buff_item_limits') else {}
         target_slot_type = target_limits.get('slotType', -1)
         is_equipment = target_slot_type not in (65535, -1)
 
-        max_item_no = 0
-        for it in item_list_field.list_elements:
-            if it.child_fields:
-                for cf in it.child_fields:
-                    if cf.name == '_itemNo' and cf.present:
-                        try:
-                            v = int(cf.value_repr)
-                            if v > max_item_no:
-                                max_item_no = v
-                        except (ValueError, TypeError):
-                            pass
+        max_item_no = max((item.item_no for item in self._items), default=0)
         new_item_no = max_item_no + 1
 
         item_type_idx = 17
@@ -33010,9 +33564,16 @@ QCheckBox::indicator {{
                 return
 
         name = self._name_db.get_name(key)
+        target_bag_key, target_storage = self._choose_inventory_storage_key()
+        if target_bag_key is None:
+            QMessageBox.information(
+                self, "Add Item",
+                "Choose a storage container in the sidebar before adding an item.",
+            )
+            return
         reply = QMessageBox.question(
-            self, "Add Item (Tree Serializer)",
-            f"Insert {name} (key={key}) x{stack} into your inventory?\n\n"
+            self, "Add New Item",
+            f"Create {name} (key={key}) x{stack} in {target_storage}?\n\n"
             f"Uses the tree serializer — clones from an existing item\n"
             f"and re-serializes the inventory block with fresh offsets.\n\n"
             f"Save (Ctrl+S) after, then reload in-game.",
@@ -33021,26 +33582,30 @@ QCheckBox::indicator {{
         if reply != QMessageBox.Yes:
             return
 
-        self._update_status("Inserting item via tree serializer...")
+        self._update_status("Creating and validating the new item...")
         QApplication.processEvents()
 
         try:
-            ok, msg = self._tree_insert_item(key, stack)
+            ok, new_blob, msg = insert_item_to_inventory(
+                self._save_data.decompressed_blob, key, stack,
+                bag_key=target_bag_key, strict_bag=True,
+            )
             if ok:
+                self._save_data.decompressed_blob = bytearray(new_blob)
                 self._dirty = True
                 self._scan_and_populate()
                 self._update_status(f"Tree Insert: {name} x{stack} — {msg}")
                 QMessageBox.information(self, "Item Added",
-                    f"Added {name} x{stack} to inventory.\n\n{msg}\n\n"
+                    f"Added {name} x{stack} to {target_storage}.\n\n{msg}\n\n"
                     f"Save the file (Ctrl+S), then reload in-game.")
             else:
                 self._update_status(f"Insert failed: {msg}")
                 QMessageBox.critical(self, "Insert Failed", msg)
         except Exception as e:
             import traceback; traceback.print_exc()
-            self._update_status(f"Tree Insert error: {e}")
+            self._update_status(f"Item creation error: {e}")
             QMessageBox.critical(self, "Insert Error",
-                f"Tree serializer failed:\n{e}\n\n"
+                f"Validated item insertion failed:\n{e}\n\n"
                 f"Please report this with your save file.")
 
     def _set_stack(self) -> None:

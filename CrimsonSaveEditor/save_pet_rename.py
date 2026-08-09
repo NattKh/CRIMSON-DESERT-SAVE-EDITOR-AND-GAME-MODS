@@ -218,6 +218,7 @@ def _parse_single_mercenary(data, off, layout, merc_type, name_prop_idx):
 
         if prop['name'] == '_mercenaryNo':
             merc_no = struct.unpack_from('<Q', data, off)[0]
+            extra['_mercenaryNo_offset'] = off
 
         if prop['name'] in _READ_FIELDS and prop['prop_type'] in (0, 2):
             extra[prop['name']] = struct.unpack_from(_READ_FIELDS[prop['name']], data, off)[0]

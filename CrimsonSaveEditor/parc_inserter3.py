@@ -759,6 +759,7 @@ def insert_item_to_inventory(
     bag_key: int = -1,
     template_key: int = -1,
     skip_verify: bool = False,
+    strict_bag: bool = False,
 ) -> Tuple[bool, bytearray, str]:
     _ensure_desktop_path()
     from save_parser import build_result_from_raw as _brfr
@@ -789,7 +790,7 @@ def insert_item_to_inventory(
                 target_items = items_field
                 break
 
-    if not target_bag:
+    if not target_bag and not strict_bag:
         for bag in inv_list.list_elements:
             inv_key_field = _find_field(bag, '_inventoryKey')
             if inv_key_field and int(inv_key_field.value_repr or 0) == 2:
@@ -965,6 +966,13 @@ def insert_item_to_inventory(
                     if vf.name != '_inventorylist' or not vf.list_elements:
                         continue
                     for vbag in vf.list_elements:
+                        verified_bag_key = None
+                        for vcf in (vbag.child_fields or []):
+                            if vcf.name == '_inventoryKey' and vcf.present:
+                                verified_bag_key = struct.unpack_from('<H', blob, vcf.start_offset)[0]
+                                break
+                        if verified_bag_key != bag_key:
+                            continue
                         for vcf in (vbag.child_fields or []):
                             if vcf.name != '_itemList' or not vcf.list_elements:
                                 continue
@@ -976,7 +984,7 @@ def insert_item_to_inventory(
                                             found_item = True
             if not found_item:
                 return False, blob, (
-                    f"Tree verification: item {item_key} not found after insertion. "
+                    f"Tree verification: item {item_key} not found in storage key {bag_key} after insertion. "
                     f"Fixed {fixed_po} POs + {fixed_toc} TOC + {fixed_ts} trailing sizes."
                 )
         except Exception as e:

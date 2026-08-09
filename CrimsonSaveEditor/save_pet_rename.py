@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from ben_save_decrypt import decrypt_save, encrypt_save
 
 
 def parse_reflection_layout(data: bytes) -> dict:
@@ -202,6 +201,7 @@ def _parse_single_mercenary(data, off, layout, merc_type, name_prop_idx):
         '_isDead': '<B',
         '_isHyosiMercenary': '<B',
         '_currentHp': '<q',
+        '_currentMp': '<q',
     }
 
     for pi, prop in enumerate(props):
@@ -221,6 +221,7 @@ def _parse_single_mercenary(data, off, layout, merc_type, name_prop_idx):
 
         if prop['name'] in _READ_FIELDS and prop['prop_type'] in (0, 2):
             extra[prop['name']] = struct.unpack_from(_READ_FIELDS[prop['name']], data, off)[0]
+            extra[f'{prop["name"]}_offset'] = off
 
         if prop['name'] == '_equipItemList':
             arr_off = off
@@ -767,6 +768,9 @@ def run_interactive(plaintext, hdr, mercs, input_path):
 
 
 def main():
+    # The editor imports this module only for the reflection parser.  Keep the
+    # optional command-line crypto dependency out of that read-only path.
+    from ben_save_decrypt import decrypt_save, encrypt_save
     parser = argparse.ArgumentParser(
         description="Crimson Desert — Pet & Companion Rename Tool",
         epilog="Run with no action flags for interactive mode.",

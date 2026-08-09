@@ -1,20 +1,33 @@
 import sys
 import os
 import logging
+import traceback
+import ctypes
 
 
 def _splash(text: str) -> None:
-    try:
-        import pyi_splash
-        pyi_splash.update_text(text)
-    except Exception:
-        pass
+    # Kept as a no-op so startup steps can remain readable in source builds.
+    # Calling pyi_splash without an active splash IPC channel can deadlock a
+    # one-file executable before the main window is shown.
+    return
 
 
 def _splash_close() -> None:
+    return
+
+
+def _apply_windows_dark_titlebar(window) -> None:
+    """Match the native Windows title bar to the editor's dark UI."""
+    if sys.platform != "win32":
+        return
     try:
-        import pyi_splash
-        pyi_splash.close()
+        enabled = ctypes.c_int(1)
+        hwnd = ctypes.c_void_p(int(window.winId()))
+        # 20 is supported by current Windows 10/11; 19 covers older builds.
+        dwmapi = ctypes.windll.dwmapi
+        result = dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(enabled), ctypes.sizeof(enabled))
+        if result != 0:
+            dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(enabled), ctypes.sizeof(enabled))
     except Exception:
         pass
 
@@ -51,7 +64,20 @@ def main() -> None:
     app.setFont(font)
 
     _splash("Building main window...")
-    window = MainWindow()
+    try:
+        window = MainWindow()
+    except Exception:
+        # Windowed builds have no console. Keep a concrete diagnostic beside
+        # the executable instead of leaving users on a loading screen.
+        try:
+            base_dir = os.path.dirname(os.path.abspath(sys.executable))
+            with open(os.path.join(base_dir, "startup-error.log"), "w", encoding="utf-8") as log_file:
+                log_file.write(traceback.format_exc())
+        except OSError:
+            pass
+        _splash_close()
+        raise
+    _apply_windows_dark_titlebar(window)
     _splash_close()
     window.show()
 

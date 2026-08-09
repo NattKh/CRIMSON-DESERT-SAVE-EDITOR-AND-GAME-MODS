@@ -30,6 +30,7 @@ PROJECTS = {
 
 
 def find_qt_libs() -> tuple[str, str]:
+    """Find PySide6 libraries for nuitka compilation."""
     paths = []
     try:
         paths.extend(site.getsitepackages())
@@ -39,14 +40,20 @@ def find_qt_libs() -> tuple[str, str]:
         paths.append(site.getusersitepackages())
     except AttributeError:
         pass
+
+    # Platform-specific extension
+    if sys.platform == "win32":
+        ext_pattern = "*.pyd"
+    else:
+        ext_pattern = "libpyside6*.so*"
+
     for base in paths:
         if not base:
             continue
-        pyside = sorted(glob.glob(os.path.join(base, "PySide6", "libpyside6*.so*")))
-        shiboken = sorted(glob.glob(os.path.join(base, "shiboken6", "libshiboken6*.so*")))
-        if pyside and shiboken:
-            return pyside[0], shiboken[0]
-    raise SystemExit("Unable to locate PySide6/shiboken6 shared libraries")
+        pyside = sorted(glob.glob(os.path.join(base, "PySide6", ext_pattern)))
+        if pyside:
+            return pyside[0], ""
+    raise SystemExit("Unable to locate PySide6 libraries")
 
 
 def run(cmd: list[str], cwd: Path) -> None:

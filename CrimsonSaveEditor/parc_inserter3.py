@@ -8,7 +8,8 @@ from typing import Optional, Tuple, List, Dict, Any, Callable
 log = logging.getLogger(__name__)
 
 _ITEM_SOCKET_FIELD_SIZES: Dict[int, int] = {
-    0: 4, 1: 8, 2: 4, 3: 2, 4: 8, 5: 2, 6: 2, 7: 2, 8: 2, 9: 8, 10: 8, 11: 1, 12: 1,
+    0: 4, 1: 8, 2: 4, 3: 2, 4: 8, 5: 8, 6: 2, 7: 8,
+    8: 2, 9: 2, 10: 8, 11: 8, 12: 1, 13: 1,
 }
 
 
@@ -2974,7 +2975,7 @@ def _splice_socket_elements(
         )
 
     fp = _item_socket_field_present
-    sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(13) if fp(bitmask, i))
+    sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(14) if fp(bitmask, i))
     sock_abs = item.offset + sock_rel
 
     count = struct.unpack_from('<I', orig_blob, sock_abs + 1)[0]
@@ -3072,8 +3073,8 @@ def _splice_socket_elements(
             fixed_toc += 1
 
     valid_updated = False
-    if fp(bitmask, 12):
-        valid_sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(12) if fp(bitmask, i))
+    if fp(bitmask, 13):
+        valid_sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(13) if fp(bitmask, i))
         valid_sock_abs = item.offset + valid_sock_rel
         old_valid = new_blob[valid_sock_abs]
         new_blob[valid_sock_abs] = valid_count_fn(old_valid, len(validated))

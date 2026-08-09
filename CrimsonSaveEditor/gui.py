@@ -12,7 +12,7 @@ import traceback
 log = logging.getLogger(__name__)
 from typing import List, Optional, Tuple
 
-from PySide6.QtCore import Qt, QTimer, QSortFilterProxyModel, Signal, QSize
+from PySide6.QtCore import Qt, QTimer, QSortFilterProxyModel, Signal, QSize, QSignalBlocker
 from PySide6.QtGui import (
     QAction, QActionGroup, QColor, QFont, QIcon, QKeySequence, QBrush, QShortcut,
 )
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QGroupBox, QSplitter, QFrame, QAbstractItemView,
     QListWidget, QListWidgetItem, QDialog, QDialogButtonBox,
     QProgressBar, QTextEdit, QCheckBox, QApplication, QDockWidget,
-    QSlider,
+    QSlider, QScrollArea,
 )
 
 from models import SaveItem, SaveData, UndoEntry
@@ -32,7 +32,7 @@ from save_crypto import load_save_file, load_raw_stream, write_save_file
 from item_scanner import (
     scan_items, apply_stack_edit, apply_enchant_edit,
     apply_endurance_edit, apply_sharpness_edit, apply_item_swap, apply_item_swap_all,
-    enrich_items_with_parc, smart_item_swap,
+    enrich_items_with_parc, scan_items_parc, smart_item_swap,
     apply_itemno_edit, get_max_itemno,
 )
 from item_db import ItemNameDB
@@ -103,108 +103,124 @@ _COMBO_ARROW_URI = "data:image/svg+xml;base64," + _b64.b64encode(
 
 DARK_STYLESHEET = f"""
 QMainWindow, QWidget {{
-    background-color: {COLORS['bg']};
-    color: {COLORS['text']};
-    font-family: Consolas, 'Courier New', monospace;
+    background-color: #0f0f14;
+    color: #e8e8ed;
+    font-family: 'Segoe UI', 'Inter', 'SF Pro Display', sans-serif;
     font-size: 13px;
 }}
 QMenuBar {{
-    background-color: {COLORS['header']};
-    color: {COLORS['text']};
-    border-bottom: 1px solid {COLORS['border']};
-    padding: 2px;
+    background-color: #18181f;
+    color: #e8e8ed;
+    border-bottom: 1px solid #303040;
+    padding: 4px 8px;
 }}
 QMenuBar::item:selected {{
-    background-color: {COLORS['selected']};
+    background-color: #353545;
 }}
 QMenu {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
+    background-color: #1e1e26;
+    color: #e8e8ed;
+    border: 1px solid #303040;
+    border-radius: 4px;
+    padding: 4px;
+}}
+QMenu::item {{
+    padding: 6px 24px 6px 12px;
+    border-radius: 3px;
 }}
 QMenu::item:selected {{
-    background-color: {COLORS['selected']};
+    background-color: #353545;
 }}
 QTabWidget::pane {{
-    border: 1px solid {COLORS['border']};
-    background-color: {COLORS['bg']};
+    border: 1px solid #303040;
+    background-color: #1a1a22;
 }}
 QTabBar::tab {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
+    background-color: #1e1e26;
+    color: #9898a4;
     padding: 8px 18px;
     margin-right: 2px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    border: 1px solid {COLORS['border']};
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border: 1px solid transparent;
     border-bottom: none;
 }}
 QTabBar::tab:selected {{
-    background-color: {_TAB_SELECTED_BG};
-    color: {_TAB_SELECTED_COLOR};
-    border-bottom: 3px solid {_TAB_SELECTED_BORDER};
-    font-weight: bold;
+    background-color: #252535;
+    color: #e8e8ed;
+    border-color: #303040;
+    border-bottom-color: #252535;
+    font-weight: 600;
 }}
 QTabBar::tab:hover {{
-    background-color: {COLORS['selected']};
+    background-color: #28283a;
 }}
 QTableWidget {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    gridline-color: {COLORS['border']};
-    selection-background-color: {COLORS['selected']};
-    selection-color: white;
-    border: 1px solid {COLORS['border']};
-    font-family: Consolas, monospace;
+    background-color: #1a1a22;
+    color: #e8e8ed;
+    gridline-color: #252535;
+    selection-background-color: #353545;
+    selection-color: #ffffff;
+    border: 1px solid #303040;
+    border-radius: 6px;
+    font-family: 'Segoe UI', sans-serif;
     font-size: 12px;
 }}
 QTableWidget::item {{
-    padding: 3px 6px;
+    padding: 6px 8px;
 }}
 QHeaderView::section {{
-    background-color: {COLORS['header']};
-    color: {COLORS['text']};
-    padding: 5px 8px;
-    border: 1px solid {COLORS['border']};
-    font-weight: bold;
+    background-color: #18181f;
+    color: #e8e8ed;
+    padding: 8px 10px;
+    border: none;
+    border-bottom: 1px solid #303040;
+    font-weight: 600;
 }}
 QPushButton {{
-    background-color: {COLORS['header']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
-    padding: 6px 16px;
-    border-radius: 3px;
-    font-weight: bold;
+    background-color: #252530;
+    color: #e8e8ed;
+    border: 1px solid #303040;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
 }}
 QPushButton:hover {{
-    background-color: {COLORS['selected']};
-    border-color: {COLORS['accent']};
+    background-color: #303040;
+    border-color: #404055;
 }}
 QPushButton:pressed {{
-    background-color: {COLORS['accent']};
+    background-color: #1e1e26;
+}}
+QPushButton:disabled {{
+    background-color: #1a1a22;
+    color: #606070;
+    border-color: #252535;
 }}
 QPushButton#accentBtn {{
-    background-color: {COLORS['accent']};
-    color: white;
+    background-color: #e07050;
+    color: #1a1a1a;
+    font-weight: bold;
+    border: none;
 }}
 QPushButton#accentBtn:hover {{
-    background-color: #e8b85e;
+    background-color: #f08060;
 }}
 QLineEdit, QSpinBox, QComboBox {{
-    background-color: {COLORS['input_bg']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
-    padding: 5px 8px;
-    border-radius: 3px;
+    background-color: #1a1a22;
+    color: #e8e8ed;
+    border: 1px solid #303040;
+    padding: 8px 12px;
+    border-radius: 6px;
 }}
 QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{
-    border-color: {COLORS['accent']};
+    border-color: #e07050;
 }}
 QComboBox::drop-down {{
     border: none;
-    border-left: 1px solid {COLORS['border']};
-    background-color: {COLORS['header']};
-    width: 24px;
+    border-left: 1px solid #303040;
+    background-color: #1a1a22;
+    width: 32px;
 }}
 QComboBox::down-arrow {{
     image: url("{_COMBO_ARROW_URI}");
@@ -212,73 +228,103 @@ QComboBox::down-arrow {{
     height: 6px;
 }}
 QComboBox QAbstractItemView {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    selection-background-color: {COLORS['selected']};
-    border: 1px solid {COLORS['border']};
+    background-color: #1e1e26;
+    color: #e8e8ed;
+    selection-background-color: #353545;
+    border: 1px solid #303040;
+    border-radius: 4px;
+    padding: 4px;
 }}
 QGroupBox {{
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 4px;
-    margin-top: 10px;
-    padding-top: 14px;
-    font-weight: bold;
+    color: #e8e8ed;
+    border: 1px solid #303040;
+    border-radius: 6px;
+    margin-top: 16px;
+    padding-top: 20px;
+    font-weight: 600;
+    background-color: transparent;
 }}
 QGroupBox::title {{
     subcontrol-origin: margin;
-    left: 10px;
-    padding: 0 5px;
+    left: 12px;
+    padding: 0 8px;
+    color: #9898a4;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }}
 QStatusBar {{
-    background-color: {COLORS['header']};
-    color: {COLORS['text']};
-    border-top: 1px solid {COLORS['border']};
+    background-color: #18181f;
+    color: #9898a4;
+    border-top: 1px solid #303040;
+    padding: 4px 12px;
 }}
 QListWidget {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
-    selection-background-color: {COLORS['selected']};
+    background-color: #1a1a22;
+    color: #e8e8ed;
+    border: 1px solid #303040;
+    border-radius: 6px;
+    selection-background-color: #353545;
+    padding: 4px;
 }}
 QTextEdit {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
+    background-color: #1a1a22;
+    color: #e8e8ed;
+    border: 1px solid #303040;
+    border-radius: 6px;
+    padding: 8px;
 }}
 QScrollBar:vertical {{
-    background-color: {COLORS['bg']};
-    width: 12px;
+    background-color: #18181f;
+    width: 10px;
     border: none;
+    border-radius: 5px;
 }}
 QScrollBar::handle:vertical {{
-    background-color: {COLORS['border']};
-    border-radius: 4px;
+    background-color: #303040;
+    border-radius: 5px;
     min-height: 30px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background-color: #404050;
 }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0px;
 }}
 QScrollBar:horizontal {{
-    background-color: {COLORS['bg']};
-    height: 12px;
+    background-color: #18181f;
+    height: 10px;
     border: none;
+    border-radius: 5px;
 }}
 QScrollBar::handle:horizontal {{
-    background-color: {COLORS['border']};
-    border-radius: 4px;
+    background-color: #303040;
+    border-radius: 5px;
     min-width: 30px;
+}}
+QScrollBar::handle:horizontal:hover {{
+    background-color: #404050;
 }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
     width: 0px;
 }}
 QCheckBox {{
-    color: {COLORS['text']};
-    spacing: 6px;
+    color: #e8e8ed;
+    spacing: 8px;
 }}
 QCheckBox::indicator {{
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid #404050;
+    background: #1a1a22;
+}}
+QCheckBox::indicator:checked {{
+    background: #e07050;
+    border-color: #e07050;
+}}
+QCheckBox:hover {{
+    color: #ffffff;
 }}
 """
 
@@ -2398,11 +2444,9 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _splash(text: str) -> None:
-        try:
-            import pyi_splash
-            pyi_splash.update_text(text)
-        except Exception:
-            pass
+        # See main._splash: frozen builds must not call pyi_splash unless a
+        # splash IPC channel was created by the bootloader.
+        return
 
     def __init__(self) -> None:
         super().__init__()
@@ -2455,6 +2499,7 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self._splash("Building tabs...")
         self._build_main_layout()
+        self._navigate_to_page("home")
         self._splash("Building status bar...")
         self._build_status_bar()
 
@@ -2468,7 +2513,7 @@ class MainWindow(QMainWindow):
         if saved_widget_scale and saved_widget_scale != 1.0:
             self._set_widget_scale(saved_widget_scale)
 
-        self._refresh_sidebar()
+        # Note: _refresh_sidebar removed - using new navigation system
         last_path = self._config.get("last_save_path", "")
         if last_path and os.path.isfile(last_path):
             self._load_save(last_path)
@@ -2507,186 +2552,305 @@ class MainWindow(QMainWindow):
         except OSError:
             pass
 
+    def _build_home_page(self) -> QWidget:
+        """Build a focused landing page for finding and opening a save."""
+        page = QWidget()
+        page.setStyleSheet("background: #0f0f14;")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(12)
+
+        title_row = QHBoxLayout()
+        title = QLabel("Open a save")
+        title.setStyleSheet(
+            "color: #e8e8ed; font-size: 22px; font-weight: bold; background: transparent;")
+        title_row.addWidget(title)
+        title_row.addStretch()
+        open_btn = QPushButton("Open Save File")
+        open_btn.setObjectName("accentBtn")
+        open_btn.clicked.connect(self._open_save_file)
+        title_row.addWidget(open_btn)
+        layout.addLayout(title_row)
+
+        saves_group = QGroupBox("Saves on this PC")
+        saves_layout = QVBoxLayout(saves_group)
+        saves_layout.setContentsMargins(12, 18, 12, 12)
+        saves_layout.setSpacing(8)
+
+        saves_header = QHBoxLayout()
+        self._home_saves_summary = QLabel("Searching for saves...")
+        self._home_saves_summary.setStyleSheet(
+            "color: #9898a4; font-size: 12px; background: transparent;")
+        saves_header.addWidget(self._home_saves_summary, 1)
+        self._home_load_selected_btn = QPushButton("Load Selected Save")
+        self._home_load_selected_btn.setObjectName("accentBtn")
+        self._home_load_selected_btn.setEnabled(False)
+        self._home_load_selected_btn.clicked.connect(self._open_selected_home_save)
+        saves_header.addWidget(self._home_load_selected_btn)
+        refresh_saves_btn = QPushButton("Refresh Saves")
+        refresh_saves_btn.clicked.connect(self._refresh_home_saves)
+        saves_header.addWidget(refresh_saves_btn)
+        saves_layout.addLayout(saves_header)
+
+        self._home_saves_table = QTableWidget()
+        self._home_saves_table.setColumnCount(4)
+        self._home_saves_table.setHorizontalHeaderLabels(
+            ["Status", "Save", "Platform", "Last modified"])
+        self._home_saves_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._home_saves_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._home_saves_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._home_saves_table.setSortingEnabled(False)
+        self._home_saves_table.verticalHeader().setVisible(False)
+        home_header = self._home_saves_table.horizontalHeader()
+        home_header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        home_header.setSectionResizeMode(1, QHeaderView.Stretch)
+        home_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        home_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self._home_saves_table.setMinimumHeight(190)
+        self._home_saves_table.cellDoubleClicked.connect(self._open_home_save)
+        self._home_saves_table.itemSelectionChanged.connect(self._update_home_load_button)
+        saves_layout.addWidget(self._home_saves_table)
+
+        saves_hint = QLabel("Select a save and click Load, or double-click it. The newest save is shown in green.")
+        saves_hint.setStyleSheet("color: #606070; font-size: 11px; background: transparent;")
+        saves_layout.addWidget(saves_hint)
+        layout.addWidget(saves_group, 1)
+        self._refresh_home_saves()
+        return page
+
 
     def _build_main_layout(self) -> None:
         from PySide6.QtWidgets import QDockWidget
 
+        # NEW MODERN SIDEBAR
         sidebar = QFrame()
-        sidebar.setMinimumWidth(40)
-        sidebar.setStyleSheet(f"background-color: {COLORS['panel']}; border-right: 1px solid {COLORS['border']};")
+        sidebar.setMinimumWidth(48)
+        sidebar.setStyleSheet(
+            "background-color: #18181f; border-right: 1px solid #252535;")
         sb_layout = QVBoxLayout(sidebar)
-        sb_layout.setContentsMargins(8, 8, 8, 8)
-        sb_layout.setSpacing(4)
+        sb_layout.setContentsMargins(0, 0, 0, 0)
+        sb_layout.setSpacing(0)
 
-        hdr_row = QHBoxLayout()
-        self._sb_collapse_btn = QPushButton("\u25C0")
-        self._sb_collapse_btn.setFixedSize(22, 22)
-        self._sb_collapse_btn.setToolTip("Collapse Save Browser")
-        self._sb_collapse_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {COLORS['accent']}; "
-            f"font-size: 12px; border: 1px solid {COLORS['border']}; border-radius: 3px; }}"
-            f"QPushButton:hover {{ background: {COLORS['selected']}; }}"
-        )
-        self._sb_collapse_btn.clicked.connect(self._toggle_save_sidebar)
-        hdr_row.addWidget(self._sb_collapse_btn)
-        hdr = QLabel("Save Browser")
-        hdr.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {COLORS['accent']}; padding: 4px 0;")
-        hdr_row.addWidget(hdr)
-        hdr_row.addStretch()
+        # Logo/Brand area
+        brand = QWidget()
+        brand.setFixedHeight(52)
+        brand_layout = QHBoxLayout(brand)
+        brand_layout.setContentsMargins(16, 0, 12, 0)
+        brand.setStyleSheet("background: #1e1e26; border-bottom: 1px solid #252535;")
+        brand_icon = QLabel("⚔")
+        brand_icon.setStyleSheet("font-size: 20px; background: transparent; color: #e07050;")
+        brand_layout.addWidget(brand_icon)
+        brand_text = QLabel("CrimsonSave")
+        brand_text.setStyleSheet(
+            "font-size: 14px; font-weight: bold; color: #e8e8ed; background: transparent;")
+        brand_layout.addWidget(brand_text, 1)
+        sb_layout.addWidget(brand)
 
-        home_btn = QPushButton("Home")
-        home_btn.setFixedHeight(22)
-        home_btn.setToolTip("Go to Inventory tab (Tab 1)")
-        home_btn.clicked.connect(lambda: self._tabs.setCurrentIndex(0))
-        hdr_row.addWidget(home_btn)
+        # Navigation items
+        nav_widget = QWidget()
+        nav_layout = QVBoxLayout(nav_widget)
+        nav_layout.setContentsMargins(0, 8, 0, 8)
+        nav_layout.setSpacing(2)
 
-        backup_nav_btn = QPushButton("Backup")
-        backup_nav_btn.setFixedHeight(22)
-        backup_nav_btn.setToolTip("Go to Backup/Restore tab")
-        backup_nav_btn.clicked.connect(lambda: self._tabs.setCurrentIndex(self._tabs.count() - 1))
-        hdr_row.addWidget(backup_nav_btn)
+        # Define navigation structure
+        nav_items = [
+            ("__START__", None),
+            ("home", "Home"),
+            ("__SAVE_EDITING__", None),
+            ("inventory", "Inventory"),
+            ("equipment", "Equipment"),
+            ("sockets", "Sockets"),
+            ("swap", "Item Swap"),
+            ("repurchase", "Repurchase"),
+            ("dye", "Dye"),
+            ("__COMPANIONS__", None),
+            ("mercenary", "Mercenaries"),
+            ("pets", "Pets"),
+            ("mounts", "Mounts"),
+            ("__GAME_MODS__", None),
+            ("game_mods", "Game Mods"),
+            ("__CONTENT__", None),
+            ("database", "Database"),
+            ("packs", "Packs"),
+            ("__WORLD__", None),
+            ("quest_editor", "Quest Editor"),
+            ("quest_database", "Quest Database"),
+            ("waypoint", "Waypoints"),
+            ("knowledge", "Knowledge"),
+            ("teleport", "Teleport"),
+            ("faction", "Factions"),
+            ("__TOOLS__", None),
+            ("backup", "Backup"),
+        ]
 
-        sb_layout.addLayout(hdr_row)
+        self._nav_buttons = {}
+        self._inventory_filter_buttons = []
+        self._inventory_filter_panel = None
+        for page_id, label in nav_items:
+            if page_id.startswith("__"):
+                sep_label = page_id.replace("_", " ").strip()
+                sep = QLabel(sep_label)
+                sep.setStyleSheet(
+                    "color: #6d6d80; font-size: 10px; font-weight: bold; letter-spacing: 0.8px; "
+                    "padding: 14px 16px 4px 16px; background: transparent;")
+                nav_layout.addWidget(sep)
+            else:
+                btn = QPushButton(label)
+                btn.setCursor(Qt.PointingHandCursor)
+                btn.setStyleSheet(
+                    "QPushButton { background: transparent; color: #aaaab8; border: none; "
+                    "text-align: left; padding: 8px 16px; font-size: 13px; "
+                    "border-left: 3px solid transparent; } "
+                    "QPushButton:hover { background: #252535; color: #e8e8ed; } "
+                    "QPushButton:pressed { background: #2a2a3a; }")
+                btn.setFixedHeight(36)
+                btn.clicked.connect(lambda checked, p=page_id: self._navigate_to_page(p))
+                self._nav_buttons[page_id] = btn
+                nav_layout.addWidget(btn)
 
-        path_row = QHBoxLayout()
-        self._save_root_label = QLabel("(auto-detect)")
-        self._save_root_label.setStyleSheet(f"color: {COLORS['text_dim']}; font-size: 10px;")
-        path_row.addWidget(self._save_root_label, 1)
-        browse_btn = QPushButton("...")
-        browse_btn.setFixedWidth(30)
-        browse_btn.setToolTip("Set save folder path")
-        browse_btn.clicked.connect(self._browse_save_root)
-        path_row.addWidget(browse_btn)
-        self._global_icons_btn = QPushButton("Hide Icons" if self._config.get("show_icons", False) else "Show Icons")
-        self._global_icons_btn.setFixedHeight(22)
-        self._global_icons_btn.setToolTip("Toggle item icons on all tabs")
-        self._global_icons_btn.clicked.connect(self._toggle_icons)
-        path_row.addWidget(self._global_icons_btn)
-        sb_layout.addLayout(path_row)
+            # Inventory sources are filters, not pages.  Keep them beside the
+            # Inventory link instead of presenting them as a second tab bar
+            # across the content area.
+            if page_id == "inventory":
+                self._inventory_filter_panel = QWidget()
+                self._inventory_filter_panel.setVisible(False)
+                filter_layout = QVBoxLayout(self._inventory_filter_panel)
+                filter_layout.setContentsMargins(0, 4, 0, 4)
+                filter_layout.setSpacing(1)
 
-        from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
-        self._save_tree = QTreeWidget()
-        self._save_tree.setHeaderHidden(True)
-        self._save_tree.setIndentation(16)
-        self._save_tree.setStyleSheet(
-            f"QTreeWidget {{ background: {COLORS['bg']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; }}"
-            f"QTreeWidget::item:selected {{ background: {COLORS['selected']}; }}"
-            f"QTreeWidget::item:hover {{ background: {COLORS['header']}; }}"
-        )
-        self._save_tree.itemDoubleClicked.connect(self._on_tree_double_click)
-        self._save_tree.setContextMenuPolicy(Qt.CustomContextMenu)
-        self._save_tree.customContextMenuRequested.connect(self._on_tree_context_menu)
-        sb_layout.addWidget(self._save_tree, 1)
+                filter_title = QLabel("INVENTORY FILTERS")
+                filter_title.setStyleSheet(
+                    "color: #606070; font-size: 10px; font-weight: bold; "
+                    "padding: 8px 16px 3px 16px; background: transparent;")
+                filter_layout.addWidget(filter_title)
 
-        ref_btn = QPushButton("Refresh")
-        ref_btn.clicked.connect(self._refresh_sidebar)
-        sb_layout.addWidget(ref_btn)
+                for index, filter_label in enumerate((
+                    "All", "Equipment", "Inventory", "Quest", "Camp Warehouse",
+                    "Warehouse", "Bank", "Kuku", "Money", "Vendor", "Mercenary",
+                )):
+                    filter_btn = QPushButton(filter_label)
+                    filter_btn.setFixedHeight(30)
+                    filter_btn.setCursor(Qt.PointingHandCursor)
+                    filter_btn.clicked.connect(
+                        lambda checked, idx=index: self._set_inventory_filter(idx))
+                    filter_layout.addWidget(filter_btn)
+                    self._inventory_filter_buttons.append(filter_btn)
+                nav_layout.addWidget(self._inventory_filter_panel)
 
-        self._quick_save_btn = QPushButton("SAVE EDIT TO SELECTED FILE")
+        nav_layout.addStretch()
+
+        # The navigation can be longer than a small window.  Keeping it in a
+        # scroll area ensures every page remains reachable instead of being
+        # clipped below the status bar.
+        nav_scroll = QScrollArea()
+        nav_scroll.setWidgetResizable(True)
+        nav_scroll.setFrameShape(QFrame.NoFrame)
+        nav_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        nav_scroll.setStyleSheet("QScrollArea { background: #18181f; border: none; }")
+        nav_scroll.setWidget(nav_widget)
+        sb_layout.addWidget(nav_scroll, 1)
+
+        # Quick actions at bottom
+        quick_actions = QWidget()
+        quick_actions.setStyleSheet("border-top: 1px solid #252535;")
+        qa_layout = QVBoxLayout(quick_actions)
+        qa_layout.setContentsMargins(8, 8, 8, 8)
+        qa_layout.setSpacing(6)
+
+        self._quick_save_btn = QPushButton("Save Changes")
         self._quick_save_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {COLORS['accent']}; color: white; font-weight: bold; "
-            f"padding: 8px; border-radius: 4px; font-size: 11px; }}"
-            f"QPushButton:hover {{ background-color: #ff5577; }}"
-            f"QPushButton:disabled {{ background-color: #555; color: #888; }}"
-        )
+            "QPushButton { background: #e07050; color: #1a1a1a; font-weight: bold; "
+            "border: none; padding: 10px; border-radius: 6px; font-size: 12px; } "
+            "QPushButton:hover { background: #f08060; } "
+            "QPushButton:disabled { background: #3a3030; color: #606070; }")
         self._quick_save_btn.setEnabled(False)
         self._quick_save_btn.clicked.connect(self._save_file)
-        sb_layout.addWidget(self._quick_save_btn)
-
-        backup_local_btn = QPushButton("Backup to Local Folder")
-        backup_local_btn.setToolTip("Copy current save to backups/ folder next to the editor exe")
-        backup_local_btn.clicked.connect(self._backup_to_local)
-        sb_layout.addWidget(backup_local_btn)
+        qa_layout.addWidget(self._quick_save_btn)
 
         settings_btn = QPushButton("Settings")
         settings_btn.setStyleSheet(
-            f"font-size: 12px; font-weight: bold; color: #4FC3F7; "
-            f"border: 1px solid #4FC3F7; border-radius: 4px; padding: 4px 8px;"
-        )
+            "QPushButton { background: transparent; color: #9898a4; "
+            "border: 1px solid #303040; padding: 8px; border-radius: 6px; font-size: 11px; } "
+            "QPushButton:hover { background: #252535; color: #e8e8ed; }")
         settings_btn.clicked.connect(self._open_settings)
-        sb_layout.addWidget(settings_btn)
+        qa_layout.addWidget(settings_btn)
 
         self._last_edit_label = QLabel("")
-        self._last_edit_label.setStyleSheet(f"color: {COLORS['warning']}; font-size: 10px; padding: 2px;")
+        self._last_edit_label.setStyleSheet(
+            "color: #e0a040; font-size: 10px; padding: 4px; background: transparent;")
         self._last_edit_label.setWordWrap(True)
-        sb_layout.addWidget(self._last_edit_label)
+        qa_layout.addWidget(self._last_edit_label)
+
+        sb_layout.addWidget(quick_actions)
 
         self._save_sidebar = sidebar
-        self._save_dock = QDockWidget("Save Browser", self)
-        self._save_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self._save_dock.setFeatures(
-            QDockWidget.DockWidgetMovable |
-            QDockWidget.DockWidgetFloatable |
-            QDockWidget.DockWidgetClosable
-        )
-        self._save_dock.setStyleSheet(
-            f"QDockWidget::title {{ background: {COLORS['accent']}; padding: 4px; "
-            f"color: white; font-weight: bold; }}"
-            f"QDockWidget {{ border: 1px solid {COLORS['accent']}; }}")
+        self._save_dock = QDockWidget("Navigation", self)
+        self._save_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        # Navigation is the only way to change pages, so it must always be
+        # present and cannot be accidentally closed or detached.
+        self._save_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self._save_dock.setTitleBarWidget(QWidget())
         self._save_dock.setWidget(sidebar)
-        self._save_dock.visibilityChanged.connect(
-            lambda v: self.__dict__.update({'_sb_collapsed': not v})
-        )
+        self._save_dock.setFixedWidth(200)
+        self._save_dock.setStyleSheet(
+            "QDockWidget { border: none; border-right: 1px solid #252535; } "
+            "QDockWidget > QWidget { border: none; }")
         self.addDockWidget(Qt.LeftDockWidgetArea, self._save_dock)
+        self._save_dock.show()
 
+        # RIGHT PANEL - Main content area
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
 
-        self._center_status = QLabel("Ready — Select a save from the sidebar or File > Open")
-        self._center_status.setAlignment(Qt.AlignCenter)
+        # Top bar with page info and game path
+        top_bar = QWidget()
+        top_bar.setStyleSheet("background: #1a1a22; border-bottom: 1px solid #252535;")
+        top_bar_layout = QHBoxLayout(top_bar)
+        top_bar_layout.setContentsMargins(16, 8, 16, 8)
+        top_bar_layout.setSpacing(12)
+
+        self._page_title = QLabel("Crimson Desert Save Editor")
+        self._page_title.setStyleSheet(
+            "font-size: 18px; font-weight: bold; color: #e8e8ed; background: transparent;")
+        top_bar_layout.addWidget(self._page_title)
+
+        top_bar_layout.addStretch()
+
+        # Game path indicator
+        gp_label = QLabel("Game:")
+        gp_label.setStyleSheet("color: #606070; font-size: 11px; background: transparent;")
+        top_bar_layout.addWidget(gp_label)
+
+        self._global_game_path = QLabel("Not set")
+        self._global_game_path.setStyleSheet(
+            "color: #9898a4; padding: 4px 8px; border: 1px solid #303040; "
+            "border-radius: 4px; background: #1a1a22; font-size: 11px;")
+        self._global_game_path.setToolTip("Game installation path")
+        top_bar_layout.addWidget(self._global_game_path)
+
+        gp_browse = QPushButton("Browse")
+        gp_browse.setFixedWidth(60)
+        gp_browse.setStyleSheet(
+            "QPushButton { background: #252530; color: #9898a4; "
+            "border: 1px solid #303040; padding: 4px 8px; border-radius: 4px; font-size: 11px; } "
+            "QPushButton:hover { background: #303040; color: #e8e8ed; }")
+        gp_browse.clicked.connect(self._global_browse_game_path)
+        top_bar_layout.addWidget(gp_browse)
+
+        right_layout.addWidget(top_bar)
+
+        # Content status bar
+        self._center_status = QLabel("Ready - Select a save from File > Open or use navigation")
+        self._center_status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self._center_status.setStyleSheet(
-            f"background-color: {COLORS['panel']}; "
-            f"color: {COLORS['accent']}; "
-            f"font-size: 13px; font-weight: bold; "
-            f"padding: 8px; "
-            f"border-bottom: 1px solid {COLORS['border']};"
-        )
+            "background-color: #1e1e26; color: #9898a4; font-size: 12px; "
+            "padding: 8px 16px; border-bottom: 1px solid #252535;")
         self._center_status.setFixedHeight(36)
         right_layout.addWidget(self._center_status)
 
-        self._global_info_widget = QWidget()
-        info_layout = QHBoxLayout(self._global_info_widget)
-        info_layout.setContentsMargins(0, 0, 0, 0)
-        info_layout.setSpacing(4)
-        gp_icon = QLabel("Game:")
-        gp_icon.setStyleSheet(f"color: {COLORS['text_dim']}; font-weight: bold; padding: 0 4px;")
-        info_layout.addWidget(gp_icon)
-
-        self._global_game_path = QLabel("Not set — click Browse")
-        self._global_game_path.setStyleSheet(
-            f"color: {COLORS['accent']}; padding: 2px 6px; "
-            f"border: 1px solid {COLORS['border']}; border-radius: 3px; "
-            f"background-color: {COLORS['input_bg']};"
-        )
-        self._global_game_path.setToolTip("Game installation path used by Game Data, ItemBuffs, and Stores")
-        info_layout.addWidget(self._global_game_path, 1)
-
-        gp_browse = QPushButton("Browse")
-        gp_browse.setFixedWidth(80)
-        gp_browse.clicked.connect(self._global_browse_game_path)
-        info_layout.addWidget(gp_browse)
-
-        gp_detect = QPushButton("Detect")
-        gp_detect.setFixedWidth(55)
-        gp_detect.setToolTip("Auto-detect game installation")
-        gp_detect.clicked.connect(self._global_auto_detect_path)
-        info_layout.addWidget(gp_detect)
-
-        self._global_hide_btn = QPushButton("X")
-        self._global_hide_btn.setFixedSize(24, 24)
-        self._global_hide_btn.setCheckable(True)
-        self._global_hide_btn.setToolTip("Hide/Show game path bar")
-        self._global_hide_btn.setStyleSheet(
-            f"QPushButton {{ background: {COLORS['accent']}; color: white; "
-            f"font-weight: bold; border-radius: 12px; font-size: 12px; }}"
-            f"QPushButton:checked {{ background: #4CAF50; }}")
-        self._global_hide_btn.clicked.connect(self._toggle_global_info)
-        info_layout.addWidget(self._global_hide_btn)
-
-        right_layout.addWidget(self._global_info_widget)
-
+        # Hidden game path storage
         self._paz_game_path = QLineEdit()
         self._paz_game_path.setVisible(False)
         self._paz_manager = PazPatchManager()
@@ -2698,165 +2862,87 @@ class MainWindow(QMainWindow):
             self._global_game_path.setText(saved_gp)
             self._global_game_path.setToolTip(saved_gp)
 
+        # Main tab widget
         self._tabs = QTabWidget()
+        self._tabs.setStyleSheet(
+            "QTabWidget { border: none; } "
+            "QTabWidget::pane { border: none; background: #0f0f14; }")
         right_layout.addWidget(self._tabs, 1)
         self.setCentralWidget(right_panel)
 
-        from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
-        pack_sidebar = QFrame()
-        pack_sidebar.setMinimumWidth(40)
-        pack_sidebar.setStyleSheet(f"background-color: {COLORS['panel']}; border-left: 1px solid {COLORS['border']};")
-        ps_layout = QVBoxLayout(pack_sidebar)
-        ps_layout.setContentsMargins(6, 6, 6, 6)
-        ps_layout.setSpacing(3)
-
-        ps_hdr_row = QHBoxLayout()
-        ps_hdr = QLabel("Pack Browser")
-        ps_hdr.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {COLORS['accent']}; padding: 2px 0;")
-        ps_hdr_row.addWidget(ps_hdr)
-        ps_hdr_row.addStretch()
-        self._ps_collapse_btn = QPushButton("\u25B6")
-        self._ps_collapse_btn.setFixedSize(22, 22)
-        self._ps_collapse_btn.setToolTip("Collapse Pack Browser")
-        self._ps_collapse_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {COLORS['accent']}; "
-            f"font-size: 12px; border: 1px solid {COLORS['border']}; border-radius: 3px; }}"
-            f"QPushButton:hover {{ background: {COLORS['selected']}; }}"
-        )
-        self._ps_collapse_btn.clicked.connect(self._toggle_pack_sidebar)
-        ps_hdr_row.addWidget(self._ps_collapse_btn)
-        ps_layout.addLayout(ps_hdr_row)
-
-        new_grp = QFrame()
-        new_grp.setStyleSheet(f"border: 1px solid {COLORS['border']}; border-radius: 3px; padding: 2px;")
-        new_lay = QVBoxLayout(new_grp)
-        new_lay.setContentsMargins(4, 4, 4, 4)
-        new_lay.setSpacing(2)
-
-        self._pack_name_input = QLineEdit()
-        self._pack_name_input.setPlaceholderText("Pack name...")
-        self._pack_name_input.setStyleSheet(f"border: 1px solid {COLORS['border']}; padding: 3px;")
-        new_lay.addWidget(self._pack_name_input)
-
-        type_row = QHBoxLayout()
-        self._pack_type_combo = QComboBox()
-        self._pack_type_combo.addItems(["Knowledge", "Quest"])
-        self._pack_type_combo.setFixedWidth(100)
-        type_row.addWidget(self._pack_type_combo)
-
-        ps_create_btn = QPushButton("Create")
-        ps_create_btn.setStyleSheet("font-weight: bold;")
-        ps_create_btn.clicked.connect(self._pack_browser_create)
-        type_row.addWidget(ps_create_btn)
-        new_lay.addLayout(type_row)
-        ps_layout.addWidget(new_grp)
-
-        self._pack_tree = QTreeWidget()
-        self._pack_tree.setHeaderHidden(True)
-        self._pack_tree.setIndentation(16)
-        self._pack_tree.setStyleSheet(
-            f"QTreeWidget {{ background: {COLORS['bg']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; }}"
-            f"QTreeWidget::item:selected {{ background: {COLORS['selected']}; }}"
-            f"QTreeWidget::item:hover {{ background: {COLORS['header']}; }}"
-        )
-        self._pack_tree.itemDoubleClicked.connect(self._pack_browser_navigate)
-        ps_layout.addWidget(self._pack_tree, 1)
-
-        ps_know_btn = QPushButton("Knowledge Tab")
-        ps_know_btn.setToolTip("Jump to Knowledge tab")
-        ps_know_btn.clicked.connect(lambda: self._goto_subtab(self._world_tabs, self._knowledge_tab))
-        ps_layout.addWidget(ps_know_btn)
-
-        ps_quest_btn = QPushButton("Quest Editor")
-        ps_quest_btn.setToolTip("Jump to Quest Editor tab")
-        ps_quest_btn.clicked.connect(lambda: self._goto_subtab(self._world_tabs, self._quest_editor_tab))
-        ps_layout.addWidget(ps_quest_btn)
-
-        ps_inject_btn = QPushButton("Inject Selected Pack")
-        ps_inject_btn.clicked.connect(self._pack_browser_inject)
-        ps_layout.addWidget(ps_inject_btn)
-
-        ps_delete_btn = QPushButton("Delete Selected Pack")
-        ps_delete_btn.clicked.connect(self._pack_browser_delete)
-        ps_layout.addWidget(ps_delete_btn)
-
-        ps_refresh_btn = QPushButton("Refresh")
-        ps_refresh_btn.clicked.connect(self._pack_browser_refresh)
-        ps_layout.addWidget(ps_refresh_btn)
-
-        ps_dl_know_btn = QPushButton("Download Knowledge Packs")
-        ps_dl_know_btn.setToolTip("Download knowledge packs from GitHub for use with Abyss Gates / Knowledge injection")
-        ps_dl_know_btn.clicked.connect(self._download_knowledge_packs)
-        ps_layout.addWidget(ps_dl_know_btn)
-
-        ps_open_btn = QPushButton("Open Folder")
-        ps_open_btn.setStyleSheet(f"font-size: 10px; color: {COLORS['text_dim']};")
-        ps_open_btn.clicked.connect(self._pack_browser_open_folder)
-        ps_layout.addWidget(ps_open_btn)
-
-        self._pack_sidebar = pack_sidebar
-        self._pack_dock = QDockWidget("Pack Browser", self)
-        self._pack_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self._pack_dock.setFeatures(
-            QDockWidget.DockWidgetMovable |
-            QDockWidget.DockWidgetFloatable |
-            QDockWidget.DockWidgetClosable
-        )
-        self._pack_dock.setStyleSheet(
-            f"QDockWidget::title {{ background: {COLORS['accent']}; padding: 4px; "
-            f"color: white; font-weight: bold; }}"
-            f"QDockWidget {{ border: 1px solid {COLORS['accent']}; }}")
-        self._pack_dock.setWidget(pack_sidebar)
-        self._pack_dock.visibilityChanged.connect(
-            lambda v: self.__dict__.update({'_ps_collapsed': not v})
-        )
-        self.addDockWidget(Qt.RightDockWidgetArea, self._pack_dock)
-
-        self.resizeDocks([self._save_dock, self._pack_dock], [260, 260], Qt.Horizontal)
-
-        self._sb_collapsed = False
-        self._ps_collapsed = False
-        self._sb_saved_width = 260
-        self._ps_saved_width = 260
-
-        self._pack_data = {}
-
-        self._buff_rust_lookup: dict = {}
-        self._buff_rust_items: list = []
-
+        # Initialize sub-tab containers
         self._save_tabs = QTabWidget()
         self._save_tabs.setTabPosition(QTabWidget.South)
-        self._tabs.addTab(self._save_tabs, tr("tab.save_editor"))
+        self._save_tabs.setStyleSheet(
+            "QTabWidget { border: none; } "
+            "QTabWidget::pane { border: none; background: #0f0f14; }")
 
         self._mods_tabs = QTabWidget()
         self._mods_tabs.setTabPosition(QTabWidget.South)
+        self._mods_tabs.setStyleSheet(
+            "QTabWidget { border: none; } "
+            "QTabWidget::pane { border: none; background: #0f0f14; }")
 
         self._items_tabs = QTabWidget()
         self._items_tabs.setTabPosition(QTabWidget.South)
-        self._tabs.addTab(self._items_tabs, tr("tab.items"))
+        self._items_tabs.setStyleSheet(
+            "QTabWidget { border: none; } "
+            "QTabWidget::pane { border: none; background: #0f0f14; }")
 
         self._world_tabs = QTabWidget()
         self._world_tabs.setTabPosition(QTabWidget.South)
-        self._tabs.addTab(self._world_tabs, tr("tab.world"))
+        self._world_tabs.setStyleSheet(
+            "QTabWidget { border: none; } "
+            "QTabWidget::pane { border: none; background: #0f0f14; }")
 
+        # Pages are selected exclusively through the sidebar.  The tab
+        # widgets remain as internal stacked-page containers, but their old
+        # tab bars must not be shown (the main one was at the top and the
+        # grouped ones were duplicated at the bottom).
+        for tab_widget in (self._tabs, self._save_tabs, self._mods_tabs,
+                           self._items_tabs, self._world_tabs):
+            tab_widget.tabBar().hide()
+
+        # Add internal page containers. Their tab bars are hidden above; only
+        # the sidebar presents navigation to the user.
+        self._home_page = self._build_home_page()
+        self._tabs.addTab(self._home_page, "Home")
+        self._tabs.addTab(self._save_tabs, "Save")
+        self._tabs.addTab(self._mods_tabs, "Game Mods")
+        self._tabs.addTab(self._items_tabs, "Items")
+        self._tabs.addTab(self._world_tabs, "World")
+
+        # Build all content tabs
         _real_tabs = self._tabs
 
+        # Save content tabs
         self._tabs = self._save_tabs
         self._build_inventory_tab()
-        self._build_swap_tab()
-        self._build_repurchase_tab()
         self._build_equipment_tab()
         self._build_sockets_tab()
-        self._build_mercenary_tab()
+        self._build_swap_tab()
+        self._build_packs_tab()
+        self._build_database_tab()
+        self._build_repurchase_tab()
         self._build_dye_tab()
+        self._build_mercenary_tab()
+        self._build_pets_tab()
+        self._build_mounts_tab()
 
-
+        # Game Mods content tabs
         self._tabs = _real_tabs
+        self._tabs = self._mods_tabs
+        self._build_loader_tab()
+        self._build_game_patches_tab()
 
+        # Items content tabs
+        self._tabs = _real_tabs
         self._tabs = self._items_tabs
         self._build_database_tab()
         self._build_packs_tab()
 
+        # World content tabs
+        self._tabs = _real_tabs
         self._tabs = self._world_tabs
         self._build_quest_editor_tab()
         self._build_quest_database_tab()
@@ -2865,45 +2951,144 @@ class MainWindow(QMainWindow):
         self._build_teleport_tab()
         self._build_faction_tab()
 
+        # Tools tab
         self._tabs = _real_tabs
-        self._build_backup_tab()
+        self._backup_tab_index = self._tabs.addTab(self._build_backup_tab(), "Tools")
 
-
+        # Restore tabs reference
+        self._tabs = _real_tabs
         self._real_tabs = _real_tabs
+
+        # Pack browser data
+        self._pack_data = {}
+        self._buff_rust_lookup = {}
+        self._buff_rust_items = []
+
+        # Update experimental tabs and refresh pack browser
         self._update_experimental_tabs()
         self._pack_browser_refresh()
 
+        # Set up view menu tab list if exists
         if hasattr(self, '_view_menu'):
             self._rebuild_view_tab_list()
             self._tabs.currentChanged.connect(self._on_tab_changed_view_menu)
 
+        # Keyboard shortcuts for tabs (F1-F12)
         for i in range(min(12, self._tabs.count())):
             QShortcut(QKeySequence(f"F{i+1}"), self).activated.connect(
                 (lambda idx: lambda: self._tabs.setCurrentIndex(idx))(i)
             )
 
+        # Apply saved UI settings
         if self._config.get("ui_scale", 100) != 100 or self._config.get("compact_mode", False):
             self._apply_ui_settings()
 
     def _toggle_save_sidebar(self) -> None:
-        if self._save_dock.isVisible():
-            self._save_dock.hide()
-            self._sb_collapse_btn.setText("\u25B6")
-            self._sb_collapse_btn.setToolTip("Show Save Browser")
-        else:
-            self._save_dock.show()
-            self._sb_collapse_btn.setText("\u25C0")
-            self._sb_collapse_btn.setToolTip("Collapse Save Browser")
+        """Sidebar toggle - no-op with new sidebar navigation."""
+        pass
 
     def _toggle_pack_sidebar(self) -> None:
-        if self._pack_dock.isVisible():
-            self._pack_dock.hide()
-            self._ps_collapse_btn.setText("\u25C0")
-            self._ps_collapse_btn.setToolTip("Show Pack Browser")
-        else:
-            self._pack_dock.show()
-            self._ps_collapse_btn.setText("\u25B6")
-            self._ps_collapse_btn.setToolTip("Collapse Pack Browser")
+        """Pack browser toggle - no-op, pack browser removed in new UI."""
+        pass
+
+    def _navigate_to_page(self, page_id: str) -> None:
+        """Navigate to a page by ID from the new sidebar navigation."""
+        if self._inventory_filter_panel is not None:
+            self._inventory_filter_panel.setVisible(page_id == "inventory")
+        # Update button selection states
+        for btn_id, btn in self._nav_buttons.items():
+            is_selected = (btn_id == page_id)
+            btn.setStyleSheet(
+                f"QPushButton {{ background: transparent; color: {'#e8e8ed' if is_selected else '#9898a4'}; "
+                f"border: none; text-align: left; padding: 8px 16px; font-size: 13px; "
+                f"border-left: 3px solid {'#e07050' if is_selected else 'transparent'}; }} "
+                f"QPushButton:hover {{ background: #252535; color: #e8e8ed; }} "
+                f"QPushButton:pressed {{ background: #2a2a3a; }}")
+
+        # _save_tabs order: Inventory(0), Equipment(1), Sockets(2), Item Swap(3), Packs(4), Database(5), Repurchase(6), Dye(7), Mercenaries(8), Pets(9), Mounts(10)
+        # _mods_tabs order: Mod Loader(0), Game Patches(1, experimental)
+        # _items_tabs order: Database(0), Packs(1)
+        # _world_tabs order: Quest Editor(0), Quest DB(1), Abyss/Waypoint(2), Knowledge(3), Teleport(4), Faction(5)
+
+        page_map = {
+            "home": (0, None),
+            "inventory": (1, 0),
+            "equipment": (1, 1),
+            "sockets": (1, 2),
+            "swap": (1, 3),
+            "packs": (3, 1),
+            "database": (3, 0),
+            "repurchase": (1, 6),
+            "dye": (1, 7),
+            "mercenary": (1, 8),
+            "pets": (1, 9),
+            "mounts": (1, 10),
+            # Game Mods tab
+            "game_mods": (2, 0),
+            "quest_editor": (4, 0),
+            "quest_database": (4, 1),
+            "waypoint": (4, 2),
+            "knowledge": (4, 3),
+            "teleport": (4, 4),
+            "faction": (4, 5),
+        }
+
+        if page_id == "backup":
+            self._tabs.setCurrentIndex(self._tabs.count() - 1)  # Backup is last tab
+            self._page_title.setText("Backup & Restore")
+            return
+        elif page_id == "settings":
+            self._open_settings()
+            return
+
+        if page_id in page_map:
+            main_idx, sub_idx = page_map[page_id]
+            self._tabs.setCurrentIndex(main_idx)
+            if sub_idx is not None:
+                if main_idx == 1:
+                    self._save_tabs.setCurrentIndex(sub_idx)
+                elif main_idx == 2:
+                    self._mods_tabs.setCurrentIndex(sub_idx)
+                elif main_idx == 3:
+                    self._items_tabs.setCurrentIndex(sub_idx)
+                elif main_idx == 4:
+                    self._world_tabs.setCurrentIndex(sub_idx)
+
+        if page_id == "mercenary" and hasattr(self, '_merc_mounts_only'):
+            self._merc_mounts_only.setChecked(False)
+        if page_id in ("mercenary", "pets", "mounts") and self._save_data and not getattr(self, "_merc_entries", []):
+            # Both pages use the same save reader.  Populate it on first visit
+            # so a loaded save never presents an unexplained empty table.
+            self._merc_refresh()
+        elif page_id == "knowledge" and self._save_data and not getattr(self, '_know_all_entries', []):
+            self._know_scan()
+
+        # Update page title
+        titles = {
+            "home": "Crimson Desert Save Editor",
+            "inventory": "Inventory",
+            "swap": "Item Swap",
+            "repurchase": "Repurchase",
+            "equipment": "Equipment",
+            "sockets": "Sockets",
+            "mercenary": "Mercenaries",
+            "pets": "Pets",
+            "mounts": "Mounts",
+            "dye": "Dye",
+            "game_mods": "Game Mods",
+            "database": "Item Database",
+            "packs": "Item Packs",
+            "quest_editor": "Quest Editor",
+            "quest_database": "Quest Database",
+            "waypoint": "Waypoints / Abyss Gates",
+            "knowledge": "Knowledge",
+            "teleport": "Teleport",
+            "faction": "Factions",
+            "backup": "Backup & Restore",
+            "settings": "Settings",
+        }
+        if page_id in titles:
+            self._page_title.setText(titles[page_id])
 
     def _browse_save_root(self) -> None:
         path = QFileDialog.getExistingDirectory(
@@ -2925,7 +3110,162 @@ class MainWindow(QMainWindow):
         except (ValueError, AttributeError):
             return slot_dir
 
+    def _discover_save_files(self) -> list[dict]:
+        """Find Crimson Desert saves in known local, Epic and Game Pass paths."""
+        roots = []
+        custom_root = self._config.get("save_root", "")
+        if custom_root and os.path.isdir(custom_root):
+            roots.append(custom_root)
+
+        local_paths = [os.environ.get("LOCALAPPDATA", "")]
+        custom_appdata = self._config.get("custom_localappdata", "")
+        if custom_appdata and os.path.isdir(custom_appdata):
+            local_paths.insert(0, custom_appdata)
+
+        for local in local_paths:
+            if not local:
+                continue
+            for subpath in ("Pearl Abyss/CD/save", "Pearl Abyss/CD_Epic/save", "Pearl Abyss/CD_GamePass/save"):
+                root = os.path.join(local, subpath)
+                if os.path.isdir(root) and root not in roots:
+                    roots.append(root)
+
+        records = {}
+        for root in roots:
+            platform = "Epic" if "CD_Epic" in root else "Game Pass" if "CD_GamePass" in root else "Steam"
+            try:
+                for user_id in os.listdir(root):
+                    user_path = os.path.join(root, user_id)
+                    if not os.path.isdir(user_path):
+                        continue
+                    for slot_name in os.listdir(user_path):
+                        slot_path = os.path.join(user_path, slot_name)
+                        if not os.path.isdir(slot_path):
+                            continue
+                        for filename in ("save.save", "lobby.save"):
+                            path = os.path.join(slot_path, filename)
+                            if not os.path.isfile(path):
+                                continue
+                            try:
+                                modified = os.path.getmtime(path)
+                            except OSError:
+                                continue
+                            records[path] = {
+                                "path": path,
+                                "name": self._friendly_slot_name(slot_name),
+                                "platform": platform,
+                                "modified": modified,
+                                "kind": "Lobby" if filename == "lobby.save" else "Save",
+                            }
+            except OSError:
+                continue
+
+        # Game Pass stores saves under GUID folders rather than normal slots.
+        for local in local_paths:
+            packages = os.path.join(local, "Packages") if local else ""
+            if not os.path.isdir(packages):
+                continue
+            try:
+                package_names = [name for name in os.listdir(packages)
+                                 if name.startswith("PearlAbyss.CrimsonDesert")]
+            except OSError:
+                continue
+            for package_name in package_names:
+                wgs_root = os.path.join(packages, package_name, "SystemAppData", "wgs")
+                if not os.path.isdir(wgs_root):
+                    continue
+                for user_id in os.listdir(wgs_root):
+                    user_path = os.path.join(wgs_root, user_id)
+                    if not os.path.isdir(user_path) or user_id == "t":
+                        continue
+                    for slot_no, guid in enumerate(os.listdir(user_path), 1):
+                        guid_path = os.path.join(user_path, guid)
+                        if not os.path.isdir(guid_path):
+                            continue
+                        for filename in os.listdir(guid_path):
+                            path = os.path.join(guid_path, filename)
+                            if filename.startswith("container") or not os.path.isfile(path):
+                                continue
+                            try:
+                                if os.path.getsize(path) <= 1000:
+                                    continue
+                                with open(path, "rb") as save_file:
+                                    if save_file.read(4) != b"SAVE":
+                                        continue
+                                records[path] = {
+                                    "path": path,
+                                    "name": f"Game Pass Save {slot_no}",
+                                    "platform": "Game Pass",
+                                    "modified": os.path.getmtime(path),
+                                    "kind": "Save",
+                                }
+                            except OSError:
+                                continue
+
+        return sorted(records.values(), key=lambda record: record["modified"], reverse=True)
+
+    def _refresh_home_saves(self) -> None:
+        if not hasattr(self, '_home_saves_table'):
+            return
+        saves = self._discover_save_files()
+        table = self._home_saves_table
+        table.setRowCount(len(saves))
+        newest_path = saves[0]["path"] if saves else ""
+        loaded_path = getattr(self, '_loaded_path', '')
+
+        for row, save in enumerate(saves):
+            is_newest = save["path"] == newest_path
+            is_loaded = save["path"] == loaded_path
+            color = QColor("#50b070") if is_newest else QColor("#e07050") if is_loaded else QColor(COLORS['text'])
+            status = "NEWEST" if is_newest else "LOADED" if is_loaded else ""
+            values = [status, f"{save['name']} ({save['kind']})", save['platform'],
+                      datetime.datetime.fromtimestamp(save['modified']).strftime("%Y-%m-%d %H:%M")]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.UserRole, save['path'] if column == 1 else None)
+                item.setForeground(QBrush(color))
+                if is_newest:
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
+                table.setItem(row, column, item)
+
+        if saves:
+            self._home_saves_summary.setText(
+                f"{len(saves)} save file(s) found — newest highlighted in green")
+        else:
+            self._home_saves_summary.setText(
+                "No saves found automatically. Use Open Save File or set a custom save folder in Settings.")
+
+    def _open_home_save(self, row: int, _column: int) -> None:
+        item = self._home_saves_table.item(row, 1) if hasattr(self, '_home_saves_table') else None
+        path = item.data(Qt.UserRole) if item else None
+        if path and os.path.isfile(path):
+            self._load_save(path)
+            if self._loaded_path == path:
+                self._navigate_to_page("inventory")
+
+    def _update_home_load_button(self) -> None:
+        if not hasattr(self, '_home_load_selected_btn'):
+            return
+        selected = self._home_saves_table.selectedItems() if hasattr(self, '_home_saves_table') else []
+        self._home_load_selected_btn.setEnabled(bool(selected))
+
+    def _open_selected_home_save(self) -> None:
+        if not hasattr(self, '_home_saves_table'):
+            return
+        row = self._home_saves_table.currentRow()
+        if row >= 0:
+            self._open_home_save(row, 0)
+
     def _refresh_sidebar(self) -> None:
+        # The legacy save-file browser was replaced by the permanent page
+        # navigation sidebar.  Save loading still calls this method for
+        # backwards compatibility, so do nothing when that old tree widget
+        # is not part of the current UI.
+        if not hasattr(self, '_save_tree'):
+            self._refresh_home_saves()
+            return
         from PySide6.QtWidgets import QTreeWidgetItem
         self._save_tree.clear()
 
@@ -4149,15 +4489,15 @@ QCheckBox::indicator {{
     def _build_inventory_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-        layout.addWidget(self._make_scope_label("save"))
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
 
         inv_info = QLabel(
             "This shows the raw save data. The game may display items differently — "
             "e.g. a stack of 90 stones appears as multiple slots in-game, but the save stores it as one entry."
         )
         inv_info.setWordWrap(True)
+        inv_info.setText("Search for an item, select it in the table, then use the actions below.")
         inv_info.setStyleSheet(
             f"color: {COLORS['text_dim']}; padding: 4px; font-size: 11px; "
             f"border: 1px solid {COLORS['border']}; border-radius: 4px;"
@@ -4175,7 +4515,14 @@ QCheckBox::indicator {{
         self._inv_search.textChanged.connect(self._filter_inventory)
         top.addWidget(self._inv_search, 2)
 
-        top.addWidget(QLabel("Group:"))
+        clear_search_btn = QPushButton("Clear")
+        clear_search_btn.setToolTip("Clear the current search")
+        clear_search_btn.clicked.connect(self._inv_search.clear)
+        top.addWidget(clear_search_btn)
+
+        group_label = QLabel("Group:")
+        group_label.setVisible(False)
+        top.addWidget(group_label)
         self._inv_group = QComboBox()
         self._inv_group.addItems([
             "All", "Equipment", "Inventory", "Sold to Vendor", "Mercenary",
@@ -4194,6 +4541,13 @@ QCheckBox::indicator {{
 
         layout.addLayout(top)
 
+        self._inv_summary_label = QLabel("No save loaded")
+        self._inv_summary_label.setStyleSheet(
+            f"color: {COLORS['text_dim']}; background: {COLORS['panel']}; "
+            f"border: 1px solid {COLORS['border']}; border-radius: 5px; padding: 7px 10px;"
+        )
+        layout.addWidget(self._inv_summary_label)
+
         from PySide6.QtWidgets import QTabBar
         self._inv_subtabs = QTabBar()
         self._inv_subtab_filters = [
@@ -4211,45 +4565,54 @@ QCheckBox::indicator {{
         ]
         for label, _, _ in self._inv_subtab_filters:
             self._inv_subtabs.addTab(label)
-        self._inv_subtabs.setExpanding(False)
-        self._inv_subtabs.setDocumentMode(True)
+        # Kept as an internal filter state holder.  The controls themselves
+        # live in the sidebar, next to the Inventory navigation entry.
+        self._inv_subtabs.hide()
         self._inv_subtabs.currentChanged.connect(self._on_inv_subtab_changed)
         layout.addWidget(self._inv_subtabs)
+        self._update_inventory_filter_buttons()
 
         self._inv_table = QTableWidget()
         self._inv_table.setColumnCount(9)
         self._inv_table.setHorizontalHeaderLabels([
-            "", "Name", "ItemNo", "Source", "Category", "ItemKey", "Slot", "Stack", "Enchant"
+            "", "Item", "Item ID", "Location", "Type", "Key", "Slot", "Stack", "Upgrade"
         ])
         self._inv_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._inv_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self._inv_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         icon_w = (ICON_SIZE + 12) if self._icons_enabled else 0
         self._inv_table.setColumnWidth(0, icon_w)
-        self._inv_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
-        self._inv_table.setColumnWidth(1, 200)
+        self._inv_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        for column, width in ((2, 90), (3, 115), (4, 100), (5, 95), (6, 55), (7, 78), (8, 72)):
+            self._inv_table.setColumnWidth(column, width)
         self._inv_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._inv_table.setSortingEnabled(True)
         self._inv_table.verticalHeader().setDefaultSectionSize(24)
         self._inv_table.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
         self._inv_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._inv_table.customContextMenuRequested.connect(self._inv_context_menu)
+        self._inv_table.itemSelectionChanged.connect(self._update_inventory_selection_summary)
         layout.addWidget(self._inv_table, 1)
 
-        bottom = QHBoxLayout()
+        actions_box = QGroupBox("Selected items")
+        bottom = QHBoxLayout(actions_box)
+        bottom.setContentsMargins(10, 8, 10, 8)
+        self._inv_selection_label = QLabel("Select an item to edit it")
+        self._inv_selection_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        bottom.addWidget(self._inv_selection_label, 1)
 
-        bottom.addWidget(QLabel("New Stack:"))
+        bottom.addWidget(QLabel("Stack"))
         self._inv_stack_input = QSpinBox()
         self._inv_stack_input.setRange(1, 999999999)
         self._inv_stack_input.setValue(1)
         bottom.addWidget(self._inv_stack_input)
 
-        set_stack_btn = QPushButton("Set Stack")
+        set_stack_btn = QPushButton("Apply stack")
         set_stack_btn.setObjectName("accentBtn")
         set_stack_btn.clicked.connect(self._set_stack)
         bottom.addWidget(set_stack_btn)
 
-        give_btn = QPushButton("Give Item")
+        give_btn = QPushButton("Transform item")
         give_btn.setToolTip("Add a new item by transforming a donor item from your inventory")
         give_btn.setObjectName("accentBtn")
         give_btn.clicked.connect(self._give_item)
@@ -4261,20 +4624,17 @@ QCheckBox::indicator {{
         self._add_item_btn = add_item_btn
         add_item_btn.setVisible(False)
 
-        del_btn = QPushButton("Delete Item")
+        del_btn = QPushButton("Delete")
         del_btn.setToolTip("Zero out selected items (set key=0, stack=0). Game will skip them on load.")
         del_btn.setStyleSheet(f"color: {COLORS['error']};")
         del_btn.clicked.connect(self._delete_items)
         bottom.addWidget(del_btn)
 
-        bottom.addStretch()
-
-        bottom.addWidget(QLabel(f"Items loaded: "))
         self._inv_count_label = QLabel("0")
         self._inv_count_label.setStyleSheet(f"color: {COLORS['accent']}; font-weight: bold;")
         bottom.addWidget(self._inv_count_label)
 
-        layout.addLayout(bottom)
+        layout.addWidget(actions_box)
 
         swap_warn = QLabel(
             "Item Swap Tips & Warnings:\n"
@@ -4294,6 +4654,7 @@ QCheckBox::indicator {{
             f"border: 1px solid {COLORS['warning']}; border-radius: 4px; "
             f"padding: 6px; font-size: 10px;"
         )
+        swap_warn.setVisible(False)
         layout.addWidget(swap_warn)
 
         self._tabs.addTab(tab, tr("tab.inventory"))
@@ -4302,16 +4663,18 @@ QCheckBox::indicator {{
     def _build_equipment_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-        layout.addWidget(self._make_scope_label("save"))
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
 
         top = QHBoxLayout()
         top.addWidget(QLabel("Search:"))
         self._equip_search = QLineEdit()
-        self._equip_search.setPlaceholderText("Filter by name, internal name, key, or category...")
+        self._equip_search.setPlaceholderText("Search equipment by name, type, or key...")
         self._equip_search.textChanged.connect(self._filter_equipment)
         top.addWidget(self._equip_search, 1)
+        clear_search_btn = QPushButton("Clear")
+        clear_search_btn.clicked.connect(self._equip_search.clear)
+        top.addWidget(clear_search_btn)
         top.addWidget(self._make_help_btn("equipment"))
         layout.addLayout(top)
 
@@ -4325,59 +4688,82 @@ QCheckBox::indicator {{
             f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
             f"background-color: rgba(79,195,247,0.08);"
         )
+        equip_info.setVisible(False)
         layout.addWidget(equip_info)
+
+        self._equip_summary_label = QLabel("No save loaded")
+        self._equip_summary_label.setStyleSheet(
+            f"color: {COLORS['text_dim']}; padding: 1px 0; font-size: 11px;"
+        )
+        layout.addWidget(self._equip_summary_label)
 
         self._equip_table = QTableWidget()
         self._equip_table.setColumnCount(9)
         self._equip_table.setHorizontalHeaderLabels([
-            "", "Name", "ItemKey", "Slot", "Enchant", "Endurance", "Sharpness", "Stack", "ItemNo"
+            "", "Equipment", "Key", "Slot", "Upgrade", "Durability", "Sharpness", "Stack", "Item ID"
         ])
         self._equip_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._equip_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self._equip_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         self._equip_table.setColumnWidth(0, 0)
-        self._equip_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
-        self._equip_table.setColumnWidth(1, 200)
+        self._equip_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        for column, width in ((2, 95), (3, 55), (4, 78), (5, 95), (6, 80), (7, 70), (8, 90)):
+            self._equip_table.setColumnWidth(column, width)
         self._equip_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._equip_table.setSortingEnabled(True)
         self._equip_table.verticalHeader().setDefaultSectionSize(24)
         self._equip_table.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
+        self._equip_table.itemSelectionChanged.connect(self._update_equipment_selection_summary)
         layout.addWidget(self._equip_table, 1)
 
-        edit_group = QGroupBox("Edit Selected Equipment")
+        edit_group = QGroupBox("Selected equipment")
         edit_layout = QGridLayout(edit_group)
+        edit_layout.setContentsMargins(12, 10, 12, 10)
+        edit_layout.setHorizontalSpacing(10)
+        edit_layout.setVerticalSpacing(8)
 
-        edit_layout.addWidget(QLabel("Enchant Level:"), 0, 0)
+        self._equip_selection_label = QLabel("Select one or more pieces of equipment to edit")
+        self._equip_selection_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        edit_layout.addWidget(self._equip_selection_label, 0, 0, 1, 4)
+
+        edit_layout.addWidget(QLabel("Enchant level"), 1, 0)
         self._equip_enchant = QSpinBox()
         self._equip_enchant.setRange(0, 10)
-        edit_layout.addWidget(self._equip_enchant, 0, 1)
-        enchant_btn = QPushButton("Set Enchant")
+        self._equip_enchant.setFixedWidth(100)
+        edit_layout.addWidget(self._equip_enchant, 1, 1)
+        enchant_btn = QPushButton("Apply enchant")
         enchant_btn.setObjectName("accentBtn")
+        enchant_btn.setFixedWidth(140)
         enchant_btn.clicked.connect(self._set_enchant)
-        edit_layout.addWidget(enchant_btn, 0, 2)
+        edit_layout.addWidget(enchant_btn, 1, 2)
         enc_warn = QLabel("Safe — Max: 10")
         enc_warn.setStyleSheet(f"color: {COLORS['success']}; font-size: 10px;")
-        edit_layout.addWidget(enc_warn, 0, 3)
+        edit_layout.addWidget(enc_warn, 1, 3)
 
-        edit_layout.addWidget(QLabel("Stack:"), 1, 0)
+        edit_layout.addWidget(QLabel("Copies / stack"), 2, 0)
         self._equip_stack = QSpinBox()
         self._equip_stack.setRange(1, 999999999)
         self._equip_stack.setValue(3)
-        edit_layout.addWidget(self._equip_stack, 1, 1)
-        stack_btn = QPushButton("Set Stack")
+        self._equip_stack.setFixedWidth(100)
+        edit_layout.addWidget(self._equip_stack, 2, 1)
+        stack_btn = QPushButton("Set copies")
+        stack_btn.setFixedWidth(140)
         stack_btn.clicked.connect(self._set_equip_stack)
-        edit_layout.addWidget(stack_btn, 1, 2)
+        edit_layout.addWidget(stack_btn, 2, 2)
 
         dupe_btn = QPushButton("Duplicate All Equipment")
         dupe_btn.setObjectName("accentBtn")
+        dupe_btn.setFixedWidth(190)
         dupe_btn.setToolTip(
             "Set stack on ALL equipment. Load game, unequip to get copies, "
             "then swap them to whatever you want."
         )
         dupe_btn.clicked.connect(self._duplicate_all_equipment)
-        edit_layout.addWidget(dupe_btn, 1, 3)
+        edit_layout.addWidget(dupe_btn, 2, 3)
 
-        edit_layout.addWidget(QLabel("Dupe Limit:"), 2, 0)
+        self._equip_bulk_toggle = QCheckBox("Edit every equipped item")
+        self._equip_bulk_toggle.setToolTip("Show the bulk duplication controls. This affects every equipped item.")
+        edit_layout.addWidget(self._equip_bulk_toggle, 3, 0, 1, 2)
         limit_row = QHBoxLayout()
         self._dupe_limit_check = QCheckBox("Limit total items duplicated to:")
         self._dupe_limit_check.setChecked(False)
@@ -4386,14 +4772,57 @@ QCheckBox::indicator {{
         self._dupe_limit_spin = QSpinBox()
         self._dupe_limit_spin.setRange(1, 230)
         self._dupe_limit_spin.setValue(50)
+        self._dupe_limit_spin.setFixedWidth(90)
         self._dupe_limit_spin.setEnabled(False)
         self._dupe_limit_check.toggled.connect(self._dupe_limit_spin.setEnabled)
         limit_row.addWidget(self._dupe_limit_spin)
+        limit_row.addStretch()
         limit_w = QWidget()
         limit_w.setLayout(limit_row)
-        edit_layout.addWidget(limit_w, 2, 1, 1, 3)
+        edit_layout.addWidget(limit_w, 3, 2, 1, 2)
+        dupe_btn.setVisible(False)
+        limit_w.setVisible(False)
+        self._equip_bulk_toggle.toggled.connect(dupe_btn.setVisible)
+        self._equip_bulk_toggle.toggled.connect(limit_w.setVisible)
 
         layout.addWidget(edit_group)
+        # Keep the original controls as the implementation backend, but give
+        # the user one compact, task-oriented action bar instead of a form.
+        edit_group.setVisible(False)
+
+        quick_edit_group = QGroupBox("Selected equipment")
+        quick_edit = QHBoxLayout(quick_edit_group)
+        quick_edit.setContentsMargins(12, 8, 12, 8)
+        quick_edit.setSpacing(8)
+
+        self._equip_quick_selection_label = QLabel("Select an equipment item")
+        self._equip_quick_selection_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        quick_edit.addWidget(self._equip_quick_selection_label, 1)
+
+        quick_edit.addWidget(QLabel("Upgrade"))
+        self._equip_quick_enchant = QSpinBox()
+        self._equip_quick_enchant.setRange(0, 10)
+        self._equip_quick_enchant.setFixedWidth(68)
+        quick_edit.addWidget(self._equip_quick_enchant)
+        quick_enchant_btn = QPushButton("Apply")
+        quick_enchant_btn.setObjectName("accentBtn")
+        quick_enchant_btn.clicked.connect(self._apply_quick_enchant)
+        quick_edit.addWidget(quick_enchant_btn)
+
+        quick_edit.addWidget(QLabel("Copies"))
+        self._equip_quick_stack = QSpinBox()
+        self._equip_quick_stack.setRange(1, 999999999)
+        self._equip_quick_stack.setFixedWidth(80)
+        quick_edit.addWidget(self._equip_quick_stack)
+        quick_stack_btn = QPushButton("Apply")
+        quick_stack_btn.clicked.connect(self._apply_quick_stack)
+        quick_edit.addWidget(quick_stack_btn)
+
+        quick_dupe_btn = QPushButton("Duplicate all")
+        quick_dupe_btn.setToolTip("Set the chosen copy count on every equipped item")
+        quick_dupe_btn.clicked.connect(self._apply_quick_duplicate)
+        quick_edit.addWidget(quick_dupe_btn)
+        layout.addWidget(quick_edit_group)
 
         howto_label = QLabel(
             "How to get new gear using Duplicate + Swap:\n"
@@ -4412,6 +4841,7 @@ QCheckBox::indicator {{
             f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
             f"padding: 8px; font-size: 11px;"
         )
+        howto_label.setVisible(False)
         layout.addWidget(howto_label)
 
         warn_label = QLabel(
@@ -4424,6 +4854,7 @@ QCheckBox::indicator {{
             f"border: 1px solid {COLORS['warning']}; border-radius: 4px; "
             f"padding: 6px; font-size: 11px;"
         )
+        warn_label.setVisible(False)
         layout.addWidget(warn_label)
 
         self._tabs.addTab(tab, tr("tab.equipment"))
@@ -4574,14 +5005,15 @@ QCheckBox::indicator {{
         2: 4,
         3: 2,
         4: 8,
-        5: 2,
-        6: 2,
-        7: 2,
-        8: 2,
-        9: 8,
-        10: 8,
-        11: 1,
-        12: 1,
+        5: 8,   # _averagePrice
+        6: 2,   # _enchantLevel
+        7: 8,   # _useableCtc
+        8: 2,   # _endurance
+        9: 2,   # _sharpness
+        10: 8,  # _batteryStat
+        11: 8,  # _maxBatteryStat
+        12: 1,  # _maxSocketCount
+        13: 1,  # _validSocketCount
     }
 
     @staticmethod
@@ -4630,7 +5062,7 @@ QCheckBox::indicator {{
 
     def _compute_socket_list_offset(self, bitmask: bytes) -> int:
         offset = 0
-        for field_idx in range(13):
+        for field_idx in range(14):
             if self._item_bitmask_field_present(bitmask, field_idx):
                 offset += self._ITEM_FIELD_SIZES[field_idx]
         return offset
@@ -4715,14 +5147,14 @@ QCheckBox::indicator {{
     def _read_max_valid_sockets(self, blob: bytearray, item: 'SaveItem') -> tuple:
         bitmask = self._read_item_bitmask(blob, item)
         offset = 0
-        for field_idx in range(11):
+        for field_idx in range(12):
             if self._item_bitmask_field_present(bitmask, field_idx):
                 offset += self._ITEM_FIELD_SIZES[field_idx]
-        max_s = blob[item.offset + offset] if self._item_bitmask_field_present(bitmask, 11) else 0
+        max_s = blob[item.offset + offset] if self._item_bitmask_field_present(bitmask, 12) else 0
         valid_s = 0
-        if self._item_bitmask_field_present(bitmask, 11):
-            offset += 1
         if self._item_bitmask_field_present(bitmask, 12):
+            offset += 1
+        if self._item_bitmask_field_present(bitmask, 13):
             valid_s = blob[item.offset + offset]
         return max_s, valid_s
 
@@ -4762,29 +5194,29 @@ QCheckBox::indicator {{
 
         offset = 0
         field_offsets = {}
-        for field_idx in range(13):
+        for field_idx in range(14):
             if self._item_bitmask_field_present(bitmask, field_idx):
                 field_offsets[field_idx] = offset
                 offset += self._ITEM_FIELD_SIZES[field_idx]
 
         changes = []
 
-        if 7 in field_offsets:
-            end_off = item.offset + field_offsets[7]
+        if 8 in field_offsets:
+            end_off = item.offset + field_offsets[8]
             old_end = struct.unpack_from("<H", blob, end_off)[0]
             end_low = old_end & 0xFF
             new_end = (new_count << 8) | end_low
             struct.pack_into("<H", blob, end_off, new_end)
             changes.append(f"_endurance: {old_end} (0x{old_end:04X}) → {new_end} (0x{new_end:04X})")
 
-        if 11 in field_offsets:
-            max_off = item.offset + field_offsets[11]
+        if 12 in field_offsets:
+            max_off = item.offset + field_offsets[12]
             old_max = blob[max_off]
             blob[max_off] = new_count
             changes.append(f"_maxSocketCount: {old_max} → {new_count}")
 
-        if 12 in field_offsets:
-            valid_off = item.offset + field_offsets[12]
+        if 13 in field_offsets:
+            valid_off = item.offset + field_offsets[13]
             old_valid = blob[valid_off]
             blob[valid_off] = new_count
             changes.append(f"_validSocketCount: {old_valid} → {new_count}")
@@ -4807,9 +5239,8 @@ QCheckBox::indicator {{
     def _build_sockets_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-        layout.addWidget(self._make_scope_label("save"))
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
 
         top = QHBoxLayout()
         top.addWidget(QLabel("Equipment:"))
@@ -4831,9 +5262,10 @@ QCheckBox::indicator {{
 
         layout.addLayout(top)
 
-        self._sock_group = QGroupBox("Socket Slots")
+        self._sock_group = QGroupBox("Socket slots")
         self._sock_layout = QVBoxLayout(self._sock_group)
-        self._sock_layout.setSpacing(4)
+        self._sock_layout.setContentsMargins(12, 10, 12, 10)
+        self._sock_layout.setSpacing(8)
 
         self._sock_info = QLabel("Select an equipment item above to view and edit its sockets.")
         self._sock_info.setStyleSheet(f"color: {COLORS['text_dim']}; padding: 4px;")
@@ -4891,7 +5323,8 @@ QCheckBox::indicator {{
         sock_scroll.setFrameShape(QFrame.NoFrame)
         sock_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         sock_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        layout.addWidget(sock_scroll, 1)
+        sock_scroll.setMaximumHeight(330)
+        layout.addWidget(sock_scroll, 0)
 
         self._sock_unlock_group = QGroupBox("Unlock Socket Slots")
         unlock_layout = QHBoxLayout(self._sock_unlock_group)
@@ -5043,7 +5476,11 @@ QCheckBox::indicator {{
             f"Endurance raw=0x{end_raw:04X} (endurance={end_low}, sockets={end_high})  |  "
             f"Offset=0x{item.offset:06X}"
         )
-        self._sock_info.setStyleSheet(f"color: {COLORS['accent']}; padding: 4px; font-weight: bold;")
+        self._sock_info.setText(
+            f"{name} +{item.enchant_level}  |  {filled} gems installed  |  "
+            f"{valid_s} of {design_limit} slots unlocked"
+        )
+        self._sock_info.setStyleSheet(f"color: {COLORS['accent']}; padding: 4px 0; font-weight: bold;")
 
         locked_count = max(0, design_limit - valid_s)
         if locked_count > 0:
@@ -5056,7 +5493,7 @@ QCheckBox::indicator {{
         else:
             self._sock_locked_hint.setVisible(False)
 
-        self._sock_unlock_group.setVisible(True)
+        self._sock_unlock_group.setVisible(valid_s < design_limit)
         self._sock_unlock_spin.blockSignals(True)
         self._sock_unlock_spin.setRange(0, design_limit)
         self._sock_unlock_spin.setValue(min(max_s, design_limit))
@@ -5252,14 +5689,14 @@ QCheckBox::indicator {{
         bitmask = self._read_item_bitmask(blob, item)
 
         offset = 0
-        for field_idx in range(11):
+        for field_idx in range(12):
             if self._item_bitmask_field_present(bitmask, field_idx):
                 offset += self._ITEM_FIELD_SIZES[field_idx]
-        max_s_off = item.offset + offset if self._item_bitmask_field_present(bitmask, 11) else None
+        max_s_off = item.offset + offset if self._item_bitmask_field_present(bitmask, 12) else None
         valid_s_off = None
-        if self._item_bitmask_field_present(bitmask, 11):
-            offset += 1
         if self._item_bitmask_field_present(bitmask, 12):
+            offset += 1
+        if self._item_bitmask_field_present(bitmask, 13):
             valid_s_off = item.offset + offset
 
         if max_s_off is None:
@@ -5298,8 +5735,8 @@ QCheckBox::indicator {{
     def _build_swap_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
         layout.addWidget(self._make_scope_label("save"))
 
         swap_warn = QLabel(
@@ -6347,9 +6784,8 @@ QCheckBox::indicator {{
     def _build_repurchase_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-        layout.addWidget(self._make_scope_label("save"))
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
 
         info = QLabel(
             "VENDOR REPURCHASE — BEST WAY TO GET NEW ITEMS\n\n"
@@ -6374,10 +6810,9 @@ QCheckBox::indicator {{
             f"border: 1px solid {COLORS['success']}; border-radius: 4px; "
             f"padding: 8px; font-size: 11px; line-height: 1.4;"
         )
-        help_row = QHBoxLayout()
-        help_row.addWidget(info, 1)
-        help_row.addWidget(self._make_help_btn("repurchase"))
-        layout.addLayout(help_row)
+        # Detailed instructions live behind the help button, leaving the
+        # repurchase list usable without a large permanent tutorial.
+        info.setVisible(False)
 
         top = QHBoxLayout()
         top.addWidget(QLabel("Search:"))
@@ -6385,12 +6820,20 @@ QCheckBox::indicator {{
         self._repurch_search.setPlaceholderText("Filter by name, key, or category...")
         self._repurch_search.textChanged.connect(self._filter_repurchase)
         top.addWidget(self._repurch_search, 1)
+        clear_search_btn = QPushButton("Clear")
+        clear_search_btn.clicked.connect(self._repurch_search.clear)
+        top.addWidget(clear_search_btn)
+        top.addWidget(self._make_help_btn("repurchase"))
         layout.addLayout(top)
+
+        self._repurch_summary = QLabel("No vendor items loaded")
+        self._repurch_summary.setStyleSheet(f"color: {COLORS['text_dim']}; padding: 1px 0; font-size: 11px;")
+        layout.addWidget(self._repurch_summary)
 
         self._repurch_table = QTableWidget()
         self._repurch_table.setColumnCount(9)
         self._repurch_table.setHorizontalHeaderLabels([
-            "", "Vendor", "Name", "ItemNo", "Category", "ItemKey", "Slot", "Stack", "Enchant"
+            "", "Vendor", "Item", "Item ID", "Type", "Key", "Slot", "Stack", "Upgrade"
         ])
         self._repurch_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._repurch_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -6398,35 +6841,42 @@ QCheckBox::indicator {{
         rh.setSectionResizeMode(0, QHeaderView.Fixed)
         self._repurch_table.setColumnWidth(0, 0)
         rh.setSectionResizeMode(1, QHeaderView.Interactive)
-        self._repurch_table.setColumnWidth(1, 180)
+        self._repurch_table.setColumnWidth(1, 150)
         rh.setMinimumSectionSize(80)
-        rh.setSectionResizeMode(2, QHeaderView.Interactive)
-        self._repurch_table.setColumnWidth(2, 180)
+        rh.setSectionResizeMode(2, QHeaderView.Stretch)
+        for column, width in ((3, 90), (4, 95), (5, 95), (6, 55), (7, 80), (8, 75)):
+            self._repurch_table.setColumnWidth(column, width)
         self._repurch_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._repurch_table.setSortingEnabled(True)
         self._repurch_table.verticalHeader().setDefaultSectionSize(24)
         self._repurch_table.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
+        self._repurch_table.itemSelectionChanged.connect(self._update_repurchase_selection_summary)
         layout.addWidget(self._repurch_table, 1)
 
-        bottom = QHBoxLayout()
-        bottom.addWidget(QLabel("New Stack:"))
+        actions_box = QGroupBox("Selected vendor item")
+        bottom = QHBoxLayout(actions_box)
+        bottom.setContentsMargins(10, 8, 10, 8)
+        self._repurch_selection_label = QLabel("Select an item to edit or clone it")
+        self._repurch_selection_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        bottom.addWidget(self._repurch_selection_label, 1)
+        bottom.addWidget(QLabel("Stack"))
         self._repurch_stack = QSpinBox()
         self._repurch_stack.setRange(1, 999999999)
         self._repurch_stack.setValue(1)
         bottom.addWidget(self._repurch_stack)
 
-        set_btn = QPushButton("Set Stack")
+        set_btn = QPushButton("Apply stack")
         set_btn.setObjectName("accentBtn")
         set_btn.clicked.connect(self._set_repurch_stack)
         bottom.addWidget(set_btn)
 
-        swap_btn = QPushButton("Swap Selected Item")
+        swap_btn = QPushButton("Swap")
         swap_btn.setObjectName("accentBtn")
         swap_btn.setToolTip("Swap this vendor item, then buy it back in-game for a clean item with correct icon")
         swap_btn.clicked.connect(self._swap_repurch_item)
         bottom.addWidget(swap_btn)
 
-        add_vendor_btn = QPushButton("Add to Vendor")
+        add_vendor_btn = QPushButton("Add item")
         add_vendor_btn.setObjectName("accentBtn")
         add_vendor_btn.setToolTip(
             "Turn any vendor item into a different item. Requires at least one junk item "
@@ -6435,7 +6885,7 @@ QCheckBox::indicator {{
         add_vendor_btn.clicked.connect(self._add_to_vendor)
         bottom.addWidget(add_vendor_btn)
 
-        clone_vendor_btn = QPushButton("Clone Selected to Vendor")
+        clone_vendor_btn = QPushButton("Clone")
         clone_vendor_btn.setObjectName("accentBtn")
         clone_vendor_btn.setToolTip(
             "Clone the selected item into a new vendor buyback entry.\n"
@@ -6461,7 +6911,7 @@ QCheckBox::indicator {{
         self._repurch_count = QLabel("0 items")
         self._repurch_count.setStyleSheet(f"color: {COLORS['accent']}; font-weight: bold;")
         bottom.addWidget(self._repurch_count)
-        layout.addLayout(bottom)
+        layout.addWidget(actions_box)
 
         self._tabs.addTab(tab, tr("tab.repurchase"))
         self._repurch_items: List[SaveItem] = []
@@ -7456,14 +7906,15 @@ QCheckBox::indicator {{
     def _build_mercenary_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
 
         info = QLabel(
             "Mercenary/Pets — View, rename, and unlock mounts/companions.\n"
             "Rename feature by Benreuveni (crimson-desert-companion-namer)."
         )
         info.setWordWrap(True)
+        info.setText("Select a companion or mount to rename it. Use Refresh to scan the loaded save.")
         info.setStyleSheet(
             f"color: {COLORS['text']}; padding: 6px; "
             f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
@@ -7480,27 +7931,52 @@ QCheckBox::indicator {{
         self._merc_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         self._merc_table.setColumnWidth(0, 0)
         self._merc_table.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
-        self._merc_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Interactive)
-        self._merc_table.setColumnWidth(5, 150)
+        self._merc_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
+        self._merc_table.itemSelectionChanged.connect(self._update_merc_selection_summary)
         self._merc_table.verticalHeader().setDefaultSectionSize(22)
         layout.addWidget(self._merc_table, 1)
 
         btn_row1 = QHBoxLayout()
+        self._merc_selection_label = QLabel("No companion selected")
+        self._merc_selection_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        btn_row1.addWidget(self._merc_selection_label, 1)
 
-        refresh_btn = QPushButton("Refresh List")
+        refresh_btn = QPushButton("Refresh")
         refresh_btn.setObjectName("accentBtn")
         refresh_btn.clicked.connect(self._merc_refresh)
         btn_row1.addWidget(refresh_btn)
 
-        rename_btn = QPushButton("Rename Selected")
+        self._merc_mounts_only = QCheckBox("Show mounts only")
+        self._merc_mounts_only.setToolTip(
+            "Show only rideable mounts. This does not modify the save file.")
+        self._merc_mounts_only.toggled.connect(self._apply_merc_filter)
+        self._merc_mounts_only.setVisible(False)
+        btn_row1.addWidget(self._merc_mounts_only)
+
+        rename_btn = QPushButton("Rename")
         rename_btn.setToolTip("Set a custom name for the selected mercenary/pet")
         rename_btn.clicked.connect(self._merc_rename)
         btn_row1.addWidget(rename_btn)
 
-        clear_name_btn = QPushButton("Clear Name")
+        clear_name_btn = QPushButton("Clear name")
         clear_name_btn.setToolTip("Remove the custom name from the selected mercenary")
         clear_name_btn.clicked.connect(self._merc_clear_name)
         btn_row1.addWidget(clear_name_btn)
+
+        btn_row1.addWidget(QLabel("Health"))
+        self._merc_hp_spin = QSpinBox()
+        self._merc_hp_spin.setRange(0, 9_999_999)
+        self._merc_hp_spin.setFixedWidth(88)
+        btn_row1.addWidget(self._merc_hp_spin)
+        btn_row1.addWidget(QLabel("Vigor"))
+        self._merc_mp_spin = QSpinBox()
+        self._merc_mp_spin.setRange(0, 9_999_999)
+        self._merc_mp_spin.setFixedWidth(88)
+        btn_row1.addWidget(self._merc_mp_spin)
+        stat_btn = QPushButton("Apply stats")
+        stat_btn.setObjectName("accentBtn")
+        stat_btn.clicked.connect(self._apply_selected_merc_stats)
+        btn_row1.addWidget(stat_btn)
 
         label_all_btn = QPushButton("Label All (M_<no>)")
         label_all_btn.setToolTip(
@@ -7514,8 +7990,12 @@ QCheckBox::indicator {{
         clear_all_btn.clicked.connect(self._merc_clear_all_names)
         btn_row1.addWidget(clear_all_btn)
 
+        self._merc_advanced_toggle = QCheckBox("Advanced tools")
+        self._merc_advanced_toggle.setToolTip("Show experimental unlocks, batch actions, and entitlement recovery")
+        btn_row1.addWidget(self._merc_advanced_toggle)
+
         btn_row1.addStretch()
-        layout.addLayout(btn_row1)
+        layout.insertLayout(1, btn_row1)
 
         from PySide6.QtWidgets import QGroupBox, QGridLayout
 
@@ -7558,7 +8038,9 @@ QCheckBox::indicator {{
         btn_row2.addWidget(dragon_nq_btn)
 
         btn_row2.addStretch()
-        layout.addLayout(btn_row2)
+        mount_quick_widget = QWidget()
+        mount_quick_widget.setLayout(btn_row2)
+        layout.addWidget(mount_quick_widget)
 
         mount_grp = QGroupBox("Unlock Mounts (Experimental)")
         mount_grid = QGridLayout(mount_grp)
@@ -7626,7 +8108,7 @@ QCheckBox::indicator {{
         atag_note.setStyleSheet(f"color: {COLORS['warning']}; font-size: 11px; padding: 4px;")
         layout.addWidget(atag_note)
 
-        self._merc_status = QLabel("")
+        self._merc_status = QLabel("Click Refresh to scan companions and mounts in the loaded save.")
         self._merc_status.setStyleSheet(f"color: {COLORS['accent']}; font-weight: bold;")
         layout.addWidget(self._merc_status)
 
@@ -7657,8 +8139,213 @@ QCheckBox::indicator {{
         credits.setStyleSheet("color: #ff3333; font-size: 12px; font-weight: bold; padding: 4px;")
         layout.addWidget(credits)
 
-        self._tabs.addTab(tab, tr("tab.mercenary"))
+        self._merc_advanced_widgets = [
+            label_all_btn, clear_all_btn, char_grp, mount_quick_widget,
+            mount_grp, atag_note, dlc_grp, credits,
+        ]
+        self._merc_advanced_toggle.toggled.connect(self._set_merc_advanced_tools)
+        self._set_merc_advanced_tools(False)
+
+        self._tabs.addTab(tab, "Companions & Mounts")
         self._merc_entries = []
+
+    def _build_mounts_tab(self) -> None:
+        """A focused mount workspace; it intentionally does not reuse the
+        companion-management controls or experimental DLC tools."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
+
+        toolbar = QHBoxLayout()
+        self._mount_summary = QLabel("Refresh to scan mounts in the loaded save.")
+        self._mount_summary.setStyleSheet(f"color: {COLORS['text_dim']};")
+        toolbar.addWidget(self._mount_summary, 1)
+        refresh_btn = QPushButton("Refresh mounts")
+        refresh_btn.setObjectName("accentBtn")
+        refresh_btn.clicked.connect(self._mounts_refresh)
+        toolbar.addWidget(refresh_btn)
+        layout.addLayout(toolbar)
+
+        self._mount_table = QTableWidget()
+        self._mount_table.setColumnCount(4)
+        self._mount_table.setHorizontalHeaderLabels(["Mount", "Type", "Character key", "Custom name"])
+        self._mount_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._mount_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._mount_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        mount_header = self._mount_table.horizontalHeader()
+        mount_header.setSectionResizeMode(0, QHeaderView.Stretch)
+        mount_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        mount_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        mount_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self._mount_table.verticalHeader().setDefaultSectionSize(24)
+        layout.addWidget(self._mount_table, 1)
+
+        add_group = QGroupBox("Add a mount")
+        add_layout = QHBoxLayout(add_group)
+        add_layout.addWidget(QLabel("Mount"))
+        self._mount_add_combo = QComboBox()
+        for char_key, (name, _template) in sorted(self.MOUNT_TEMPLATES.items(), key=lambda entry: entry[1][0].lower()):
+            self._mount_add_combo.addItem(name, char_key)
+        add_layout.addWidget(self._mount_add_combo, 1)
+        add_btn = QPushButton("Add selected mount")
+        add_btn.setObjectName("accentBtn")
+        add_btn.setToolTip("Adds the selected mount to the save. Save, then reload the game to use it.")
+        add_btn.clicked.connect(lambda: self._unlock_mount_generic(self._mount_add_combo.currentData()))
+        add_layout.addWidget(add_btn)
+        layout.addWidget(add_group)
+
+        hint = QLabel("Mount availability depends on the save format and game progression. The editor creates a backup before saving.")
+        hint.setStyleSheet(f"color: {COLORS['text_dim']}; font-size: 11px;")
+        layout.addWidget(hint)
+
+        self._tabs.addTab(tab, "Mounts")
+
+    # These are the companion animals currently identified in the save data.
+    # Keep them separate from rideable mounts and hired/story mercenaries.
+    PET_CHARACTER_KEYS = {1003666, 468, 704, 1001844, 661, 1002989}
+
+    def _build_pets_tab(self) -> None:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
+
+        hint = QLabel("Pets from the loaded save. Select one to rename it or adjust its current health and vigor.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color: {COLORS['text_dim']};")
+        layout.addWidget(hint)
+
+        self._pet_table = QTableWidget()
+        self._pet_table.setColumnCount(5)
+        self._pet_table.setHorizontalHeaderLabels(["Pet", "Character key", "Health", "Vigor", "Custom name"])
+        self._pet_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._pet_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._pet_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        header = self._pet_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        for col in range(1, 5):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        self._pet_table.itemSelectionChanged.connect(self._update_pet_editor)
+        layout.addWidget(self._pet_table, 1)
+
+        controls = QHBoxLayout()
+        self._pet_selection_label = QLabel("Select a pet")
+        self._pet_selection_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        controls.addWidget(self._pet_selection_label, 1)
+        controls.addWidget(QLabel("Health"))
+        self._pet_hp_spin = QSpinBox(); self._pet_hp_spin.setRange(0, 9_999_999); self._pet_hp_spin.setFixedWidth(95)
+        controls.addWidget(self._pet_hp_spin)
+        controls.addWidget(QLabel("Vigor"))
+        self._pet_mp_spin = QSpinBox(); self._pet_mp_spin.setRange(0, 9_999_999); self._pet_mp_spin.setFixedWidth(95)
+        controls.addWidget(self._pet_mp_spin)
+        apply_btn = QPushButton("Apply stats"); apply_btn.setObjectName("accentBtn"); apply_btn.clicked.connect(self._apply_pet_stats)
+        controls.addWidget(apply_btn)
+        rename_btn = QPushButton("Rename"); rename_btn.clicked.connect(self._rename_selected_pet)
+        controls.addWidget(rename_btn)
+        layout.addLayout(controls)
+
+        self._pet_status = QLabel("Open this page after loading a save to scan pets automatically.")
+        self._pet_status.setStyleSheet(f"color: {COLORS['accent']};")
+        layout.addWidget(self._pet_status)
+        self._tabs.addTab(tab, "Pets")
+
+    def _is_pet_char_key(self, char_key: int) -> bool:
+        return char_key in self.PET_CHARACTER_KEYS
+
+    def _populate_pets_table(self) -> None:
+        if not hasattr(self, "_pet_table"):
+            return
+        pets = [(index, entry) for index, entry in enumerate(getattr(self, "_merc_entries", []))
+                if self._is_pet_char_key(entry.get("char_key", 0))]
+        self._pet_table.setRowCount(len(pets))
+        for row, (index, pet) in enumerate(pets):
+            item = QTableWidgetItem(self.CHAR_KEY_NAMES.get(pet['char_key'], f"Pet {pet['char_key']}"))
+            item.setData(Qt.UserRole, index)
+            self._pet_table.setItem(row, 0, item)
+            self._pet_table.setItem(row, 1, _num_item(pet['char_key']))
+            extra = pet.get('raw_merc_info', {}).get('extra', {})
+            self._pet_table.setItem(row, 2, _num_item(extra.get('_currentHp', 0)))
+            self._pet_table.setItem(row, 3, _num_item(extra.get('_currentMp', 0)))
+            self._pet_table.setItem(row, 4, QTableWidgetItem(pet.get('name') or "Default"))
+        self._pet_status.setText(f"{len(pets)} pet(s) found in this save." if pets else "No recognized pets found in this save.")
+
+    def _selected_pet_entry(self):
+        row = self._pet_table.currentRow()
+        cell = self._pet_table.item(row, 0) if row >= 0 else None
+        index = cell.data(Qt.UserRole) if cell else None
+        if not isinstance(index, int) or index >= len(getattr(self, "_merc_entries", [])):
+            return None
+        return self._merc_entries[index]
+
+    def _update_pet_editor(self) -> None:
+        pet = self._selected_pet_entry()
+        if not pet:
+            return
+        extra = pet.get('raw_merc_info', {}).get('extra', {})
+        self._pet_selection_label.setText(self.CHAR_KEY_NAMES.get(pet['char_key'], "Selected pet"))
+        self._pet_hp_spin.setValue(min(max(0, extra.get('_currentHp', 0)), self._pet_hp_spin.maximum()))
+        self._pet_mp_spin.setValue(min(max(0, extra.get('_currentMp', 0)), self._pet_mp_spin.maximum()))
+
+    def _apply_pet_stats(self) -> None:
+        pet = self._selected_pet_entry()
+        if pet:
+            self._apply_merc_stats(pet, self._pet_hp_spin.value(), self._pet_mp_spin.value(), self._pet_status)
+
+    def _rename_selected_pet(self) -> None:
+        pet = self._selected_pet_entry()
+        if pet:
+            self._rename_merc_entry(pet, self._pet_status)
+
+    def _mounts_refresh(self) -> None:
+        self._merc_refresh()
+        self._populate_mounts_table()
+
+    def _populate_mounts_table(self) -> None:
+        if not hasattr(self, "_mount_table"):
+            return
+        mounts = [entry for entry in getattr(self, "_merc_entries", []) if self._is_mount_char_key(entry.get("char_key", 0))]
+        self._mount_table.setRowCount(len(mounts))
+        for row, mount in enumerate(mounts):
+            char_key = mount.get("char_key", 0)
+            display_name = self.CHAR_KEY_NAMES.get(char_key, f"Mount {char_key}")
+            self._mount_table.setItem(row, 0, QTableWidgetItem(display_name))
+            self._mount_table.setItem(row, 1, QTableWidgetItem(self._merc_identify_type(char_key)))
+            self._mount_table.setItem(row, 2, _num_item(char_key))
+            self._mount_table.setItem(row, 3, QTableWidgetItem(mount.get("name") or "Default"))
+        if mounts:
+            self._mount_summary.setText(f"{len(mounts)} mount(s) found in this save.")
+        else:
+            self._mount_summary.setText("No mounts found. Refresh after saving in-game, or add a mount below.")
+
+    def _set_merc_advanced_tools(self, visible: bool) -> None:
+        for widget in getattr(self, "_merc_advanced_widgets", []):
+            widget.setVisible(visible)
+
+    def _update_merc_selection_summary(self) -> None:
+        if not hasattr(self, "_merc_selection_label"):
+            return
+        row = self._merc_table.currentRow()
+        entries = getattr(self, "_merc_visible_entries", [])
+        if row < 0 or row >= len(entries):
+            self._merc_selection_label.setText("No companion selected")
+            return
+        merc = entries[row]
+        name = merc.get("name") or "Unnamed companion"
+        kind = self._merc_identify_type(merc.get("char_key", 0))
+        self._merc_selection_label.setText(f"{name}  |  {kind}")
+        extra = merc.get('raw_merc_info', {}).get('extra', {})
+        if hasattr(self, '_merc_hp_spin'):
+            self._merc_hp_spin.setValue(min(max(0, extra.get('_currentHp', 0)), self._merc_hp_spin.maximum()))
+            self._merc_mp_spin.setValue(min(max(0, extra.get('_currentMp', 0)), self._merc_mp_spin.maximum()))
+
+    def _apply_selected_merc_stats(self) -> None:
+        row = self._merc_table.currentRow()
+        entries = getattr(self, '_merc_visible_entries', [])
+        if row < 0 or row >= len(entries):
+            QMessageBox.information(self, "Mercenary", "Select a mercenary first.")
+            return
+        self._apply_merc_stats(entries[row], self._merc_hp_spin.value(), self._merc_mp_spin.value(), self._merc_status)
 
     def _merc_refresh(self) -> None:
         if not self._save_data:
@@ -7706,13 +8393,16 @@ QCheckBox::indicator {{
                     merc['name_length'] = len(merc['name'].encode('utf-8'))
                 self._merc_entries.append(merc)
 
-            self._merc_table.setRowCount(len(self._merc_entries))
+            self._merc_visible_entries = [entry for entry in self._merc_entries
+                                          if not self._is_mount_char_key(entry['char_key'])
+                                          and not self._is_pet_char_key(entry['char_key'])]
+            self._merc_table.setRowCount(len(self._merc_visible_entries))
             icon_col_w = (ICON_SIZE + 12) if self._icons_enabled else 0
             self._merc_table.setColumnWidth(0, icon_col_w)
             if icon_col_w:
                 self._merc_table.verticalHeader().setDefaultSectionSize(max(ICON_SIZE + 2, 22))
 
-            for row, merc in enumerate(self._merc_entries):
+            for row, merc in enumerate(self._merc_visible_entries):
                 icon_item = QTableWidgetItem()
                 if self._icons_enabled:
                     px = self._icon_cache.get_merc_pixmap(merc['char_key'])
@@ -7739,7 +8429,10 @@ QCheckBox::indicator {{
                     name_item.setForeground(QColor(COLORS['text_dim']))
                 self._merc_table.setItem(row, 5, name_item)
 
-            self._merc_status.setText(f"Found {len(self._merc_entries)} mercenaries/pets")
+            self._apply_merc_filter()
+            self._update_merc_selection_summary()
+            self._populate_mounts_table()
+            self._populate_pets_table()
 
         except Exception as e:
             import traceback; traceback.print_exc()
@@ -7796,6 +8489,78 @@ QCheckBox::indicator {{
             return f"Playable Character ({char_key})"
         return f"Unknown ({char_key})"
 
+    def _is_mount_char_key(self, char_key: int) -> bool:
+        """Return whether a companion record is one of the known rideable mounts."""
+        if char_key in self.MOUNT_TEMPLATES:
+            return True
+        mount_words = (
+            "horse", "dragon", "wyvern", "wolf", "bear", "deer", "warthog",
+            "ibex", "elephant", "camel", "iguana", "bird", "atag", "machine",
+            "warmachine", "ship", "balloon",
+        )
+        name = self.CHAR_KEY_NAMES.get(char_key, "").lower()
+        return any(word in name for word in mount_words)
+
+    def _apply_merc_filter(self, *_args) -> None:
+        """Apply the non-destructive mount filter to the companions table."""
+        if not hasattr(self, '_merc_table'):
+            return
+        mounts_check = getattr(self, '_merc_mounts_only', None)
+        mounts_only = bool(mounts_check and mounts_check.isChecked())
+        visible_count = 0
+        for row, merc in enumerate(getattr(self, '_merc_entries', [])):
+            visible = not mounts_only or self._is_mount_char_key(merc['char_key'])
+            self._merc_table.setRowHidden(row, not visible)
+            visible_count += int(visible)
+        total = len(getattr(self, '_merc_entries', []))
+        if total == 0:
+            self._merc_status.setText("No companion records found in this save. Try saving again in-game, then Refresh.")
+        elif mounts_only:
+            self._merc_status.setText(f"Found {visible_count} mount(s) in {total} companion record(s)")
+        else:
+            self._merc_status.setText(f"Found {total} companion record(s)")
+
+    def _apply_merc_stats(self, merc: dict, health: int, vigor: int, status: QLabel) -> None:
+        """Update the two scalar stats whose offsets are verified by the parser."""
+        if not self._save_data:
+            QMessageBox.warning(self, "Companion", "Load a save file first.")
+            return
+        extra = merc.get('raw_merc_info', {}).get('extra', {})
+        hp_offset = extra.get('_currentHp_offset')
+        mp_offset = extra.get('_currentMp_offset')
+        if hp_offset is None or mp_offset is None:
+            QMessageBox.warning(self, "Companion", "This record does not expose editable health and vigor fields.")
+            return
+        blob = bytearray(self._save_data.decompressed_blob)
+        struct.pack_into('<q', blob, hp_offset, health)
+        struct.pack_into('<q', blob, mp_offset, vigor)
+        self._save_data.decompressed_blob = blob
+        extra['_currentHp'], extra['_currentMp'] = health, vigor
+        self._dirty = True
+        status.setText("Health and vigor updated — save with Ctrl+S.")
+
+    def _rename_merc_entry(self, merc: dict, status: QLabel) -> None:
+        from PySide6.QtWidgets import QInputDialog
+        current = merc.get('name') or ''
+        new_name, ok = QInputDialog.getText(self, "Rename companion", "Custom name:", text=current)
+        if not ok or not new_name.strip():
+            return
+        try:
+            from save_pet_rename import patch_mercenary_name, parse_reflection_layout, find_mercenary_bitmap_positions
+            plaintext = bytearray(self._save_data.decompressed_blob)
+            layout = parse_reflection_layout(bytes(plaintext))
+            target = next((item for item in find_mercenary_bitmap_positions(bytes(plaintext), layout)
+                           if item['mercenary_no'] == merc['merc_no']), None)
+            if not target:
+                raise ValueError("Companion record was not found in the loaded save.")
+            self._save_data.decompressed_blob = bytearray(patch_mercenary_name(plaintext, layout, target, new_name.strip()))
+            self._dirty = True
+            merc['name'] = new_name.strip()
+            status.setText("Name updated — save with Ctrl+S.")
+            self._merc_refresh()
+        except Exception as exc:
+            QMessageBox.critical(self, "Rename error", str(exc))
+
     def _merc_rename(self) -> None:
         log.info("_merc_rename: entered (save=%s, entries=%d, current_row=%d)",
                  bool(self._save_data),
@@ -7829,7 +8594,7 @@ QCheckBox::indicator {{
                                     f"Selected row {row} is out of range.")
             return
 
-        merc = self._merc_entries[row]
+        merc = self._merc_visible_entries[row]
         current = merc['name'] if merc['name'] else ""
         log.info("_merc_rename: opening dialog for row=%d merc_no=%s char_key=%s current=%r",
                  row, merc.get('merc_no'), merc.get('char_key'), current)
@@ -7889,7 +8654,7 @@ QCheckBox::indicator {{
             QMessageBox.information(self, "Mercenary", "Select a mercenary first.")
             return
 
-        merc = self._merc_entries[row]
+        merc = self._merc_visible_entries[row]
         if not merc['name_present']:
             QMessageBox.information(self, "Mercenary", "This mercenary has no name to clear.")
             return
@@ -8663,6 +9428,14 @@ QCheckBox::indicator {{
 
     def _populate_repurchase(self) -> None:
         self._repurch_items = self._scan_repurchase_items()
+        # The old store-specific scanner is only able to read the pre-release
+        # item layout.  The schema-aware inventory reader already identifies
+        # StoreSaveData records reliably, so use it whenever the legacy pass
+        # cannot find the current save's vendor entries.
+        if not self._repurch_items:
+            self._repurch_items = [
+                item for item in self._items if item.source == "Sold to Vendor"
+            ]
         log.info("Repurchase scan: found %d vendor items", len(self._repurch_items))
         for it in self._repurch_items[:5]:
             log.info("  vendor item: key=%d name=%s vendor=%s off=0x%X",
@@ -8686,6 +9459,11 @@ QCheckBox::indicator {{
                 or search in i.source.lower()
                 or search in self._name_db.get_internal_name(i.item_key).lower()
             ]
+
+        if hasattr(self, "_repurch_summary"):
+            self._repurch_summary.setText(
+                f"{len(filtered)} vendor items shown  |  Buy an edited item back in-game to receive it"
+            )
 
         table.setRowCount(len(filtered))
         for row, item in enumerate(filtered):
@@ -8719,6 +9497,25 @@ QCheckBox::indicator {{
 
         table.setSortingEnabled(True)
         self._repurch_count.setText(f"{len(filtered)} items")
+        self._update_repurchase_selection_summary()
+
+    def _update_repurchase_selection_summary(self) -> None:
+        if not hasattr(self, "_repurch_selection_label"):
+            return
+        selected = self._get_repurch_selected()
+        if not selected:
+            self._repurch_selection_label.setText("Select an item to edit or clone it")
+            return
+        if len(selected) == 1:
+            item = selected[0]
+            self._repurch_selection_label.setText(
+                f"{item.name or 'Unknown item'}  |  {item.source}  |  stack {item.stack_count}"
+            )
+            blocker = QSignalBlocker(self._repurch_stack)
+            self._repurch_stack.setValue(min(max(1, item.stack_count), self._repurch_stack.maximum()))
+            del blocker
+            return
+        self._repurch_selection_label.setText(f"{len(selected)} items selected — stack applies to all selected rows")
 
     def _get_repurch_selected(self) -> List[SaveItem]:
         rows = set(idx.row() for idx in self._repurch_table.selectedIndexes())
@@ -10104,19 +10901,11 @@ QCheckBox::indicator {{
     def _build_quest_editor_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
-
-        qe_font = tab.font()
-        base_size = qe_font.pointSizeF()
-        if base_size > 1:
-            qe_font.setPointSizeF(base_size * 0.82)
-            tab.setFont(qe_font)
-
-        layout.addWidget(self._make_scope_label("save"))
+        layout.setContentsMargins(16, 14, 16, 12)
+        layout.setSpacing(10)
 
         top_row = QHBoxLayout()
-        qe_load_btn = QPushButton("Load Quests")
+        qe_load_btn = QPushButton("Load quest data")
         qe_load_btn.setObjectName("accentBtn")
         qe_load_btn.setToolTip("Parse quest data from the loaded save")
         qe_load_btn.clicked.connect(self._qe_load)
@@ -10134,7 +10923,11 @@ QCheckBox::indicator {{
         self._qe_state_filter.currentTextChanged.connect(self._qe_filter)
         top_row.addWidget(self._qe_state_filter)
 
-        self._qe_status = QLabel("")
+        self._qe_detail_toggle = QCheckBox("Stages and world tools")
+        self._qe_detail_toggle.setToolTip("Show stage and world-object tools for the selected quest")
+        top_row.addWidget(self._qe_detail_toggle)
+
+        self._qe_status = QLabel("Load quest data to begin.")
         self._qe_status.setStyleSheet(f"color: {COLORS['accent']}; padding: 4px;")
         top_row.addWidget(self._qe_status)
 
@@ -10150,17 +10943,18 @@ QCheckBox::indicator {{
 
         self._qe_table = QTableWidget()
         self._qe_table.setColumnCount(10)
-        self._qe_table.setHorizontalHeaderLabels(["Key", "Name", "State", "Status", "Completed", "Type", "Category", "Characters", "Stages", "Chain"])
+        self._qe_table.setHorizontalHeaderLabels(["Key", "Quest", "State", "Status", "Completed", "Type", "Category", "Characters", "Stages", "Chain"])
         self._qe_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._qe_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self._qe_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._qe_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
-        self._qe_table.setColumnWidth(1, 200)
-        self._qe_table.verticalHeader().setDefaultSectionSize(18)
+        self._qe_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._qe_table.verticalHeader().setDefaultSectionSize(24)
         self._qe_table.setSortingEnabled(True)
         self._qe_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self._qe_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._qe_table.customContextMenuRequested.connect(self._qe_context_menu)
+        for column in (7, 8, 9):
+            self._qe_table.setColumnHidden(column, True)
         top_layout.addWidget(self._qe_table, 1)
 
         btn_row = QHBoxLayout()
@@ -10226,6 +11020,19 @@ QCheckBox::indicator {{
         adv_edit_btn.setToolTip("Raw PARC field editor for selected quest")
         adv_edit_btn.clicked.connect(self._qe_advanced_edit)
         btn_row.addWidget(adv_edit_btn)
+
+        self._qe_advanced_toggle = QCheckBox("Advanced actions")
+        self._qe_advanced_toggle.setToolTip("Show batch, diagnostics, and raw state editing")
+        btn_row.addWidget(self._qe_advanced_toggle)
+        self._qe_advanced_action_widgets = [
+            qe_reset_avail, qe_batch, self._qe_state_combo, qe_set_state,
+            diag_btn, health_btn, adv_edit_btn,
+        ]
+        for widget in self._qe_advanced_action_widgets:
+            widget.setVisible(False)
+        self._qe_advanced_toggle.toggled.connect(
+            lambda visible: [widget.setVisible(visible) for widget in self._qe_advanced_action_widgets]
+        )
 
         top_layout.addLayout(btn_row)
 
@@ -10352,8 +11159,12 @@ QCheckBox::indicator {{
         splitter.setStretchFactor(1, 2)
         layout.addWidget(splitter, 1)
 
+        self._qe_detail_toggle.toggled.connect(bottom_splitter.setVisible)
+        bottom_splitter.setVisible(False)
+
         warn = QLabel("Changing quest/stage/gimmick states can have unpredictable effects. Always back up first.")
         warn.setStyleSheet(f"color: {COLORS['error']}; font-size: 9px; padding: 1px;")
+        warn.setVisible(False)
         layout.addWidget(warn)
 
         self._quest_editor_tab = tab
@@ -14861,8 +15672,26 @@ QCheckBox::indicator {{
             "Changes are written directly to the save blob."
         )
         info.setWordWrap(True)
+        info.setText("Manage world-node discovery from the loaded save.")
         info.setStyleSheet(f"color: {COLORS['text_dim']}; padding: 4px;")
         layout.addWidget(info)
+
+        self._faction_summary = QLabel("Load faction data to view world nodes.")
+        self._faction_summary.setStyleSheet(f"color: {COLORS['accent']}; font-size: 11px;")
+        layout.addWidget(self._faction_summary)
+
+        faction_actions = QHBoxLayout()
+        load_factions_btn = QPushButton("Load faction data")
+        load_factions_btn.setObjectName("accentBtn")
+        load_factions_btn.setToolTip("Read faction and world-node data from the loaded save")
+        load_factions_btn.clicked.connect(self._populate_faction_tab)
+        faction_actions.addWidget(load_factions_btn)
+        faction_actions.addStretch()
+        layout.addLayout(faction_actions)
+
+        self._faction_advanced_toggle = QCheckBox("Show technical faction data")
+        self._faction_advanced_toggle.setToolTip("Show raw faction records, companion bonds, gathering levels, and scalar fields")
+        layout.addWidget(self._faction_advanced_toggle)
 
         grp1 = QGroupBox("Faction Elements")
         grp1_layout = QVBoxLayout(grp1)
@@ -14883,7 +15712,7 @@ QCheckBox::indicator {{
         grp1_layout.addWidget(self._faction_elem_table)
         layout.addWidget(grp1)
 
-        grp2 = QGroupBox("Faction Nodes")
+        grp2 = QGroupBox("World nodes")
         grp2_layout = QVBoxLayout(grp2)
         self._faction_node_table = QTableWidget()
         self._faction_node_table.setColumnCount(5)
@@ -14910,7 +15739,7 @@ QCheckBox::indicator {{
         node_btn_row.addStretch()
         grp2_layout.addLayout(node_btn_row)
 
-        layout.addWidget(grp2)
+        layout.addWidget(grp2, 1)
 
         edit_grp = QGroupBox("Editable Fields")
         edit_layout = QVBoxLayout(edit_grp)
@@ -14964,8 +15793,16 @@ QCheckBox::indicator {{
         grp4_layout.addWidget(self._sublevel_table)
         layout.addWidget(grp4)
 
+        self._faction_advanced_widgets = [grp1, edit_grp, grp3, grp4]
+        self._faction_advanced_toggle.toggled.connect(self._set_faction_advanced_tools)
+        self._set_faction_advanced_tools(False)
+
         self._faction_tab_widget = tab
         self._tabs.addTab(tab, "Faction")
+
+    def _set_faction_advanced_tools(self, visible: bool) -> None:
+        for widget in getattr(self, "_faction_advanced_widgets", []):
+            widget.setVisible(visible)
 
     def _parse_faction_list_elements(self, bp, raw_bytes, abs_start, list_field_name):
         import parc_serializer as ps
@@ -15109,7 +15946,11 @@ QCheckBox::indicator {{
         self._faction_count.setText("")
 
         if not self._save_data:
+            self._faction_summary.setText("Load a save to view world nodes.")
             return
+
+        self._faction_summary.setText("Reading faction data...")
+        QApplication.processEvents()
 
         faction_names = {}
         node_names = {}
@@ -15242,11 +16083,15 @@ QCheckBox::indicator {{
             self._faction_count.setText(
                 f"{len(elem_entries)} factions, {len(node_entries)} nodes"
             )
+            self._faction_summary.setText(
+                f"{len(node_entries)} world nodes found  |  Right-click a node for its available actions"
+            )
 
         except Exception as exc:
             import traceback; traceback.print_exc()
             log.warning("Faction tab populate failed: %s", exc)
             self._faction_count.setText(f"Parse error: {exc}")
+            self._faction_summary.setText("Faction data could not be read from this save.")
 
         self._populate_bonds()
         self._populate_sublevels()
@@ -15824,7 +16669,11 @@ QCheckBox::indicator {{
                 QMessageBox.warning(self, "Community Mods",
                     "Game installation not found. Set path using the Browse button at the top.")
                 return None
-            from mod_loader import CommunityModLoader
+            try:
+                from mod_loader import CommunityModLoader
+            except ImportError:
+                log.info("Community Mods are unavailable in the Standalone build.")
+                return None
             self._cmod_loader = CommunityModLoader(game_path)
             self._cmod_loader.ensure_folders()
         return self._cmod_loader
@@ -16020,7 +16869,11 @@ QCheckBox::indicator {{
                 game_path = PazPatchManager.find_game_path()
             if not game_path:
                 return None
-            from mod_loader import AsiManager
+            try:
+                from mod_loader import AsiManager
+            except ImportError:
+                log.info("ASI plugins are unavailable in the Standalone build.")
+                return None
             self._asi_manager = AsiManager(game_path)
         return self._asi_manager
 
@@ -30882,55 +31735,16 @@ QCheckBox::indicator {{
         return dirs
 
     def _pack_browser_refresh(self) -> None:
-        from PySide6.QtWidgets import QTreeWidgetItem
-        self._pack_tree.clear()
-        self._pack_data = {}
+        """Refresh pack browser - no-op in new UI since pack tree was removed."""
+        pass
 
-        import json as _json
+    def _pack_browser_clear(self) -> None:
+        """Clear pack browser - no-op in new UI."""
+        pass
 
-        for pack_dir in self._get_pack_dirs():
-            folder_name = os.path.basename(pack_dir)
-            cat_label = "Quest Packs" if "quest" in folder_name else "Knowledge Packs"
-            cat_node = QTreeWidgetItem([cat_label])
-            cat_node.setForeground(0, QBrush(QColor(COLORS['accent'])))
-            self._pack_tree.addTopLevelItem(cat_node)
-
-            try:
-                for fname in sorted(os.listdir(pack_dir)):
-                    if not fname.endswith('.json'):
-                        continue
-                    path = os.path.join(pack_dir, fname)
-                    try:
-                        with open(path, 'r') as f:
-                            pack = _json.load(f)
-                        pack_name = pack.get('name', fname.replace('.json', ''))
-                        pack_type = pack.get('type', 'quest' if 'quest' in folder_name else 'knowledge')
-                        entries = pack.get('quests', pack.get('entries', []))
-                        count = len(entries)
-
-                        pack_node = QTreeWidgetItem([f"{pack_name} ({count})"])
-                        pack_node.setData(0, Qt.UserRole, path)
-                        pack_node.setData(0, Qt.UserRole + 1, pack_type)
-                        cat_node.addChild(pack_node)
-                        self._pack_data[path] = pack
-
-                        for entry in entries:
-                            key = entry.get('key', '')
-                            display = entry.get('display', entry.get('name', ''))
-                            label = f"{key}: {display}" if display else str(key)
-                            child = QTreeWidgetItem([label])
-                            child.setData(0, Qt.UserRole, path)
-                            child.setData(0, Qt.UserRole + 1, pack_type)
-                            child.setData(0, Qt.UserRole + 2, key)
-                            child.setForeground(0, QBrush(QColor(COLORS['text_dim'])))
-                            pack_node.addChild(child)
-
-                    except Exception:
-                        pass
-            except OSError:
-                pass
-
-            cat_node.setExpanded(True)
+    def _pack_tree_item_clicked(self, item, column) -> None:
+        """Handle pack tree item click - no-op in new UI."""
+        pass
 
     def _pack_browser_create(self) -> None:
         pack_name = self._pack_name_input.text().strip()
@@ -31098,7 +31912,7 @@ QCheckBox::indicator {{
         os.makedirs(pack_dir, exist_ok=True)
         os.startfile(pack_dir)
 
-    def _build_backup_tab(self) -> None:
+    def _build_backup_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -31148,7 +31962,7 @@ QCheckBox::indicator {{
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
-        self._backup_tab_index = self._tabs.addTab(tab, tr("tab.backup"))
+        return tab
 
 
     def _build_status_bar(self) -> None:
@@ -31435,7 +32249,29 @@ QCheckBox::indicator {{
 
         self._quest_entries = []
         self._mission_entries = []
-        self._items = scan_items(self._save_data.decompressed_blob)
+        # A newly opened save must not inherit a narrow filter (for example
+        # Kuku or Vendor) from the previously viewed save.
+        if hasattr(self, '_inv_subtabs'):
+            blocker = QSignalBlocker(self._inv_subtabs)
+            self._inv_subtabs.setCurrentIndex(0)
+            del blocker
+        if hasattr(self, '_inv_search'):
+            blocker = QSignalBlocker(self._inv_search)
+            self._inv_search.clear()
+            del blocker
+        if hasattr(self, '_inv_group'):
+            blocker = QSignalBlocker(self._inv_group)
+            self._inv_group.setCurrentText("All")
+            del blocker
+        # Prefer the schema-aware PARC reader.  The legacy pattern scanner was
+        # written for early saves and discards current seven-digit item IDs.
+        parc_items, parc_status = scan_items_parc(self._save_data.decompressed_blob)
+        if parc_items:
+            self._items = parc_items
+            self._parc_status = parc_status
+        else:
+            self._items = scan_items(self._save_data.decompressed_blob)
+            self._parc_status = parc_status
 
         for item in self._items:
             item.name = self._name_db.get_name(item.item_key)
@@ -31443,14 +32279,20 @@ QCheckBox::indicator {{
 
         self._fix_duplicate_item_nos()
 
-        self._status_parc_label.setText("Loading... (PARC enriching in background)")
-        self._status_parc_label.setStyleSheet(f"color: {COLORS['warning']}; padding: 0 8px;")
+        if parc_items:
+            self._status_parc_label.setText(parc_status)
+            self._status_parc_label.setStyleSheet(f"color: {COLORS['success']}; padding: 0 8px;")
+        else:
+            self._status_parc_label.setText("Loading... (PARC enriching in background)")
+            self._status_parc_label.setStyleSheet(f"color: {COLORS['warning']}; padding: 0 8px;")
         self._populate_inventory()
         self._populate_equipment()
+        self._populate_repurchase()
         self._populate_socket_items()
 
         from PySide6.QtCore import QTimer
-        QTimer.singleShot(100, self._deferred_parc_enrich)
+        if not parc_items:
+            QTimer.singleShot(100, self._deferred_parc_enrich)
 
     def _deferred_parc_enrich(self) -> None:
         if not self._save_data or not self._items:
@@ -31514,6 +32356,13 @@ QCheckBox::indicator {{
                 or search in self._name_db.get_internal_name(i.item_key).lower()
             ]
 
+        if hasattr(self, "_inv_summary_label"):
+            self._inv_summary_label.setText(
+                f"{len(filtered)} shown  |  {len(self._items)} parsed items  |  Use the sidebar to switch storage"
+            )
+        if hasattr(self, "_inv_count_label"):
+            self._inv_count_label.setText(f"{len(filtered)} shown")
+
         table.setRowCount(len(filtered))
 
         for row, item in enumerate(filtered):
@@ -31561,9 +32410,76 @@ QCheckBox::indicator {{
             table.setItem(row, 8, enc_item)
 
         table.setSortingEnabled(True)
+        self._update_inventory_selection_summary()
 
     def _filter_equipment(self) -> None:
         self._populate_equipment()
+
+    def _update_inventory_selection_summary(self) -> None:
+        if not hasattr(self, "_inv_selection_label"):
+            return
+        selected = self._get_selected_items(self._inv_table)
+        if not selected:
+            self._inv_selection_label.setText("Select an item to edit it")
+            return
+        if len(selected) == 1:
+            item = selected[0]
+            self._inv_selection_label.setText(
+                f"{item.name or 'Unknown item'}  •  {item.source}  •  slot {item.slot_no}"
+            )
+            blocker = QSignalBlocker(self._inv_stack_input)
+            self._inv_stack_input.setValue(min(max(1, item.stack_count), self._inv_stack_input.maximum()))
+            del blocker
+            return
+        self._inv_selection_label.setText(f"{len(selected)} items selected — changes apply to all selected rows")
+
+    def _update_equipment_selection_summary(self) -> None:
+        if not hasattr(self, "_equip_selection_label"):
+            return
+        selected = self._get_selected_items(self._equip_table)
+        if not selected:
+            self._equip_selection_label.setText("Select one or more pieces of equipment to edit")
+            if hasattr(self, "_equip_quick_selection_label"):
+                self._equip_quick_selection_label.setText("Select equipment to edit")
+            return
+        if len(selected) == 1:
+            item = selected[0]
+            self._equip_selection_label.setText(
+                f"{item.name or 'Unknown equipment'}  •  slot {item.slot_no}  •  "
+                f"endurance {item.actual_endurance}"
+            )
+            enchant_blocker = QSignalBlocker(self._equip_enchant)
+            stack_blocker = QSignalBlocker(self._equip_stack)
+            self._equip_enchant.setValue(min(max(0, item.enchant_level), self._equip_enchant.maximum()))
+            self._equip_stack.setValue(min(max(1, item.stack_count), self._equip_stack.maximum()))
+            del enchant_blocker, stack_blocker
+            if hasattr(self, "_equip_quick_selection_label"):
+                self._equip_quick_selection_label.setText(self._equip_selection_label.text())
+            if hasattr(self, "_equip_quick_enchant"):
+                blocker = QSignalBlocker(self._equip_quick_enchant)
+                self._equip_quick_enchant.setValue(self._equip_enchant.value())
+                del blocker
+            if hasattr(self, "_equip_quick_stack"):
+                blocker = QSignalBlocker(self._equip_quick_stack)
+                self._equip_quick_stack.setValue(self._equip_stack.value())
+                del blocker
+            return
+        self._equip_selection_label.setText(f"{len(selected)} pieces selected — changes apply to all selected rows")
+
+    def _apply_quick_enchant(self) -> None:
+        """Apply the compact bar's upgrade value through the established handler."""
+        self._equip_enchant.setValue(self._equip_quick_enchant.value())
+        self._set_enchant()
+
+    def _apply_quick_stack(self) -> None:
+        """Apply the compact bar's copy count through the established handler."""
+        self._equip_stack.setValue(self._equip_quick_stack.value())
+        self._set_equip_stack()
+
+    def _apply_quick_duplicate(self) -> None:
+        """Duplicate every equipped item with the count selected in the compact bar."""
+        self._equip_stack.setValue(self._equip_quick_stack.value())
+        self._duplicate_all_equipment()
 
     def _populate_equipment(self) -> None:
         table = self._equip_table
@@ -31580,6 +32496,10 @@ QCheckBox::indicator {{
                 or search in i.category.lower()
                 or search in self._name_db.get_internal_name(i.item_key).lower()
             ]
+        if hasattr(self, "_equip_summary_label"):
+            self._equip_summary_label.setText(
+                f"{len(equip_items)} equipment items ready to edit"
+            )
         table.setRowCount(len(equip_items))
 
         for row, item in enumerate(equip_items):
@@ -31629,6 +32549,7 @@ QCheckBox::indicator {{
             table.setItem(row, 8, _num_item(item.item_no))
 
         table.setSortingEnabled(True)
+        self._update_equipment_selection_summary()
 
     def _toggle_icons(self) -> None:
         self._icons_enabled = not self._icons_enabled
@@ -31713,7 +32634,30 @@ QCheckBox::indicator {{
         self._populate_inventory()
 
     def _on_inv_subtab_changed(self, index: int) -> None:
+        self._update_inventory_filter_buttons(index)
         self._populate_inventory()
+
+    def _set_inventory_filter(self, index: int) -> None:
+        """Select an Inventory source filter from the contextual sidebar."""
+        if not hasattr(self, '_inv_subtabs'):
+            return
+        self._inv_subtabs.setCurrentIndex(index)
+        self._update_inventory_filter_buttons(index)
+
+    def _update_inventory_filter_buttons(self, active_index: int | None = None) -> None:
+        if active_index is None and hasattr(self, '_inv_subtabs'):
+            active_index = self._inv_subtabs.currentIndex()
+        for index, button in enumerate(getattr(self, '_inventory_filter_buttons', [])):
+            selected = index == active_index
+            button.setStyleSheet(
+                "QPushButton { background: %s; color: %s; border: none; text-align: left; "
+                "padding: 6px 16px 6px 28px; font-size: 12px; border-left: 3px solid %s; } "
+                "QPushButton:hover { background: #252535; color: #e8e8ed; }" % (
+                    '#252535' if selected else 'transparent',
+                    '#e8e8ed' if selected else '#9898a4',
+                    '#e07050' if selected else 'transparent',
+                )
+            )
 
     def _update_inv_subtab_counts(self) -> None:
         if not hasattr(self, '_inv_subtabs') or not self._items:
@@ -31733,6 +32677,10 @@ QCheckBox::indicator {{
             else:
                 count = 0
             self._inv_subtabs.setTabText(idx, f"{label} ({count})" if count else label)
+            if idx < len(getattr(self, '_inventory_filter_buttons', [])):
+                self._inventory_filter_buttons[idx].setText(
+                    f"{label} ({count})" if count else label)
+        self._update_inventory_filter_buttons()
 
     def _get_selected_items(self, table: QTableWidget) -> List[SaveItem]:
         rows = set(idx.row() for idx in table.selectedIndexes())

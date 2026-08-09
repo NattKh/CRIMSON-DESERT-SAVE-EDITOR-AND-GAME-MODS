@@ -31,6 +31,11 @@ a = Analysis(
         ('knowledge_packs', 'knowledge_packs'),
     ],
     hiddenimports=[
+        'PySide6',
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'PySide6.scripts',
         'lz4',
         'lz4.block',
         'cryptography',
@@ -61,24 +66,11 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-splash = Splash(
-    'splash.png',
-    binaries=a.binaries,
-    datas=a.datas,
-    text_pos=(24, 195),
-    text_size=10,
-    text_color='#F0F0F5',
-    text_default='Initializing...',
-    always_on_top=True,
-)
-
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
     a.datas,
-    splash,
-    splash.binaries,
     [],
     name='CrimsonSaveEditorStandalone',
     debug=False,

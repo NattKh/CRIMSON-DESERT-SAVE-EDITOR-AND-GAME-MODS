@@ -465,44 +465,63 @@ def scan_items_parc(data: bytes | bytearray) -> Tuple[List[SaveItem], str]:
     if item_type_idx is None:
         return [], "ItemSaveData type not found in schema"
 
-    try:
-        bp = parc_mod.BlockParser(parc_blob)
-    except Exception as e:
-        return [], f"BlockParser init failed: {e}"
-
-    items: List[SaveItem] = []
-    parse_errors = 0
-
+    # ItemSaveData locators can live inside deeply nested lists.  Parsing only
+    # the first level of a root block misses most inventory entries in newer
+    # saves, whose item ids are also above the old 999999 heuristic limit.
+    # Scan the known item-owning root blocks for valid PARC locators instead.
+    root_sources = {
+        "EquipmentSaveData": ("Equipment", 0),
+        "InventorySaveData": ("Inventory", 0),
+        "StoreSaveData": ("Sold to Vendor", 0),
+        "MercenaryClanSaveData": ("Mercenary", 1),
+        "FieldSaveData": ("World / NPC", 1),
+    }
+    root_ranges: List[Tuple[int, int, str, int]] = []
     for entry in parc_blob.toc_entries:
         td = parc_blob.type_by_index.get(entry.class_index)
-        if td is None:
-            continue
+        source = root_sources.get(td.name if td else "")
+        if source:
+            root_ranges.append((entry.data_offset, entry.data_offset + entry.data_size, *source))
 
-        if td.name not in (
-            "InventorySaveData", "EquipmentSaveData", "StoreSaveData",
-            "MercenaryClanSaveData", "InventoryItemContentsSaveData",
-            "GameEventSaveData", "FieldSaveData", "FriendlySaveData",
-        ):
-            continue
+    items: List[SaveItem] = []
+    seen_locators: set[int] = set()
+    for start, end, source, section in root_ranges:
+        start = max(0, start)
+        end = min(len(data), end)
+        for locator in range(start, end - 24):
+            if locator in seen_locators:
+                continue
+            mask_count = struct.unpack_from("<H", data, locator)[0]
+            if not 0 < mask_count <= 16:
+                continue
+            type_offset = locator + 2 + mask_count
+            if type_offset + 15 > end:
+                continue
+            if struct.unpack_from("<H", data, type_offset)[0] != item_type_idx:
+                continue
+            sentinel1, sentinel2, payload_offset = struct.unpack_from("<III", data, type_offset + 3)
+            if sentinel1 != 0xFFFFFFFF or sentinel2 != 0xFFFFFFFF:
+                continue
+            if payload_offset != type_offset + 15 or payload_offset + 4 > end:
+                continue
 
-        try:
-            parsed = bp.parse_root_block(entry.index)
-        except Exception:
-            parse_errors += 1
-            continue
-
-        found = _find_item_fields_in_parsed(data, parsed, td.name, item_type_idx, parc_blob)
-        items.extend(found)
+            item = _parse_item_payload(
+                data, data[locator + 2:locator + 2 + mask_count], payload_offset,
+                parc_blob.type_by_index[item_type_idx], locator, source, "",
+            )
+            if item is None:
+                continue
+            item.source = source
+            item.section = section
+            items.append(item)
+            seen_locators.add(locator)
 
     if not items:
-        return [], f"PARC parsed 0 items ({parse_errors} block errors)"
+        return [], "PARC parsed 0 valid items"
 
     _classify_items(data, items)
 
-    status = f"PARC mode: {len(items)} items, 22 fields tracked per item"
-    if parse_errors:
-        status += f" ({parse_errors} block parse errors)"
-    return items, status
+    return items, f"PARC mode: {len(items)} items, 22 fields tracked per item"
 
 
 def _find_item_fields_in_parsed(
@@ -627,7 +646,10 @@ def _parse_item_payload(
         field_offsets: Dict[str, int] = {}
         values: Dict[str, any] = {}
 
-        for i in range(min(13, len(item_td.fields))):
+        # Fields 0..13 are fixed-size in the current schema.  Field 13 is
+        # _validSocketCount; keep its offset so socket edits target the real
+        # record rather than the pre-release field layout.
+        for i in range(min(14, len(item_td.fields))):
             fdef = item_td.fields[i]
             present = _field_present_check(mask_bytes, i)
             if not present:
@@ -718,7 +740,9 @@ def _parse_item_payload(
         endurance = values.get("_endurance", 0)
         sharpness = values.get("_sharpness", 0)
 
-        if item_no < 1 or item_no > 999999:
+        # Modern Crimson Desert saves use seven-digit item numbers.  The old
+        # six-digit cap made almost every real item disappear from the editor.
+        if item_no < 1 or item_no > 50_000_000:
             return None
         if item_key < 1 or item_key > 0x7FFFFFFF:
             return None

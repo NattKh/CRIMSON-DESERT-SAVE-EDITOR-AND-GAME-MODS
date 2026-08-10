@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased - Pack Storage and Insertion Fixes
+
+### Improved
+
+- Downloaded community pack JSON files are kept in the editor's local `packs` folder beside the executable, so the same editor installation can immediately list and inject them.
+- The Add Pack confirmation now identifies the selected destination storage before any change is made.
+
+### Fixed
+
+- Fixed Add Pack failing after a successful insertion because its result message referenced an undefined value.
+- Fixed batch pack insertion silently falling back to another inventory container when the selected storage could not be found.
+- Pack insertion now requires and preserves the user's selected storage container.
+
+### Privacy
+
+- No save files, local editor configuration, downloaded packs, test data, or build artifacts are included in Git commits.
+
 ## v1.0.9 - Companion, Inventory and Item Creation Update
 
 ### Added

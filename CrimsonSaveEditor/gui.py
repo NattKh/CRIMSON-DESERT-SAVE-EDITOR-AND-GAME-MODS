@@ -6514,6 +6514,14 @@ QCheckBox::indicator {{
             QMessageBox.warning(self, "Add Pack", "Pack has no items.")
             return
 
+        target_bag_key, target_storage = self._choose_inventory_storage_key()
+        if target_bag_key is None:
+            QMessageBox.information(
+                self, "Add Pack",
+                "Choose a storage container before adding this pack.",
+            )
+            return
+
         item_lines = []
         for it in items[:10]:
             name = self._name_db.get_name(it.get("item_key", 0))
@@ -6524,7 +6532,7 @@ QCheckBox::indicator {{
 
         reply = QMessageBox.question(
             self, "Add Pack (PARC Insert)",
-            f"Insert {len(items)} items from '{pack_data.get('name', '?')}' into inventory?\n\n"
+            f"Create {len(items)} items from '{pack_data.get('name', '?')}' in {target_storage}?\n\n"
             + "\n".join(item_lines) + "\n\n"
             f"Items will be ADDED as new — no donor items needed.\n"
             f"May require 2 reloads but not usually.",
@@ -6547,7 +6555,9 @@ QCheckBox::indicator {{
 
             blob = bytearray(self._save_data.decompressed_blob)
             if insert_items_batch is not None:
-                ok, new_blob, msg = insert_items_batch(blob, batch, bag_key=2)
+                ok, new_blob, msg = insert_items_batch(
+                    blob, batch, bag_key=target_bag_key, strict_bag=True,
+                )
             else:
                 ok, new_blob, msg = False, blob, "PARC inserter not available"
 
@@ -6566,9 +6576,7 @@ QCheckBox::indicator {{
             self._dirty = True
             self._scan_and_populate()
 
-        result_msg = f"Inserted {inserted}/{len(items)} items."
-        if failed > 0:
-            result_msg += f" {failed} failed."
+        result_msg = f"Inserted {inserted}/{len(items)} items in {target_storage}."
         result_msg += "\nSave (Ctrl+S), then reload in-game (may require 2 reloads but not usually)."
 
         self._update_status(result_msg)

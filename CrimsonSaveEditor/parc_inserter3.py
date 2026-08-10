@@ -724,6 +724,7 @@ def insert_items_batch(
     blob: bytearray,
     items: List[Tuple[int, int, int]],
     bag_key: int = 2,
+    strict_bag: bool = False,
 ) -> Tuple[bool, bytearray, str]:
     if not items:
         return False, blob, "No items to insert"
@@ -736,6 +737,7 @@ def insert_items_batch(
         ok, new_blob, msg = insert_item_to_inventory(
             current_blob, item_key=item_key, stack_count=stack_count,
             slot_no=slot_no, bag_key=bag_key, skip_verify=True,
+            strict_bag=strict_bag,
         )
         if not ok:
             if inserted == 0:

@@ -12,6 +12,7 @@
 - Fixed Add Pack failing after a successful insertion because its result message referenced an undefined value.
 - Fixed batch pack insertion silently falling back to another inventory container when the selected storage could not be found.
 - Pack insertion now requires and preserves the user's selected storage container.
+- Fixed multi-item pack insertion corrupting an inventory-list wrapper when its internal list header is offset from the field start.
 
 ### Privacy
 

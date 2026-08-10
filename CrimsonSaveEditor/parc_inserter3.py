@@ -862,24 +862,40 @@ def insert_item_to_inventory(
     blob = bytearray(orig_blob)
     blob[insert_pos:insert_pos] = new_item
 
+    # ``start_offset`` is the beginning of the field wrapper.  Object-list
+    # headers can start a few bytes later inside that wrapper (the parser
+    # records this as ``header_offset=+N``).  Updating the wrapper bytes
+    # corrupts the parent InventorySaveData list, which is exactly what made
+    # multi-item pack insertion fail after its first item.
     list_start = target_items.start_offset
+    header_offset = 0
+    header_note = getattr(target_items, 'note', '') or ''
+    if header_note.startswith('header_offset=+'):
+        try:
+            header_offset = int(header_note.split('+', 1)[1])
+        except ValueError:
+            header_offset = 0
+    list_header_start = list_start + header_offset
     list_header_size = getattr(target_items, 'list_header_size', 18)
     prefix = target_items.list_prefix_u8 if hasattr(target_items, 'list_prefix_u8') else 0
-    old_count = len(target_items.list_elements)
+    old_count = getattr(target_items, 'list_count', len(target_items.list_elements))
     new_count = old_count + 1
 
     if prefix == 1:
-        struct.pack_into('>H', blob, list_start + 1, new_count)
+        struct.pack_into('>H', blob, list_header_start + 1, new_count)
     elif prefix == 0:
-        orig_byte1 = orig_blob[list_start + 1]
-        orig_byte2 = orig_blob[list_start + 2]
+        orig_byte1 = orig_blob[list_header_start + 1]
+        orig_byte2 = orig_blob[list_header_start + 2]
         if orig_byte1 == 0 and orig_byte2 == 0:
-            struct.pack_into('<I', blob, list_start + 4, new_count)
+            struct.pack_into('<I', blob, list_header_start + 4, new_count)
         else:
-            blob[list_start + 1] = new_count & 0xFF
-            blob[list_start + 2] = (new_count >> 8) & 0xFF
-            blob[list_start + 3] = (new_count >> 16) & 0xFF
-    log.info("List count: %d -> %d (prefix=%d at 0x%X)", old_count, new_count, prefix, list_start)
+            blob[list_header_start + 1] = new_count & 0xFF
+            blob[list_header_start + 2] = (new_count >> 8) & 0xFF
+            blob[list_header_start + 3] = (new_count >> 16) & 0xFF
+    log.info(
+        "List count: %d -> %d (prefix=%d at 0x%X, header +%d)",
+        old_count, new_count, prefix, list_header_start, header_offset,
+    )
 
     from parc_inserter2 import parse_and_collect
     _, offset_positions, trailing_sizes_tree = parse_and_collect(orig_blob)

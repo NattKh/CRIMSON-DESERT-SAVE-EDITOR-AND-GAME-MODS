@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased - Companion Catalog Fixes
+
+### Fixed
+
+- Fixed the Mounts tab confusing the standard Wyvern, Wyvern Variant, Visione Wyvern, and Dimensional Wyvern entries.
+- Expanded the Pets catalog from 78 to 103 unique dog/cat companion IDs.
+- Added recognized puppy, boarhound, greyhound, wolfdog, bulldog, domestic cat, Calico Cat, Milou, and Remy entries to the Pets tab.
+
+### Validation
+
+- `python -m py_compile CrimsonSaveEditor/gui.py`
+- Companion-name regression test passed for IDs `30507`, `30508`, `1000691`, and `1000407`.
+- Pet catalog validation passed with 103 unique dog/cat IDs.
+- Built executable: `CrimsonSaveEditor/dist-pets-fix/CrimsonSaveEditorStandalone.exe`.
+
 ## Unreleased - Pack Storage and Insertion Fixes
 
 ### Improved

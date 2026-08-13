@@ -249,6 +249,43 @@
       ],
       "Calphade Military Dog Boarhound": [
         32427
+      ],
+      "Brown Puppy": [
+        1001855
+      ],
+      "Spotted Puppy": [
+        1000370
+      ],
+      "Tan Puppy": [
+        1001856
+      ],
+      "Guard Dog Boarhound": [
+        59002
+      ],
+      "Warhound": [
+        31195
+      ],
+      "Wild Boarhound": [
+        31194
+      ],
+      "Wild Greyhound": [
+        32279
+      ],
+      "Wolfdog": [
+        1000371
+      ],
+      "Pointy-Eared Bulldog": [
+        30186,
+        1003667,
+        1003668,
+        1003669,
+        1003670,
+        1003671,
+        1003672,
+        1003673
+      ],
+      "Remy": [
+        1001685
       ]
     },
     "Cat": {
@@ -302,6 +339,20 @@
         1000357,
         1000358,
         1000359
+      ],
+      "Calico Cat on the Roof": [
+        500487
+      ],
+      "Domestic Cat": [
+        30024,
+        1000312,
+        1000313,
+        1000314,
+        1000315,
+        1000316
+      ],
+      "Milou": [
+        1000702
       ]
     }
   }

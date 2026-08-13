@@ -8867,7 +8867,20 @@ QCheckBox::indicator {{
         1002989: "Greymane (1002989)",
     }
 
+    # Explicit overrides for mount IDs whose catalog display names are not unique.
+    # The catalog currently labels multiple distinct wyvern variants simply as
+    # "Wyvern", so these IDs must be resolved before consulting the generic catalog.
+    COMPANION_DISPLAY_OVERRIDES = {
+        30507: "Wyvern",
+        30508: "Wyvern (Variant)",
+        1000691: "Visione Wyvern",
+        1000407: "Dimensional Wyvern",
+    }
+
     def _merc_identify_type(self, char_key: int) -> str:
+        override = self.COMPANION_DISPLAY_OVERRIDES.get(char_key)
+        if override:
+            return override
         catalog_entry = getattr(self, '_character_catalog', {}).get(char_key)
         if catalog_entry:
             return catalog_entry.get('display_name') or catalog_entry.get('internal_name') or f"Character {char_key}"

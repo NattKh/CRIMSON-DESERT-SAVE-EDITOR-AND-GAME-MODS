@@ -971,6 +971,27 @@ class ItemBuffPatcher:
     def extract_iteminfo(self) -> bytes:
         try:
             import crimson_rs
+            decompressed = bytes(crimson_rs.extract_file(
+                self.game_path,
+                "0008",
+                "gamedata/binary__/client/bin",
+                "iteminfo.pabgb",
+            ))
+            self._original_data = decompressed
+            self.paz_path = os.path.join(self.game_path, "0008", "0.paz")
+            log.info(
+                "Extracted iteminfo.pabgb via crimson_rs.extract_file: %d bytes",
+                len(decompressed),
+            )
+            return decompressed
+        except Exception as ex:
+            log.warning(
+                "crimson_rs.extract_file iteminfo extraction failed: %s — trying PAMT scan",
+                ex,
+            )
+
+        try:
+            import crimson_rs
             pamt = crimson_rs.parse_pamt_file(self.pamt_path)
             for d in pamt['directories']:
                 for f in d.get('files', []):

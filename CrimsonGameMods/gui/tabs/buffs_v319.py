@@ -93,6 +93,97 @@ def _patch_docking_108(items):
         if isinstance(dcd, dict):
             _patch_docking_fields(dcd)
 
+
+def _lookup_item_record(lookup, key):
+    """Resolve an item dict from a key that may be int or str."""
+    if not lookup or key is None:
+        return None
+    if key in lookup:
+        return lookup[key]
+    try:
+        ik = int(key)
+    except (TypeError, ValueError):
+        return None
+    found = lookup.get(ik)
+    if found is not None:
+        return found
+    return lookup.get(str(ik))
+
+
+def _prefab_data_type(entry) -> int:
+    if not isinstance(entry, dict):
+        return 0
+    value = entry.get("prefab_data_type", 0)
+    if isinstance(value, dict):
+        value = value.get("a", 0)
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _prefab_slot_list(entry) -> list:
+    if not isinstance(entry, dict):
+        return []
+    slots = entry.get("equip_slot_list") or []
+    out = []
+    for slot in slots:
+        if isinstance(slot, dict):
+            slot = slot.get("a", slot)
+        try:
+            out.append(int(slot))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _match_source_prefab(tgt_entry, src_pdl):
+    """Pick the source prefab context that belongs on this target entry.
+
+    Match type + slot first. Cross-type, only the main hand (slot 0 / empty
+    slots) may reuse a same-type donor. Off-hand keeps the original mesh —
+    a two-hander has no left-hand mesh, and writing its type-3 entry there
+    makes the weapon invisible.
+    """
+    if not src_pdl:
+        return None
+    ty = _prefab_data_type(tgt_entry)
+    tslots = _prefab_slot_list(tgt_entry)
+    for src in src_pdl:
+        if _prefab_data_type(src) == ty and _prefab_slot_list(src) == tslots:
+            return src
+    main_hand = (not tslots) or (0 in tslots)
+    if main_hand:
+        for src in src_pdl:
+            if _prefab_data_type(src) == ty:
+                return src
+    return None
+
+
+def _copy_matched_prefab_names(tgt_pdl, src_pdl):
+    """Copy source prefab_names onto matching target contexts. Returns (n, warnings)."""
+    import copy as _cp
+    changed = 0
+    warnings = []
+    if not isinstance(tgt_pdl, list) or not isinstance(src_pdl, list):
+        return 0, warnings
+    for tgt_entry in tgt_pdl:
+        if not isinstance(tgt_entry, dict):
+            continue
+        src_entry = _match_source_prefab(tgt_entry, src_pdl)
+        if src_entry is None:
+            warnings.append(
+                f"no source mesh for slots {_prefab_slot_list(tgt_entry)} — kept original")
+            continue
+        src_names = src_entry.get("prefab_names") or []
+        if not src_names:
+            continue
+        if src_names == (tgt_entry.get("prefab_names") or []):
+            continue
+        tgt_entry["prefab_names"] = _cp.deepcopy(src_names)
+        changed += 1
+    return changed, warnings
+
 def _safe_iv(v, default=0):
     """Safely extract int from plain int, float, or dmm_parser nested dict.
     dmm_parser returns numeric structs as {'a': int, 'b': int, 'c': int}.
@@ -172,6 +263,11 @@ class ItemBuffsTab(QWidget):
     navigate_requested = Signal(str)
     open_save_browser_requested = Signal()
 
+    # equipslotinfo keys for the 3 player characters (Kliff=1, Damiane=4,
+    # Oongka=6). Only these get their equip slots expanded so weapons/armor
+    # become cross-equippable; NPCs/mercenaries are left untouched.
+    _PLAYER_CHAR_KEYS = {1, 4, 6}
+
     def __init__(
         self,
         name_db: Optional[ItemNameDB] = None,
@@ -230,7 +326,7 @@ class ItemBuffsTab(QWidget):
         if not game_path:
             raise RuntimeError("Cannot parse: no game path for pabgh extraction")
         pabgh = bytes(crimson_rs.extract_file(
-            game_path, '0008', 'gamedata/binary__/client/bin', 'iteminfo.pabgh'))
+            game_path, '0008', 'gamedata/binarystaticinfo__/bin', 'iteminfo.pabgh'))
         countA = _st.unpack_from('<H', pabgh, 0)[0]
         rs = (len(pabgh) - 2) // countA if countA else 8
         entries = []
@@ -265,9 +361,9 @@ class ItemBuffsTab(QWidget):
         # self._buff_data might be overlay data with different offsets — using
         # vanilla pabgh offsets into overlay data reads garbage keys.
         _van_raw = bytes(crimson_rs.extract_file(
-            game_path, '0008', 'gamedata/binary__/client/bin', 'iteminfo.pabgb'))
+            game_path, '0008', 'gamedata/binarystaticinfo__/bin', 'iteminfo.pabgb'))
         _pabgh = bytes(crimson_rs.extract_file(
-            game_path, '0008', 'gamedata/binary__/client/bin', 'iteminfo.pabgh'))
+            game_path, '0008', 'gamedata/binarystaticinfo__/bin', 'iteminfo.pabgh'))
         _pcount = struct.unpack_from('<H', _pabgh, 0)[0]
         _prs = (len(_pabgh) - 2) // _pcount if _pcount else 8
 
@@ -379,6 +475,10 @@ class ItemBuffsTab(QWidget):
         if hasattr(self, "_buff_game_path") and self._buff_game_path is not None:
             self._buff_game_path.setText(self._game_path)
             self._buff_game_path.setToolTip(self._game_path)
+        if self._game_path and hasattr(self, "_EQUIP_BUFF_NAMES"):
+            self._config["game_install_path"] = self._game_path
+            self._apply_client_names()
+            self._buff_rebuild_name_combos()
 
     def set_icons_enabled(self, enabled: bool) -> None:
         if hasattr(self, "_buff_icons_enabled") and self._buff_icons_enabled != enabled:
@@ -505,9 +605,9 @@ class ItemBuffsTab(QWidget):
             more_menu = QMenu(self)
             more_menu.setToolTipsVisible(True)
 
-            act_sync = more_menu.addAction("Sync Buff Names from GitHub")
+            act_sync = more_menu.addAction("Refresh Names from Game")
             act_sync.setToolTip(
-                "Download community-verified buff/stat/passive names.")
+                "Read buff and passive names from your installed Crimson Desert client.")
             act_sync.triggered.connect(self._buff_sync_community_names)
 
             more_menu.addSeparator()
@@ -939,7 +1039,7 @@ class ItemBuffsTab(QWidget):
                 "background-color: #00695C; color: white; font-weight: bold;")
             import_mod_btn.setToolTip(
                 "Reverse-engineer any CDUMM/PAZ mod folder back into an editable "
-                "config.\nPoint at a mod's files/gamedata/binary__/client/bin/"
+                "config.\nPoint at a mod's files/gamedata/binarystaticinfo__/bin/"
                 "iteminfo.pabgb — every modified field becomes editable here.")
             import_mod_btn.clicked.connect(self._buff_import_mod_folder)
             bottom_bar.addWidget(import_mod_btn)
@@ -962,9 +1062,9 @@ class ItemBuffsTab(QWidget):
                 "Import a Pldada/DMM-format JSON byte patch (e.g. Infinity Durability).")
             act_import.triggered.connect(self._buff_import_community_json)
 
-            act_sync = more_menu.addAction("Sync Buff Names from GitHub")
+            act_sync = more_menu.addAction("Refresh Names from Game")
             act_sync.setToolTip(
-                "Download community-verified buff/stat/passive names.")
+                "Read buff and passive names from your installed Crimson Desert client.")
             act_sync.triggered.connect(self._buff_sync_community_names)
 
             more_menu.addSeparator()
@@ -1153,9 +1253,9 @@ class ItemBuffsTab(QWidget):
     def _buff_load_name_data(self) -> None:
         """Populate PASSIVE_SKILL_NAMES, EQUIP_BUFF_NAMES, descriptions.
 
-        Reads skill_english_names.json, buff_database.json, buff_english_names.json,
-        buff_names_community.json, and buff_skill_descriptions.json from a
-        variety of plausible locations (src dir, data subdir, _MEIPASS, cwd).
+        Curated aliases and optional local JSON stay as nicer labels. Missing
+        IDs are filled from the installed client's buffinfo / skill tables
+        (same source DMM uses) so a 2.01 patch does not wait on community JSON.
         """
         import json as _json
         _here = os.path.dirname(os.path.abspath(__file__))
@@ -1364,6 +1464,9 @@ class ItemBuffsTab(QWidget):
                     break
         except Exception:
             pass
+
+        # Live client tables beat the 5-month-old community JSON for new IDs.
+        self._apply_client_names()
 
         # Enchant stat list used by the Stats & Buffs sub-tab's stat combo.
         self._ENCHANT_STAT_LIST = [
@@ -2668,19 +2771,6 @@ class ItemBuffsTab(QWidget):
         bulk_equip_v3_btn.clicked.connect(self._eb_universal_proficiency_v3)
         egl.addWidget(bulk_equip_v3_btn)
 
-        # Dev-only v1 Universal Proficiency.
-        bulk_equip_btn = QPushButton("Universal Proficiency v1 [DEV]")
-        bulk_equip_btn.setStyleSheet(
-            "background-color: #E65100; color: white; font-weight: bold; "
-            "padding: 10px;")
-        bulk_equip_btn.setToolTip(
-            "[DEV] Legacy universal proficiency \u2014 blanket expansion. Kept "
-            "for research. Use the non-DEV button above for production.")
-        bulk_equip_btn.clicked.connect(self._eb_universal_proficiency)
-        bulk_equip_btn.setVisible(self._experimental_mode)
-        egl.addWidget(bulk_equip_btn)
-        self._dev_buff_widgets.append(bulk_equip_btn)
-
         pl.addWidget(equip_grp)
 
         # Sockets group — per-item + bulk, moved from Advanced tab.
@@ -3025,7 +3115,7 @@ class ItemBuffsTab(QWidget):
             gp = game_path or self._config.get('game_install_path', '')
             if not gp:
                 return
-            dp = 'gamedata/binary__/client/bin'
+            dp = 'gamedata/binarystaticinfo__/bin'
             gi_body = bytes(crimson_rs.extract_file(gp, '0008', dp, 'gimmickinfo.pabgb'))
             gi_gh   = bytes(crimson_rs.extract_file(gp, '0008', dp, 'gimmickinfo.pabgh'))
             from gimmickinfo_parser import parse_all_gimmicks
@@ -3076,7 +3166,7 @@ class ItemBuffsTab(QWidget):
         try:
             import crimson_rs
             iteminfo = bytes(crimson_rs.extract_file(
-                game_path, buff_dir, "gamedata/binary__/client/bin",
+                game_path, buff_dir, "gamedata/binarystaticinfo__/bin",
                 "iteminfo.pabgb"))
             
             # Verify overlay is from the SAME game version — if the size
@@ -3121,7 +3211,7 @@ class ItemBuffsTab(QWidget):
             # bundle only iteminfo and DROP these companion files. The user
             # would see UP v2 slot-expansion disappear, imbue class whitelists
             # disappear, etc. — the overlay would drift to partial state.
-            internal_dir = "gamedata/binary__/client/bin"
+            internal_dir = "gamedata/binarystaticinfo__/bin"
             # equipslotinfo — staged by UP v2 / UP v1 (deployed to 0059)
             if (not hasattr(self, '_staged_equip_files')
                     or self._staged_equip_files is None):
@@ -3250,14 +3340,14 @@ class ItemBuffsTab(QWidget):
                 if not _src:
                     try:
                         pabgh = bytes(crimson_rs.extract_file(
-                            game_path, buff_dir, 'gamedata/binary__/client/bin',
+                            game_path, buff_dir, 'gamedata/binarystaticinfo__/bin',
                             'iteminfo.pabgh'))
                     except Exception:
                         pass
                 if not pabgh:
                     try:
                         pabgh = bytes(crimson_rs.extract_file(
-                            game_path, '0008', 'gamedata/binary__/client/bin',
+                            game_path, '0008', 'gamedata/binarystaticinfo__/bin',
                             'iteminfo.pabgh'))
                     except Exception:
                         pabgh = None
@@ -3293,10 +3383,10 @@ class ItemBuffsTab(QWidget):
                     if not _unparsed_raw:
                         try:
                             _van_raw = bytes(crimson_rs.extract_file(
-                                game_path, '0008', 'gamedata/binary__/client/bin',
+                                game_path, '0008', 'gamedata/binarystaticinfo__/bin',
                                 'iteminfo.pabgb'))
                             _van_gh = bytes(crimson_rs.extract_file(
-                                game_path, '0008', 'gamedata/binary__/client/bin',
+                                game_path, '0008', 'gamedata/binarystaticinfo__/bin',
                                 'iteminfo.pabgh'))
                             _van_countA = _pst.unpack_from('<H', _van_gh, 0)[0]
                             _van_rs = (len(_van_gh) - 2) // _van_countA if _van_countA else 8
@@ -3403,7 +3493,7 @@ class ItemBuffsTab(QWidget):
             QMessageBox.warning(self, "Import Mod Folder",
                 "No iteminfo.pabgb found in that folder.\n\n"
                 "Expected path like:\n"
-                "  <mod>/files/gamedata/binary__/client/bin/iteminfo.pabgb")
+                "  <mod>/files/gamedata/binarystaticinfo__/bin/iteminfo.pabgb")
             return
 
         try:
@@ -4586,19 +4676,12 @@ class ItemBuffsTab(QWidget):
 
 
     def _apply_transmog_swaps(self, final_data: bytearray) -> int:
-        """Apply transmog swaps at field level to rust items, then re-serialize.
+        """Copy source meshes onto the target by prefab context, then re-serialize.
 
-        Visual fields copied from source to target:
-          - prefab_data_list              — main mesh/material prefab references
-          - gimmick_visual_prefab_data_list — secondary gimmick visual prefabs
-
-        Special cases:
-          - src_key == 0 (invisible): clears both visual fields on the target
-            so the item renders with no mesh (effectively hidden/invisible).
-          - src field is empty list: treated same as invisible for that field —
-            the empty list IS the data, so it is written (makes item invisible).
-          - src field is None/missing: field is NOT written — preserves whatever
-            the target already had for that field.
+        Prefab entries are equip contexts, not a flat list. A 1H sword has three
+        (main hand, off-hand, type-3) and a 2H sword has two. Index-aligned copy
+        wrote the source type-3 mesh into the target's off-hand slot and the
+        item went invisible — the DMM 2.01 matcher uses type + slot instead.
         """
         if not getattr(self, '_transmog_swaps', None):
             return 0
@@ -4609,65 +4692,47 @@ class ItemBuffsTab(QWidget):
                 "Transmog swaps are queued but iteminfo is not extracted.\n"
                 "Click Extract first, then Apply to Game again.")
             return 0
-        import copy as _cp
         applied = 0
         skipped = 0
-        # Fields that control how the item renders visually.
-        VISUAL_FIELDS = ('prefab_data_list', 'gimmick_visual_prefab_data_list')
         for sw in self._transmog_swaps:
             src_obj = sw['src']
             tgt_obj = sw['tgt']
             src_key = src_obj.item_id if hasattr(src_obj, 'item_id') else sw.get('src_key')
             tgt_key = tgt_obj.item_id if hasattr(tgt_obj, 'item_id') else sw.get('tgt_key')
-            tgt_ri = self._buff_rust_lookup.get(tgt_key)
+            tgt_ri = _lookup_item_record(self._buff_rust_lookup, tgt_key)
             if not tgt_ri:
                 log.warning("Transmog: target key=%s not in rust lookup — skipping", tgt_key)
                 skipped += 1
                 continue
-            # Invisible/hidden swap — src_key 0 or sentinel name means clear visuals
             is_invisible = (src_key == 0 or
                             getattr(src_obj, 'internal_name', '') == '__INVISIBLE_ZERO__')
             if is_invisible:
-                for field in VISUAL_FIELDS:
-                    tgt_ri[field] = []
-                log.info("Transmog [invisible]: cleared visual fields on tgt=%s", tgt_key)
-                applied += 1
+                # Clearing meshes CTDs on launch when any NPC/preset wears the item.
+                log.warning("Transmog: Invisible is not supported (cleared meshes crash on launch) — skipped tgt=%s",
+                            tgt_key)
+                skipped += 1
                 continue
-            src_ri = self._buff_rust_lookup.get(src_key)
+            src_ri = _lookup_item_record(self._buff_rust_lookup, src_key)
             if not src_ri:
                 log.warning("Transmog: source key=%s not in rust lookup — skipping", src_key)
                 skipped += 1
                 continue
-            copied_fields = []
-            for field in VISUAL_FIELDS:
-                src_val = src_ri.get(field)
-                if src_val is None:
-                    continue
-                tgt_val = tgt_ri.get(field, [])
-                if field == 'prefab_data_list' and tgt_val and src_val:
-                    # Swap only prefab_names hashes — preserve the target's
-                    # tribe_gender_list / equip_slot_list so the game still
-                    # finds a matching entry for the current character.
-                    for ti, tgt_entry in enumerate(tgt_val):
-                        src_entry = src_val[ti % len(src_val)]
-                        tgt_entry['prefab_names'] = _cp.deepcopy(
-                            src_entry.get('prefab_names', []))
-                    copied_fields.append(f"{field}(swapped {len(tgt_val)} hashes)")
-                else:
-                    tgt_ri[field] = _cp.deepcopy(src_val)
-                    copied_fields.append(f"{field}({len(src_val)})")
-            if copied_fields:
-                log.info("Transmog: %s -> %s copied %s",
-                         src_key, tgt_key, ', '.join(copied_fields))
+            changed, warnings = _copy_matched_prefab_names(
+                tgt_ri.get('prefab_data_list') or [],
+                src_ri.get('prefab_data_list') or [])
+            for w in warnings:
+                log.info("Transmog: %s -> %s %s", src_key, tgt_key, w)
+            if changed:
+                log.info("Transmog: %s -> %s swapped %d prefab context(s)",
+                         src_key, tgt_key, changed)
                 applied += 1
             else:
-                log.warning("Transmog: src=%s has no visual fields — nothing copied to tgt=%s",
+                log.warning("Transmog: src=%s has no matching prefab context for tgt=%s",
                             src_key, tgt_key)
                 skipped += 1
         if skipped:
-            log.warning("Transmog: %d swap(s) skipped (missing lookup entry)", skipped)
+            log.warning("Transmog: %d swap(s) skipped", skipped)
         if applied:
-            import crimson_rs
             new_data = _iteminfo_serialize(self._buff_rust_items)
             final_data.clear()
             final_data.extend(new_data)
@@ -5827,106 +5892,46 @@ class ItemBuffsTab(QWidget):
             intents = []
             skipped = []
             same_visual = []
-            PREFAB_FIELDS = ('prefab_data_list', 'gimmick_visual_prefab_data_list')
             for sw in local_swaps:
                 tgt = sw['tgt']
                 src = sw['src']
                 src_key = src.item_id if hasattr(src, 'item_id') else 0
                 tgt_key = tgt.item_id if hasattr(tgt, 'item_id') else 0
-                tgt_item = rust_lookup.get(int(tgt_key))
-                src_item = rust_lookup.get(int(src_key))
+                tgt_item = _lookup_item_record(rust_lookup, tgt_key)
+                src_item = _lookup_item_record(rust_lookup, src_key)
                 if not tgt_item or not src_item:
                     skipped.append(tgt.internal_name)
                     continue
-                # Invisible swap: clear visual fields
                 is_invisible = (src_key == 0 or
                                 getattr(src, 'internal_name', '') == '__INVISIBLE_ZERO__')
+                if is_invisible:
+                    skipped.append(f"{tgt.internal_name} (Invisible removed — it crashes on launch)")
+                    continue
+                src_pdl = src_item.get('prefab_data_list') or []
+                tgt_pdl = tgt_item.get('prefab_data_list') or []
                 swap_had_diff = False
-                for field in PREFAB_FIELDS:
-                    if is_invisible:
-                        src_val = []
-                    else:
-                        src_val = src_item.get(field)
-                        if src_val is None:
-                            continue
-                    tgt_val = tgt_item.get(field)
-                    # Use JSON round-trip for reliable deep equality check on
-                    # nested structures that may not support Python == correctly.
-                    try:
-                        src_json = _jstf.dumps(src_val, sort_keys=True, default=str)
-                        tgt_json = _jstf.dumps(tgt_val, sort_keys=True, default=str)
-                        if src_json == tgt_json:
-                            continue
-                    except Exception:
-                        if src_val == tgt_val:
-                            continue
-                    # For prefab_data_list: copy prefab_names from source but remap
-                    # tribe-exclusive hashes so the item stays equippable on the
-                    # target item's tribe.  Problem: src_val contains the SOURCE
-                    # item's tribe hash (e.g. Ashen/Tarandus 4268845538) in every
-                    # tribe_gender_list entry.  Copying it verbatim makes the item
-                    # unequippable for the TARGET tribe (e.g. Kairos/Kliff 4234598676)
-                    # because the engine checks tribe_gender_list for equip eligibility.
-                    #
-                    # Fix: compute the symmetric difference between source and target
-                    # tribe_gender_list hashes, then substitute source-exclusive hashes
-                    # with target-exclusive hashes inside each entry.  Hashes shared by
-                    # both items (gender variants etc.) pass through unchanged.
-                    # equip_slot_list and is_craft_material are also taken from the
-                    # corresponding target entry since they are target-specific metadata.
-                    if (field == 'prefab_data_list' and not is_invisible
-                            and isinstance(src_val, list) and isinstance(tgt_val, list)
-                            and tgt_val):
-                        src_pdl = src_val
-                        tgt_pdl = tgt_val
-                        # Collect source tribe coverage and prefab hashes.
-                        _seen_pn: set = set()
-                        src_all_prefabs: list = []
-                        src_covered_tribes: set = set()
-                        for _se in src_pdl:
-                            if isinstance(_se, dict):
-                                for _pn in (_se.get('prefab_names') or []):
-                                    if _pn not in _seen_pn:
-                                        _seen_pn.add(_pn)
-                                        src_all_prefabs.append(_pn)
-                                src_covered_tribes.update(
-                                    _se.get('tribe_gender_list') or [])
-                        # Iterate over TARGET entries. For each entry:
-                        #   - If the source mesh covers ANY of this entry's tribes
-                        #     → replace prefab_names with source mesh.
-                        #   - If the source has NO coverage for this entry's tribes
-                        #     (e.g. a new character type added in a later patch that
-                        #     the NPC item predates) → keep the target's original
-                        #     prefab so those characters see the untransmogged look
-                        #     instead of crashing.
-                        # tribe_gender_list, equip_slot_list, and is_craft_material
-                        # are always kept from the target entry unchanged.
-                        merged_pdl = []
-                        for _te in tgt_pdl:
-                            if not isinstance(_te, dict):
-                                merged_pdl.append(_te)
-                                continue
-                            _new_e = dict(_te)
-                            _te_tribes = set(_te.get('tribe_gender_list') or [])
-                            if not src_covered_tribes or _te_tribes & src_covered_tribes:
-                                # Source covers at least one tribe in this entry
-                                # (empty src_covered_tribes = universal mesh)
-                                _new_e['prefab_names'] = src_all_prefabs
-                            # else: keep original prefab_names for unsupported tribes
-                            merged_pdl.append(_new_e)
-                        new_val = merged_pdl
-                    else:
-                        new_val = src_val
+                for i, tgt_entry in enumerate(tgt_pdl):
+                    if not isinstance(tgt_entry, dict):
+                        continue
+                    src_entry = _match_source_prefab(tgt_entry, src_pdl)
+                    if src_entry is None:
+                        continue
+                    src_names = src_entry.get('prefab_names') or []
+                    if not src_names:
+                        continue
+                    tgt_names = tgt_entry.get('prefab_names') or []
+                    if src_names == tgt_names:
+                        continue
                     intents.append({
                         'entry': tgt.internal_name,
                         'key': tgt_key,
-                        'field': field,
+                        'field': f'prefab_data_list[{i}].prefab_names',
                         'op': 'set',
-                        'new': new_val,
+                        'new': src_names,
                         '_comment': f'transmog: visual from {src.internal_name}',
                     })
                     swap_had_diff = True
-                if not swap_had_diff and not is_invisible:
+                if not swap_had_diff:
                     same_visual.append(f"{tgt.display_name} → {src.display_name}")
             if not intents:
                 msg = "No field-level differences found."
@@ -7334,10 +7339,10 @@ class ItemBuffsTab(QWidget):
             game_path = self._buff_patcher.game_path
             skill_pabgb = bytes(crimson_rs.extract_file(
                 game_path, '0008',
-                'gamedata/binary__/client/bin', 'skill.pabgb'))
+                'gamedata/binarystaticinfo__/bin', 'skill.pabgb'))
             skill_pabgh = bytes(crimson_rs.extract_file(
                 game_path, '0008',
-                'gamedata/binary__/client/bin', 'skill.pabgh'))
+                'gamedata/binarystaticinfo__/bin', 'skill.pabgh'))
             skills = crimson_rs.parse_skillinfo_from_bytes(skill_pabgb, skill_pabgh)
             for s in skills:
                 for level in (s.get('buff_level_list') or []):
@@ -7417,6 +7422,33 @@ class ItemBuffsTab(QWidget):
                     break
         return warnings
 
+    def _confirm_weapon_buff_risk(self, title: str) -> bool:
+        """Return True when the user accepts risky weapon-passive equip_buffs."""
+        warnings = self._check_weapon_buff_warnings(
+            rust_items=getattr(self, '_buff_rust_items', None))
+        if not warnings:
+            return True
+        for w in warnings:
+            log.warning("Weapon-buff warning: %s", w)
+        msg = (
+            "WARNING: Some non-weapon equipment has weapon-specific passive "
+            "buffs in equip_buffs. These can make armor disappear, hide an "
+            "equipment set, or cause loading issues in game.\n\n"
+        )
+        msg += "\n".join(warnings[:10])
+        if len(warnings) > 10:
+            msg += f"\n... +{len(warnings) - 10} more"
+        msg += (
+            "\n\nTo fix: remove those passive buffs from armor/accessories, "
+            "or apply them only to weapons.\n\n"
+            "Continue anyway?"
+        )
+        reply = QMessageBox.warning(
+            self, title, msg,
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        return reply == QMessageBox.Yes
+
     def _ensure_elemental_skill_patch(self):
         """Deploy-time hook:
         1. Auto-fix equip_passive_skill_list weapon passives (safe).
@@ -7425,6 +7457,9 @@ class ItemBuffsTab(QWidget):
         if not rust_items:
             return
         self._fix_elemental_equip_types(rust_items=rust_items)
+        if not self._confirm_weapon_buff_risk("Infinite Loading / Hidden Armor Risk"):
+            raise RuntimeError("Cancelled - weapon-buff warning")
+        return
         warnings = self._check_weapon_buff_warnings(rust_items=rust_items)
         if warnings:
             for w in warnings:
@@ -7561,7 +7596,7 @@ class ItemBuffsTab(QWidget):
             if not gp:
                 gp = getattr(self, '_game_path', '') or self._config.get('game_install_path', '')
             if gp:
-                dp = 'gamedata/binary__/client/bin'
+                dp = 'gamedata/binarystaticinfo__/bin'
                 ci_body = bytes(crimson_rs.extract_file(gp, '0008', dp, 'characterinfo.pabgb'))
                 ci_gh   = bytes(crimson_rs.extract_file(gp, '0008', dp, 'characterinfo.pabgh'))
                 app_hash, prefab_hash, lookup_24, lookup_25, flag_c = _read_from_bytes(ci_body, ci_gh)
@@ -8146,9 +8181,9 @@ class ItemBuffsTab(QWidget):
             gp = gp_text
             staged = getattr(self, "_staged_skill_files", {}) or {}
             pabgh = staged.get("skill.pabgh") or crimson_rs.extract_file(
-                gp, "0008", "gamedata/binary__/client/bin", "skill.pabgh")
+                gp, "0008", "gamedata/binarystaticinfo__/bin", "skill.pabgh")
             pabgb = staged.get("skill.pabgb") or crimson_rs.extract_file(
-                gp, "0008", "gamedata/binary__/client/bin", "skill.pabgb")
+                gp, "0008", "gamedata/binarystaticinfo__/bin", "skill.pabgb")
         except Exception as e:
             QMessageBox.critical(self, "Imbue",
                 f"Could not read skill.pabgb/pabgh:\n{e}")
@@ -8459,9 +8494,9 @@ class ItemBuffsTab(QWidget):
                     r'C:\Program Files (x86)\Steam\steamapps\common\Crimson Desert'
             staged = getattr(self, '_staged_skill_files', {}) or {}
             pabgh = staged.get('skill.pabgh') or crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'skill.pabgh')
+                gp_text, '0008', 'gamedata/binarystaticinfo__/bin', 'skill.pabgh')
             pabgb = staged.get('skill.pabgb') or crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'skill.pabgb')
+                gp_text, '0008', 'gamedata/binarystaticinfo__/bin', 'skill.pabgb')
             entries = imbue.parse_skill_pabgh(pabgh, len(pabgb))
             by_key = {k: (o, l) for (k, o, l) in entries}
             if skill_id not in by_key:
@@ -8558,9 +8593,9 @@ class ItemBuffsTab(QWidget):
                     r"C:\Program Files (x86)\Steam\steamapps\common\Crimson Desert"
             staged = getattr(self, "_staged_skill_files", {}) or {}
             pabgh = staged.get("skill.pabgh") or crimson_rs.extract_file(
-                gp_text, "0008", "gamedata/binary__/client/bin", "skill.pabgh")
+                gp_text, "0008", "gamedata/binarystaticinfo__/bin", "skill.pabgh")
             pabgb = staged.get("skill.pabgb") or crimson_rs.extract_file(
-                gp_text, "0008", "gamedata/binary__/client/bin", "skill.pabgb")
+                gp_text, "0008", "gamedata/binarystaticinfo__/bin", "skill.pabgb")
             entries = imbue.parse_skill_pabgh(pabgh, len(pabgb))
             by = {k: (o, l) for k, o, l in entries}
             if sid not in by:
@@ -8620,291 +8655,6 @@ class ItemBuffsTab(QWidget):
         layout.addWidget(close_btn)
         dlg.exec()
 
-    def _eb_universal_proficiency(self) -> None:
-        """Remove character-weapon restrictions via equipslotinfo.pabgb.
-
-        For each character record, expands every equip-type array to include
-        all hashes that canonically belong in that slot type (determined by
-        majority vote across all characters). Stages the result so Apply to
-        Game / Export as Mod picks it up.
-        """
-        try:
-            import crimson_rs
-            import equipslotinfo_parser as esp
-        except Exception as e:
-            QMessageBox.critical(self, "Universal Proficiency",
-                f"Import failed: {e}")
-            return
-
-        gp_widget = getattr(self, '_buff_game_path', None)
-        gp_text = (gp_widget.text() or '').strip() if gp_widget is not None else ''
-        if not gp_text:
-            gp_text = getattr(self, '_game_path', '') or \
-                r'C:\Program Files (x86)\Steam\steamapps\common\Crimson Desert'
-
-        try:
-            pabgh = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgh')
-            pabgb = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgb')
-        except Exception as e:
-            QMessageBox.critical(self, "Universal Proficiency",
-                f"Could not extract equipslotinfo:\n{e}")
-            return
-
-        records = esp.parse_all(pabgh, pabgb)
-
-        from collections import Counter
-        hash_votes: dict[int, Counter] = {}
-        for rec in records:
-            for e in rec.entries:
-                key = (e.category_a, e.category_b)
-                for h in e.etl_hashes:
-                    if h not in hash_votes:
-                        hash_votes[h] = Counter()
-                    hash_votes[h][key] += 1
-
-        hash_canonical = {h: v.most_common(1)[0][0] for h, v in hash_votes.items()}
-        slot_hashes: dict[tuple[int, int], set[int]] = {}
-        for h, slot in hash_canonical.items():
-            slot_hashes.setdefault(slot, set()).add(h)
-
-        total_added = 0
-        for rec in records:
-            for e in rec.entries:
-                key = (e.category_a, e.category_b)
-                candidates = slot_hashes.get(key, set())
-                to_add = sorted(candidates - set(e.etl_hashes))
-                if to_add:
-                    e.etl_hashes.extend(to_add)
-                    total_added += len(to_add)
-
-        new_pabgh, new_pabgb = esp.serialize_all(records)
-
-        if not hasattr(self, '_staged_equip_files') or self._staged_equip_files is None:
-            self._staged_equip_files = {}
-        self._staged_equip_files['equipslotinfo.pabgb'] = new_pabgb
-        self._staged_equip_files['equipslotinfo.pabgh'] = new_pabgh
-
-        # Find the top player-tribe hashes by frequency across all items.
-        # These are the tribe_gender IDs that cover the main player characters.
-        # We UNION these into every item — preserves original restrictions AND
-        # adds player-character access. Clearing the list breaks items because
-        # empty doesn't mean "any character" (some items use empty to mean "no
-        # equipable" and rely on their non-empty prefab entries to gate).
-        from collections import Counter
-        tg_counter: Counter = Counter()
-        if hasattr(self, '_buff_rust_items') and self._buff_rust_items:
-            for it in self._buff_rust_items:
-                if not it.get('equip_type_info'):
-                    continue
-                for pd in (it.get('prefab_data_list') or []):
-                    for h in (pd.get('tribe_gender_list') or []):
-                        tg_counter[h] += 1
-
-        # Take the hashes that appear on >= 5% of equippable items.
-        # That filters out per-NPC one-offs and keeps the shared player tribes.
-        total_items = sum(1 for it in (self._buff_rust_items or [])
-                          if it.get('equip_type_info'))
-        threshold = max(1, total_items // 20)
-        player_tribes = {h for h, c in tg_counter.items() if c >= threshold}
-
-        # Game semantics (verified empirically):
-        #   tribe_gender_list == []      → no restriction, ANY character can equip
-        #   tribe_gender_list == [a,b,c] → only those tribes can equip
-        # So: only union into lists that are ALREADY non-empty. Leaving an
-        # already-empty list alone preserves the "open to all" state.
-        # Converting [] → [12 player tribes] was actually RESTRICTING items
-        # that had no restriction (breaking NPC default equips like Batz dagger).
-        tg_unioned = 0
-        if player_tribes and hasattr(self, '_buff_rust_items') and self._buff_rust_items:
-            for it in self._buff_rust_items:
-                pdl = it.get('prefab_data_list') or []
-                for pd in pdl:
-                    tg = pd.get('tribe_gender_list')
-                    if not tg:
-                        continue  # empty = already open, don't touch
-                    existing = set(tg)
-                    to_add = [h for h in player_tribes if h not in existing]
-                    if to_add:
-                        pd['tribe_gender_list'] = list(tg) + to_add
-                        tg_unioned += 1
-            if tg_unioned:
-                self._buff_modified = True
-
-        self._buff_status_label.setText(
-            f"Universal Proficiency: +{total_added} slot hashes, "
-            f"{tg_unioned} items unlocked.")
-        QMessageBox.information(self, "Universal Proficiency — Staged",
-            f"Equip slot filter: +{total_added} hashes across {len(records)} characters.\n"
-            f"Item tribe/gender filter: unioned {len(player_tribes)} player-tribe hashes\n"
-            f"into {tg_unioned} prefab entries (originals kept, player tribes added).\n\n"
-            f"equipslotinfo: {len(pabgb):,} -> {len(new_pabgb):,} bytes\n\n"
-            f"WARNING: CDUMM export is not supported with Universal Proficiency.\n"
-            f"The expanded equipslotinfo causes the game to reject the overlay.\n"
-            f"Use 'Apply to Game' instead.\n\n"
-            f"Note: weapons may lack animations on non-native characters\n"
-            f"(e.g. muskets on Kliff won't have fire/reload anims).\n\n"
-            "")
-
-    # Per-character tribe_gender hashes (confirmed via exclusive-item analysis 2026-04-17).
-    # Kliff has 11 (superset of both), Damiane has 4, Oongka has 6.
-    _CHAR_TRIBE_HASHES = {
-        1: {0x13FB2B6E, 0x26BE971F, 0x87D08287, 0x8BF46446,  # Kliff
-            0xABFCD791, 0xBFA1F64B, 0xD0A2E1EF, 0xF96C1DD4,
-            0xFC66D914, 0xFE7169E2, 0xFF16A579},
-        4: {0x26BE971F, 0x8BF46446, 0xABFCD791, 0xF96C1DD4},  # Damiane
-        6: {0x13FB2B6E, 0x87D08287, 0xBFA1F64B, 0xD0A2E1EF,  # Oongka
-            0xFC66D914, 0xFE7169E2},
-    }
-    # Union of all 3 = the 12 player hashes (plus 0xF21FE2D6 unknown/NPC)
-    _PLAYER_TRIBE_HASHES = _CHAR_TRIBE_HASHES[1] | _CHAR_TRIBE_HASHES[4] | _CHAR_TRIBE_HASHES[6] | {0xF21FE2D6}
-    _PLAYER_CHAR_KEYS = {1, 4, 6}  # Only expand these characters
-
-    def _eb_universal_proficiency_v2(self) -> None:
-        """Make ALL items equippable by ALL 3 player characters (Kliff/Damiane/Oongka).
-
-        Two targeted changes:
-        1. iteminfo tribe_gender: union the 12 known player tribe hashes into
-           every item with a non-empty tribe_gender_list. Empty lists (already
-           open to all) are untouched. Never clears or removes hashes.
-        2. equipslotinfo slot expansion: for each of the 3 player characters,
-           collect equip_type hashes from the other 2 players' MATCHING slot
-           categories and add them. Weapons stay in weapon slots, armor in
-           armor slots. NPC characters (201, 701, etc.) are NOT modified.
-
-        Architecture:
-        - iteminfo → staged for Apply to Game (group 0058)
-        - equipslotinfo pair → deployed immediately to group 0059
-        """
-        if not hasattr(self, '_buff_rust_items') or self._buff_rust_items is None:
-            QMessageBox.warning(self, "Universal Prof v2",
-                "Extract with Rust parser first (click 'Extract (Rust)').")
-            return
-
-        reply = QMessageBox.question(
-            self, "Universal Proficiency v2",
-            "Make ALL items equippable by Kliff, Damiane, and Oongka.\n\n"
-            "Changes:\n"
-            "1. Adds player tribe hashes to every restricted item\n"
-            "   (items already open to all are untouched)\n"
-            "2. Expands equip slots on the 3 player characters ONLY\n"
-            "   (weapons \u2192 weapon slots, armor \u2192 armor slots)\n"
-            "   NPCs/mercenaries are NOT modified.\n\n"
-            "Stacks with buff mods, dye mods, and other ItemBuffs edits:\n"
-            "the tool now re-extracts from your existing 0058/ overlay on\n"
-            "each Extract, so prior edits (UP v2, Make Dyeable, etc.) are\n"
-            "preserved — you can pile edits on top across sessions.\n\n"
-            "Note: weapons may lack animations on non-native characters.\n"
-            "Deploy via Apply to Game.\n\n"
-            "Continue?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply != QMessageBox.Yes:
-            return
-
-        # ── Step 1: tribe_gender union (iteminfo) ──
-        player_tribes = self._PLAYER_TRIBE_HASHES
-
-        tg_unioned = 0
-        tg_added_total = 0
-        for it in self._buff_rust_items:
-            if not it.get('equip_type_info'):
-                continue
-            for pd in (it.get('prefab_data_list') or []):
-                tg = pd.get('tribe_gender_list')
-                if not tg:
-                    continue  # empty = already open, don't touch
-                existing = set(tg)
-                to_add = sorted(player_tribes - existing)
-                if to_add:
-                    pd['tribe_gender_list'] = list(tg) + to_add
-                    tg_unioned += 1
-                    tg_added_total += len(to_add)
-
-        if tg_unioned:
-            self._buff_modified = True
-
-        # ── Step 2: targeted equipslotinfo expansion (slot-aware, players only) ──
-        equip_msg = ""
-        try:
-            import crimson_rs
-            import equipslotinfo_parser as esp
-
-            gp_widget = getattr(self, '_buff_game_path', None)
-            gp_text = (gp_widget.text() or '').strip() if gp_widget is not None else ''
-            if not gp_text:
-                gp_text = getattr(self, '_game_path', '') or \
-                    r'C:\Program Files (x86)\Steam\steamapps\common\Crimson Desert'
-
-            es_pabgh = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgh')
-            es_pabgb = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgb')
-            es_records = esp.parse_all(es_pabgh, es_pabgb)
-
-            # Build per-category hash pool from PLAYER characters only
-            player_keys = self._PLAYER_CHAR_KEYS
-            player_records = [r for r in es_records if r.key in player_keys]
-
-            # For each slot category, collect ALL hashes across all 3 players
-            category_hashes: dict[tuple[int, int], set[int]] = {}
-            for rec in player_records:
-                for e in rec.entries:
-                    key = (e.category_a, e.category_b)
-                    category_hashes.setdefault(key, set()).update(e.etl_hashes)
-
-            # Expand: for each player character's slot, add hashes from the
-            # SAME category that other players have. NPC records untouched.
-            total_slot_added = 0
-            for rec in es_records:
-                if rec.key not in player_keys:
-                    continue  # Skip NPCs/mercenaries
-                for e in rec.entries:
-                    key = (e.category_a, e.category_b)
-                    pool = category_hashes.get(key, set())
-                    to_add = sorted(pool - set(e.etl_hashes))
-                    if to_add:
-                        e.etl_hashes.extend(to_add)
-                        total_slot_added += len(to_add)
-
-            new_es_pabgh, new_es_pabgb = esp.serialize_all(es_records)
-
-            if not hasattr(self, '_staged_equip_files'):
-                self._staged_equip_files = {}
-            self._staged_equip_files['equipslotinfo.pabgb'] = bytes(new_es_pabgb)
-            self._staged_equip_files['equipslotinfo.pabgh'] = bytes(new_es_pabgh)
-            self._buff_modified = True
-
-            log.info("UP v2: staged equipslotinfo (pabgb=%d pabgh=%d, "
-                     "+%d hashes, players only: %s) — will deploy via Apply to Game",
-                     len(new_es_pabgb), len(new_es_pabgh),
-                     total_slot_added, sorted(player_keys))
-
-            equip_msg = (f"\nEquipslotinfo: +{total_slot_added} hashes across "
-                         f"{len(player_records)} player characters \u2192 staged "
-                         f"for the next Apply to Game\n"
-                         f"(NPCs untouched, slot categories preserved)")
-        except Exception as e:
-            log.exception("UP v2: equipslotinfo expansion failed")
-            equip_msg = f"\nEquipslotinfo expansion failed: {e}"
-
-        # ── Step 3: Kliff gun fix — DISABLED (Kliff uses gun natively in 1.10+) ──
-        # charinfo_msg = self._stage_kliff_gun_fix(gp_text)
-        charinfo_msg = ""
-
-        buff_slot = f"{self._buff_overlay_spin.value():04d}"
-        self._buff_status_label.setText(
-            f"Prof v2 staged: {tg_unioned} items + {total_slot_added} slot hashes. "
-            "")
-        QMessageBox.information(self, "Universal Proficiency v2 — Staged",
-            f"Tribe restriction: added {len(player_tribes)} player tribe hashes\n"
-            f"to {tg_unioned} restricted items (+{tg_added_total} total).\n"
-            f"{equip_msg}{charinfo_msg}\n\n"
-
-            f"Apply will also include any buff/stat/dye edits you've made\n"
-            f"this session.\n\n"
-            f"Note: weapons may lack animations on non-native characters.")
-
     def _eb_universal_proficiency_v3(self) -> None:
         """Make ALL items equippable by ALL 3 player characters.
 
@@ -8962,33 +8712,44 @@ class ItemBuffsTab(QWidget):
                     r'C:\Program Files (x86)\Steam\steamapps\common\Crimson Desert'
 
             es_pabgh = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgh')
+                gp_text, '0008', 'gamedata/binarystaticinfo__/bin', 'equipslotinfo.pabgh')
             es_pabgb = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgb')
+                gp_text, '0008', 'gamedata/binarystaticinfo__/bin', 'equipslotinfo.pabgb')
 
             table = crimson_rs.parse_table('equipslotinfo', es_pabgb, es_pabgh)
             es_records = sorted(table, key=lambda e: e['key'])
 
             player_keys = self._PLAYER_CHAR_KEYS
             player_records = [r for r in es_records if r['key'] in player_keys]
-            category_hashes: dict[tuple[int, int], set[int]] = {}
+            # 1.12+ removed category_a/category_b from EquipInfoData. The player
+            # records are structurally identical (matching slot_index 0..N), so
+            # slot_index is the correct grouping key: union each slot's accepted
+            # equip-type hashes across all player chars, then grant every char the
+            # full union. (name_hash repeats across unrelated slots — don't use it.)
+            category_hashes: dict[int, set[int]] = {}
             for rec in player_records:
                 for e in rec['entries']:
-                    key = (e['category_a'], e['category_b'])
+                    key = e['slot_index']
                     category_hashes.setdefault(key, set()).update(e['etl_hashes'])
 
             for rec in es_records:
-                if rec.key not in player_keys:
+                if rec['key'] not in player_keys:
                     continue
                 for e in rec['entries']:
-                    key = (e['category_a'], e['category_b'])
+                    key = e['slot_index']
                     pool = category_hashes.get(key, set())
                     to_add = sorted(pool - set(e['etl_hashes']))
                     if to_add:
                         e['etl_hashes'].extend(to_add)
                         total_slot_added += len(to_add)
 
-            new_es_pabgh, new_es_pabgb = crimson_rs.serialize_table(es_records)
+            # serialize_table(name, items, shape, original_pabgh) -> (pabgb, pabgh).
+            # Must use the canonical name 'equip_slot_info' (the serialize path
+            # does not resolve the 'equipslotinfo' alias) and pass the original
+            # pabgh so offsets are regenerated (etl_hashes growth changes record
+            # sizes). Returns (pabgb, pabgh) — NOT the reverse.
+            new_es_pabgb, new_es_pabgh = crimson_rs.serialize_table(
+                'equip_slot_info', es_records, None, bytes(es_pabgh))
             if not hasattr(self, '_staged_equip_files'):
                 self._staged_equip_files = {}
             self._staged_equip_files['equipslotinfo.pabgb'] = bytes(new_es_pabgb)
@@ -9036,7 +8797,7 @@ class ItemBuffsTab(QWidget):
         try:
             import crimson_rs
             import dmm_parser
-            dp = 'gamedata/binary__/client/bin'
+            dp = 'gamedata/binarystaticinfo__/bin'
             ci_body = bytes(crimson_rs.extract_file(game_path, '0008', dp, 'characterinfo.pabgb'))
             ci_gh = bytes(crimson_rs.extract_file(game_path, '0008', dp, 'characterinfo.pabgh'))
             items = dmm_parser.parse_table('character_info', ci_body, ci_gh)
@@ -9108,7 +8869,7 @@ class ItemBuffsTab(QWidget):
         + 0059/ (slot) restores function.
         """
         import crimson_rs, shutil, tempfile
-        INTERNAL_DIR = "gamedata/binary__/client/bin"
+        INTERNAL_DIR = "gamedata/binarystaticinfo__/bin"
         GROUP = "0059"
         with tempfile.TemporaryDirectory() as tmp:
             build_dir = os.path.join(tmp, GROUP)
@@ -10062,7 +9823,7 @@ class ItemBuffsTab(QWidget):
             try:
                 import crimson_rs as _crs
                 _gp  = self._config.get('game_install_path', '')
-                _dp  = 'gamedata/binary__/client/bin'
+                _dp  = 'gamedata/binarystaticinfo__/bin'
                 _vb  = bytes(_crs.extract_file(_gp, '0008', _dp, 'iteminfo.pabgb'))
                 orig = list(_crs.parse_iteminfo_from_bytes(_vb))
                 log.info("Export v3: extracted vanilla baseline on the fly (%d items)", len(orig))
@@ -10073,6 +9834,10 @@ class ItemBuffsTab(QWidget):
                 "No vanilla baseline found. Re-extract iteminfo.")
             return
 
+        if not self._confirm_weapon_buff_risk("Export Field JSON v3"):
+            self._buff_status_label.setText(
+                "Export cancelled: weapon-passive buff on non-weapon equipment.")
+            return
 
         # Ensure docking_child_data matches the current 2.01 schema
         _patch_docking_108(self._buff_rust_items)
@@ -10544,7 +10309,7 @@ class ItemBuffsTab(QWidget):
             QMessageBox.information(self, "Mod Exported",
                 f"Mod exported to:\n{out_path}\n\n"
                 f"Contents:\n"
-                f"  files/gamedata/binary__/client/bin/iteminfo.pabgb ({data_size:,} bytes)\n"
+                f"  files/gamedata/binarystaticinfo__/bin/iteminfo.pabgb ({data_size:,} bytes)\n"
                 f"  modinfo.json\n\n"
                 f"To install:\n"
                 f"  Copy '{folder_name}' into your mod loader's mods/ directory\n"
@@ -10708,7 +10473,7 @@ class ItemBuffsTab(QWidget):
             # and the resulting PAMT checksum doesn't match what the game
             # expects, so the game rejects the overlay and ALL buffs stop
             # functioning. Mirrors the Apply to Game flow.
-            INTERNAL_DIR = "gamedata/binary__/client/bin"
+            INTERNAL_DIR = "gamedata/binarystaticinfo__/bin"
             with tempfile.TemporaryDirectory() as tmp_dir:
                 group_build_dir = os.path.join(tmp_dir, mod_group)
                 builder = crimson_rs.PackGroupBuilder(
@@ -10979,6 +10744,10 @@ class ItemBuffsTab(QWidget):
         if reply != QMessageBox.Yes:
             return
 
+        import copy
+        _prev_rust_items = copy.deepcopy(getattr(self, '_buff_rust_items', None))
+        _prev_buff_data = bytes(getattr(self, '_buff_data', b'') or b'')
+
         try:
             import crimson_rs
             vanilla_data = bytes(self._buff_patcher._original_data)
@@ -11063,6 +10832,19 @@ class ItemBuffsTab(QWidget):
             applied += 1
 
         self._fix_elemental_equip_types(rust_items=self._buff_rust_items)
+        if not self._confirm_weapon_buff_risk("Load ItemBuffs Config"):
+            if _prev_rust_items is not None:
+                self._buff_rust_items = _prev_rust_items
+                self._buff_rust_lookup = {
+                    int(it['key']): it for it in self._buff_rust_items
+                    if isinstance(it, dict) and 'key' in it
+                }
+                self._rebuild_index()
+            if _prev_buff_data:
+                self._buff_data = bytearray(_prev_buff_data)
+            self._buff_status_label.setText(
+                "Config load cancelled: weapon-passive buff on non-weapon equipment.")
+            return
 
         try:
             import crimson_rs
@@ -11398,7 +11180,7 @@ class ItemBuffsTab(QWidget):
                 "crimson_rs not available.")
             return
 
-        INTERNAL = "gamedata/binary__/client/bin"
+        INTERNAL = "gamedata/binarystaticinfo__/bin"
         PLAYER_TRIBES = self._PLAYER_TRIBE_HASHES
         STACK_TARGET, CHARGES_TARGET, DURA_TARGET = 999999, 99, 65535
 
@@ -11761,7 +11543,6 @@ class ItemBuffsTab(QWidget):
         equip_msg = ""
         try:
             import crimson_rs
-            import equipslotinfo_parser as esp
 
             gp_widget = getattr(self, '_buff_game_path', None)
             gp_text = (gp_widget.text() or '').strip() if gp_widget is not None else ''
@@ -11770,30 +11551,39 @@ class ItemBuffsTab(QWidget):
                     r'C:\Program Files (x86)\Steam\steamapps\common\Crimson Desert'
 
             es_pabgh = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgh')
+                gp_text, '0008', 'gamedata/binarystaticinfo__/bin', 'equipslotinfo.pabgh')
             es_pabgb = crimson_rs.extract_file(
-                gp_text, '0008', 'gamedata/binary__/client/bin', 'equipslotinfo.pabgb')
-            es_records = esp.parse_all(es_pabgh, es_pabgb)
+                gp_text, '0008', 'gamedata/binarystaticinfo__/bin', 'equipslotinfo.pabgb')
+
+            # Use the Rust parser (1.12-correct shape). The old Python
+            # equipslotinfo_parser still expects the 1.10 layout (complex_blob +
+            # 11-byte tail) and throws on 1.12 data.
+            table = crimson_rs.parse_table('equipslotinfo', es_pabgb, es_pabgh)
+            es_records = sorted(table, key=lambda e: e['key'])
 
             player_keys = self._PLAYER_CHAR_KEYS
-            player_records = [r for r in es_records if r.key in player_keys]
+            player_records = [r for r in es_records if r['key'] in player_keys]
             category_hashes: dict[tuple[int, int], set[int]] = {}
             for rec in player_records:
-                for e in rec.entries:
-                    key = (e.category_a, e.category_b)
-                    category_hashes.setdefault(key, set()).update(e.etl_hashes)
+                for e in rec['entries']:
+                    key = (e['category_a'], e['category_b'])
+                    category_hashes.setdefault(key, set()).update(e['etl_hashes'])
             for rec in es_records:
-                if rec.key not in player_keys:
+                if rec['key'] not in player_keys:
                     continue
-                for e in rec.entries:
-                    key = (e.category_a, e.category_b)
+                for e in rec['entries']:
+                    key = (e['category_a'], e['category_b'])
                     pool = category_hashes.get(key, set())
-                    to_add = sorted(pool - set(e.etl_hashes))
+                    to_add = sorted(pool - set(e['etl_hashes']))
                     if to_add:
-                        e.etl_hashes.extend(to_add)
+                        e['etl_hashes'].extend(to_add)
                         total_slot_added += len(to_add)
 
-            new_es_pabgh, new_es_pabgb = esp.serialize_all(es_records)
+            # serialize_table needs the canonical name 'equip_slot_info' and the
+            # original pabgh so offsets regenerate after etl_hashes growth.
+            # Returns (pabgb, pabgh) — NOT the reverse.
+            new_es_pabgb, new_es_pabgh = crimson_rs.serialize_table(
+                'equip_slot_info', es_records, None, bytes(es_pabgh))
             if not hasattr(self, '_staged_equip_files'):
                 self._staged_equip_files = {}
             self._staged_equip_files['equipslotinfo.pabgb'] = bytes(new_es_pabgb)
@@ -12372,136 +12162,73 @@ class ItemBuffsTab(QWidget):
             QMessageBox.critical(self, "Error", str(e))
 
 
-    def _buff_sync_community_names(self) -> None:
-        BUFF_NAMES_URL = (
-            "https://raw.githubusercontent.com/"
-            "NattKh/CrimsonDesertCommunityItemMapping/main/buff_names_community.json"
-        )
-        self._buff_status_label.setText("Syncing buff names from GitHub...")
-        QApplication.processEvents()
+    def _apply_client_names(self, force: bool = False) -> tuple[int, int]:
+        """Fill missing buff/passive labels from the installed game tables."""
+        from client_names import load_client_name_maps
+        game_path = (
+            getattr(self, "_game_path", "")
+            or self._config.get("game_install_path")
+            or ""
+        ).strip()
+        cache_src = getattr(self, "_client_names_src", None)
+        if force or cache_src != game_path:
+            buffs, passives = load_client_name_maps(game_path)
+            self._client_names_src = game_path
+            self._client_names_cache = (buffs, passives)
+        else:
+            buffs, passives = getattr(self, "_client_names_cache", ({}, {}))
+        added_buffs = 0
+        added_passives = 0
+        for key, name in buffs.items():
+            if key not in self._EQUIP_BUFF_NAMES and name:
+                self._EQUIP_BUFF_NAMES[key] = name
+                added_buffs += 1
+        for key, name in passives.items():
+            if key not in self._PASSIVE_SKILL_NAMES and name:
+                self._PASSIVE_SKILL_NAMES[key] = name
+                added_passives += 1
+        return added_buffs, added_passives
 
-        try:
-            from urllib.request import urlopen, Request
-            req = Request(BUFF_NAMES_URL, headers={"User-Agent": "CrimsonSaveEditor/3.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except Exception as e:
-            self._buff_status_label.setText(f"Sync failed: {e}")
-            QMessageBox.warning(self, "Sync Failed", f"Could not download buff names:\n{e}")
-            return
-
-        updated_buffs = 0
-        updated_stats = 0
-        updated_passives = 0
-
-        def build_display(name: str, effect: str) -> str:
-            if effect and effect != name:
-                return f"{name} — {effect[:40]}"
-            return name
-
-        for entry in data.get("buffs", []):
-            key = entry.get("key", 0)
-            name = entry.get("name", "")
-            effect = entry.get("effect", "")
-            if key <= 0 or not name:
-                continue
-            display = build_display(name, effect)
-            if key not in self._EQUIP_BUFF_NAMES or self._EQUIP_BUFF_NAMES[key] != display:
-                self._EQUIP_BUFF_NAMES[key] = display
-                updated_buffs += 1
-            mn = entry.get("minValue")
-            mx = entry.get("maxValue")
-            vt = entry.get("valueType", "")
-            if mn is not None and mx is not None:
-                self._buff_community_ranges[key] = (mn, mx, vt)
-
-        if hasattr(self, '_PASSIVE_SKILL_NAMES'):
-            for entry in data.get("passives", []):
-                key = entry.get("key", 0)
-                name = entry.get("name", "")
-                effect = entry.get("effect", "")
-                if key <= 0 or not name:
-                    continue
-                display = build_display(name, effect)
-                cur = self._PASSIVE_SKILL_NAMES.get(key)
-                cur_str = cur if isinstance(cur, str) else (
-                    cur.get('suffix') or cur.get('english_name') if isinstance(cur, dict) else None)
-                if cur_str != display:
-                    self._PASSIVE_SKILL_NAMES[key] = display
-                    updated_passives += 1
-
-        if not hasattr(self, '_STAT_NAMES_COMMUNITY'):
-            self._STAT_NAMES_COMMUNITY = {}
-        for entry in data.get("stats", []):
-            key = entry.get("key", 0)
-            name = entry.get("name", "")
-            effect = entry.get("effect", "")
-            if key <= 0 or not name:
-                continue
-            display = build_display(name, effect)
-            if self._STAT_NAMES_COMMUNITY.get(key) != display:
-                self._STAT_NAMES_COMMUNITY[key] = display
-                updated_stats += 1
-            mn = entry.get("minValue")
-            mx = entry.get("maxValue")
-            vt = entry.get("valueType", "")
-            if mn is not None and mx is not None:
-                self._buff_community_ranges[key] = (mn, mx, vt)
-
-        updated = updated_buffs + updated_stats + updated_passives
-
-        try:
-            exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-            local_path = os.path.join(exe_dir, "buff_names_community.json")
-            with open(local_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
-
-        if hasattr(self, '_eb_buff_combo'):
+    def _buff_rebuild_name_combos(self) -> None:
+        if hasattr(self, "_eb_buff_combo"):
+            current = self._eb_buff_combo.currentData()
+            self._eb_buff_combo.blockSignals(True)
             self._eb_buff_combo.clear()
             for bk in sorted(self._EQUIP_BUFF_NAMES.keys()):
                 bname = self._EQUIP_BUFF_NAMES[bk]
                 desc = self._buff_skill_descs.get(str(bk), {}).get("description", "")
-                label = f"{bname} ({bk})" + (f" — {desc}" if desc else "")
+                label = f"{bname} ({bk})" + (f" \u2014 {desc}" if desc else "")
                 self._eb_buff_combo.addItem(label, bk)
-
-        if hasattr(self, '_eb_passive_combo'):
+            if current is not None:
+                idx = self._eb_buff_combo.findData(current)
+                if idx >= 0:
+                    self._eb_buff_combo.setCurrentIndex(idx)
+            self._eb_buff_combo.blockSignals(False)
+        if hasattr(self, "_eb_passive_combo"):
+            current = self._eb_passive_combo.currentData()
+            self._eb_passive_combo.blockSignals(True)
             self._eb_passive_combo.clear()
-            for pk in sorted(self._PASSIVE_SKILL_NAMES.keys()):
-                pname = self._PASSIVE_SKILL_NAMES[pk]
-                if isinstance(pname, dict):
-                    pname = pname.get('suffix') or pname.get('english_name') or str(pk)
-                self._eb_passive_combo.addItem(f"{pname} ({pk})", pk)
+            for sk in sorted(self._PASSIVE_SKILL_NAMES.keys()):
+                name = self._PASSIVE_SKILL_NAMES[sk]
+                self._eb_passive_combo.addItem(f"{name} ({sk})", sk)
+            if current is not None:
+                idx = self._eb_passive_combo.findData(current)
+                if idx >= 0:
+                    self._eb_passive_combo.setCurrentIndex(idx)
+            self._eb_passive_combo.blockSignals(False)
 
-        try:
-            self._buff_refresh_stats()
-        except Exception:
-            pass
-
-        v = data.get("version", "?")
-        stats_count = len(data.get("stats", []))
-        buffs_count = len(data.get("buffs", []))
-        passives_count = len(data.get("passives", []))
-        self._buff_status_label.setText(
-            f"Synced v{v}: +{updated_stats} stats, +{updated_buffs} buffs, "
-            f"+{updated_passives} passives")
-
-        if updated > 0:
-            QMessageBox.information(self, "Community Names Synced",
-                f"Updated display names from community database.\n\n"
-                f"Version: {v}\n"
-                f"  Stats updated:    {updated_stats} / {stats_count}\n"
-                f"  Buffs updated:    {updated_buffs} / {buffs_count}\n"
-                f"  Passives updated: {updated_passives} / {passives_count}\n\n"
-                f"Changes reflect in the stats table, Add Buff/Passive dropdowns,\n"
-                f"and description search immediately.\n\n"
-                f"Contribute corrections:\n"
-                f"github.com/NattKh/CrimsonDesertCommunityItemMapping")
-        else:
-            QMessageBox.information(self, "Already Up to Date",
-                "All names match the latest community database.")
-
+    def _buff_sync_community_names(self) -> None:
+        added_buffs, added_passives = self._apply_client_names(force=True)
+        self._buff_rebuild_name_combos()
+        total_b = len(self._EQUIP_BUFF_NAMES)
+        total_p = len(self._PASSIVE_SKILL_NAMES)
+        msg = (
+            f"Loaded names from the installed game: "
+            f"{added_buffs} new buffs, {added_passives} new passives "
+            f"({total_b} buffs / {total_p} passives total)."
+        )
+        self._buff_status_label.setText(msg)
+        QMessageBox.information(self, "Refresh Names from Game", msg)
 
     def _buff_import_field_json(self) -> None:
         """Import a Format 3 field JSON mod and apply iteminfo intents to _buff_rust_items.
@@ -12958,14 +12685,14 @@ class ItemBuffsTab(QWidget):
         for fname, new_bytes in list(staged_equip.items()) + list(staged_skill.items()):
             try:
                 orig_bytes = _crs.extract_file(self._buff_patcher.game_path,
-                    '0008', 'gamedata/binary__/client/bin', fname)
+                    '0008', 'gamedata/binarystaticinfo__/bin', fname)
             except Exception as e:
                 log.warning("JSON export: couldn't read vanilla %s: %s", fname, e)
                 continue
             file_changes = self._diff_to_json_patches(orig_bytes, new_bytes, fname)
             if file_changes:
                 patches_list.append({
-                    "game_file": f"gamedata/binary__/client/bin/{fname}",
+                    "game_file": f"gamedata/binarystaticinfo__/bin/{fname}",
                     "changes": file_changes,
                 })
                 log.info("JSON export: emitted %d byte-diff(s) for %s",
@@ -13070,7 +12797,7 @@ class ItemBuffsTab(QWidget):
         # comparison to be safe.
         try:
             import crimson_rs
-            dp = 'gamedata/binary__/client/bin'
+            dp = 'gamedata/binarystaticinfo__/bin'
             try:
                 body_058 = bytes(crimson_rs.extract_file(
                     gp, '0058', dp, 'iteminfo.pabgb'))
@@ -13192,7 +12919,7 @@ class ItemBuffsTab(QWidget):
 
             gp = getattr(self, '_game_path', '') or \
                 self._config.get('game_install_path', '')
-            dp = 'gamedata/binary__/client/bin'
+            dp = 'gamedata/binarystaticinfo__/bin'
 
             # Read iteminfo from 0058/ overlay if the ItemBuffs tab has
             # written there (sentinel file present), otherwise vanilla 0008.
@@ -13795,7 +13522,7 @@ class ItemBuffsTab(QWidget):
             return []
         try:
             gp = (self._buff_game_path.text().strip() if hasattr(self, '_buff_game_path') and self._buff_game_path else '') or self._config.get("game_install_path", "")
-            dp = 'gamedata/binary__/client/bin'
+            dp = 'gamedata/binarystaticinfo__/bin'
             v_pabgh = bytes(crimson_rs.extract_file(gp, '0008', dp, 'equipslotinfo.pabgh'))
             v_pabgb = bytes(crimson_rs.extract_file(gp, '0008', dp, 'equipslotinfo.pabgb'))
             vanilla = esp.parse_all(v_pabgh, v_pabgb)
@@ -13852,7 +13579,7 @@ class ItemBuffsTab(QWidget):
                   if hasattr(self, '_buff_game_path') and self._buff_game_path else '')
             if not gp:
                 gp = self._config.get("game_install_path", "")
-            dp = 'gamedata/binary__/client/bin'
+            dp = 'gamedata/binarystaticinfo__/bin'
             v_pabgb = bytes(crimson_rs.extract_file(gp, '0008', dp, 'characterinfo.pabgb'))
             v_pabgh = bytes(crimson_rs.extract_file(gp, '0008', dp, 'characterinfo.pabgh'))
             mod_pabgb = staged['characterinfo.pabgb']
@@ -13902,7 +13629,7 @@ class ItemBuffsTab(QWidget):
             game_dir = game_path or self._config.get('game_install_path', '')
             if not game_dir:
                 return None, None
-            dir_path = 'gamedata/binary__/client/bin'
+            dir_path = 'gamedata/binarystaticinfo__/bin'
             filename = 'buffinfo'
             pabgh = bytes(extract_file_data(
                 game_dir, '0008', dir_path, f"{filename}.pabgh"
@@ -13920,7 +13647,7 @@ class ItemBuffsTab(QWidget):
             # gp = game_path or self._config.get('game_install_path', '')
             # if not gp:
             #     return None, None
-            # dp = 'gamedata/binary__/client/bin'
+            # dp = 'gamedata/binarystaticinfo__/bin'
             # pabgb = bytes(crimson_rs.extract_file(gp, '0008', dp, 'buffinfo.pabgb'))
             # pabgh = bytes(crimson_rs.extract_file(gp, '0008', dp, 'buffinfo.pabgh'))
             # items = list(_dmp.parse_buffinfo_from_bytes(pabgb, pabgh))
@@ -14250,7 +13977,7 @@ class ItemBuffsTab(QWidget):
             final_data = bytes(fa)
 
             game_path = self._buff_patcher.game_path
-            INTERNAL_DIR = "gamedata/binary__/client/bin"
+            INTERNAL_DIR = "gamedata/binarystaticinfo__/bin"
             group = "0036"
 
             os.makedirs(out_dir, exist_ok=True)
@@ -14481,13 +14208,25 @@ class ItemBuffsTab(QWidget):
                             if tgt_fresh and src_fresh:
                                 tgt_pdl = tgt_fresh.get('prefab_data_list') or []
                                 src_pdl = src_fresh.get('prefab_data_list') or []
-                                if tgt_pdl == src_pdl:
+                                matched = 0
+                                needed = 0
+                                for tgt_entry in tgt_pdl:
+                                    src_entry = _match_source_prefab(tgt_entry, src_pdl)
+                                    if src_entry is None:
+                                        continue
+                                    src_names = src_entry.get('prefab_names') or []
+                                    if not src_names:
+                                        continue
+                                    needed += 1
+                                    if tgt_entry.get('prefab_names') == src_names:
+                                        matched += 1
+                                if needed and matched == needed:
                                     tmog_ok += 1
                                 else:
                                     log.warning(
-                                        "Transmog verify: tgt=%s prefab_data_list "
-                                        "still differs from src=%s after apply",
-                                        tgt_key, src_key)
+                                        "Transmog verify: tgt=%s matched %d/%d "
+                                        "prefab contexts from src=%s",
+                                        tgt_key, matched, needed, src_key)
                         log.info("Transmog verify: %d/%d swap(s) confirmed in re-parsed data",
                                  tmog_ok, len(self._transmog_swaps))
                     except Exception as _ve:
@@ -14573,7 +14312,7 @@ class ItemBuffsTab(QWidget):
             import shutil
             import tempfile
 
-            INTERNAL_DIR = "gamedata/binary__/client/bin"
+            INTERNAL_DIR = "gamedata/binarystaticinfo__/bin"
 
             # Save vanilla PAPGT backup BEFORE any modifications
             papgt_path = os.path.join(game_path, "meta", "0.papgt")
@@ -14863,7 +14602,7 @@ class ItemBuffsTab(QWidget):
             import shutil
             import tempfile
 
-            INTERNAL_DIR = "gamedata/binary__/client/bin"
+            INTERNAL_DIR = "gamedata/binarystaticinfo__/bin"
 
             papgt_path = os.path.join(game_path, "meta", "0.papgt")
             papgt_vanilla = papgt_path + ".vanilla"

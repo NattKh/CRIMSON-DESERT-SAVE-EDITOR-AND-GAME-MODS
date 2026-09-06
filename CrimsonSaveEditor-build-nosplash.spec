@@ -54,10 +54,56 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['PyQt5'],
+    # This edition is intentionally unable to make network connections.  Keep
+    # network-capable Qt and Python modules out of the packaged executable, not
+    # merely unused or hidden behind disabled controls.
+    excludes=[
+        'PyQt5',
+        'PySide6.QtNetwork',
+        'PySide6.QtNetworkAuth',
+        'PySide6.QtWebChannel',
+        'PySide6.QtWebEngineCore',
+        'PySide6.QtWebEngineWidgets',
+        'PySide6.QtWebEngineQuick',
+        'PySide6.QtWebSockets',
+        'PySide6.QtHttpServer',
+        'urllib.request',
+        'urllib.response',
+        'http.client',
+        'http.server',
+        'ftplib',
+        'ssl',
+        '_ssl',
+        'socket',
+        '_socket',
+    ],
     noarchive=False,
     optimize=0,
 )
+
+# Qt's GUI hook discovers optional PDF and virtual-keyboard plugins.  Those
+# plugins pull QtNetwork back in as a native DLL even when QtNetwork's Python
+# module is excluded.  The editor uses none of them, so strip that whole
+# dependency chain from the package.
+_blocked_qt_binaries = {
+    'qpdf.dll',
+    'qtvirtualkeyboardplugin.dll',
+    'qtuiotouchplugin.dll',
+    'qt6pdf.dll',
+    'qt6virtualkeyboard.dll',
+    'qt6network.dll',
+    'qt6quick.dll',
+    'qt6qml.dll',
+    'qt6qmlmeta.dll',
+    'qt6qmlmodels.dll',
+    'qt6qmlworkerscript.dll',
+}
+a.binaries = [
+    entry for entry in a.binaries
+    if entry[0].replace('\\', '/').rsplit('/', 1)[-1].lower()
+    not in _blocked_qt_binaries
+]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

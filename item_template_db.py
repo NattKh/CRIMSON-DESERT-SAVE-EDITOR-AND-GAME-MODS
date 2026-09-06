@@ -8,12 +8,16 @@ import gc
 log = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(_BASE_DIR, 'item_templates.json')
-MASTER_PATH = os.path.join(_BASE_DIR, 'master_templates.json')
-MASTER_URL = (
-    "https://raw.githubusercontent.com/"
-    "NattKh/CrimsonDesertCommunityItemMapping/main/templates/master_templates.json"
+_EXTERNAL_DIR = (
+    os.path.dirname(os.path.abspath(sys.executable))
+    if getattr(sys, 'frozen', False)
+    else _BASE_DIR
 )
+_BUNDLE_DIR = getattr(sys, '_MEIPASS', _BASE_DIR)
+DB_PATH = os.path.join(_EXTERNAL_DIR, 'item_templates.json')
+MASTER_PATH = os.path.join(_EXTERNAL_DIR, 'master_templates.json')
+_BUNDLED_DB_PATH = os.path.join(_BUNDLE_DIR, 'item_templates.json')
+_BUNDLED_MASTER_PATH = os.path.join(_BUNDLE_DIR, 'master_templates.json')
 
 
 def _get_parser():
@@ -35,18 +39,26 @@ def load_db() -> dict:
 
     _db_cache = {}
 
-    if os.path.isfile(MASTER_PATH):
+    master_path = next(
+        (path for path in (MASTER_PATH, _BUNDLED_MASTER_PATH) if os.path.isfile(path)),
+        '',
+    )
+    if master_path:
         try:
-            with open(MASTER_PATH, 'r', encoding='utf-8') as f:
+            with open(master_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             _db_cache = data.get('templates', data)
-            log.info("Loaded %d templates from master_templates.json", len(_db_cache))
+            log.info("Loaded %d templates from %s", len(_db_cache), master_path)
         except Exception as e:
             log.warning("Failed to load master_templates: %s", e)
 
-    if os.path.isfile(DB_PATH):
+    db_path = next(
+        (path for path in (DB_PATH, _BUNDLED_DB_PATH) if os.path.isfile(path)),
+        '',
+    )
+    if db_path:
         try:
-            with open(DB_PATH, 'r', encoding='utf-8') as f:
+            with open(db_path, 'r', encoding='utf-8') as f:
                 item_data = json.load(f)
             before = len(_db_cache)
             for k, v in item_data.items():
@@ -57,11 +69,6 @@ def load_db() -> dict:
         except Exception as e:
             log.warning("Failed to load item_templates: %s", e)
 
-    if not _db_cache:
-        log.info("No local templates found, downloading from GitHub...")
-        if download_master_templates():
-            return load_db.__wrapped__() if hasattr(load_db, '__wrapped__') else _reload_db()
-
     return _db_cache
 
 
@@ -69,28 +76,6 @@ def _reload_db() -> dict:
     global _db_cache
     _db_cache = None
     return load_db()
-
-
-def download_master_templates() -> bool:
-    try:
-        from offline_network import urlopen, Request
-        req = Request(MASTER_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-        with urlopen(req, timeout=30) as resp:
-            raw = resp.read()
-            data = json.loads(raw.decode('utf-8'))
-
-        templates = data.get('templates', data)
-        version = data.get('version', 0)
-        total = data.get('total_items', len(templates))
-
-        with open(MASTER_PATH, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
-
-        log.info("Downloaded %d templates (v%d) from GitHub", len(templates), version)
-        return True
-    except Exception as e:
-        log.warning("GitHub download failed: %s", e)
-        return False
 
 
 def save_db(db: dict) -> None:

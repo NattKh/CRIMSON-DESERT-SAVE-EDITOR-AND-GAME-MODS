@@ -290,13 +290,39 @@ def _classify_items(data: bytes | bytearray, items: List[SaveItem]) -> None:
                 break
 
 
+def _require_parc_field_offset(
+    data: bytearray,
+    item: SaveItem,
+    field_name: str,
+    field_size: int,
+) -> int:
+    """Return a schema-resolved field offset or refuse an unsafe legacy edit."""
+    if not item.parc_parsed or not item.field_offsets:
+        raise ValueError(
+            f"Safe edit unavailable: {field_name} was not resolved from this save's schema."
+        )
+    offset = item.field_offsets.get(field_name)
+    if offset is None or offset < 0 or offset + field_size > len(data):
+        raise ValueError(
+            f"Safe edit unavailable: {field_name} is absent or outside this item record."
+        )
+    record_start = item.field_offsets.get("_record_start", 0)
+    record_end = item.field_offsets.get("_record_end", len(data))
+    if record_start and offset < record_start:
+        raise ValueError(f"Unsafe {field_name} offset precedes the parsed item record.")
+    if record_end and offset + field_size > record_end:
+        raise ValueError(f"Unsafe {field_name} offset extends beyond the parsed item record.")
+    return int(offset)
+
+
 def apply_stack_edit(
     data: bytearray,
     item: SaveItem,
     new_stack: int,
 ) -> bytes:
-    old = data[item.offset + 18:item.offset + 26]
-    struct.pack_into("<q", data, item.offset + 18, new_stack)
+    offset = _require_parc_field_offset(data, item, "_stackCount", 8)
+    old = data[offset:offset + 8]
+    struct.pack_into("<q", data, offset, new_stack)
     item.stack_count = new_stack
     return bytes(old)
 
@@ -306,8 +332,9 @@ def apply_itemno_edit(
     item: SaveItem,
     new_itemno: int,
 ) -> bytes:
-    old = data[item.offset + 4:item.offset + 12]
-    struct.pack_into("<q", data, item.offset + 4, new_itemno)
+    offset = _require_parc_field_offset(data, item, "_itemNo", 8)
+    old = data[offset:offset + 8]
+    struct.pack_into("<q", data, offset, new_itemno)
     item.item_no = new_itemno
     return bytes(old)
 
@@ -323,8 +350,9 @@ def apply_enchant_edit(
     item: SaveItem,
     new_enchant: int,
 ) -> bytes:
-    old = data[item.offset + 26:item.offset + 28]
-    struct.pack_into("<H", data, item.offset + 26, new_enchant)
+    offset = _require_parc_field_offset(data, item, "_enchantLevel", 2)
+    old = data[offset:offset + 2]
+    struct.pack_into("<H", data, offset, new_enchant)
     item.enchant_level = new_enchant
     item.has_enchant = new_enchant != 0xFFFF
     return bytes(old)
@@ -335,8 +363,9 @@ def apply_endurance_edit(
     item: SaveItem,
     new_endurance: int,
 ) -> bytes:
-    old = data[item.offset + 30:item.offset + 32]
-    struct.pack_into("<H", data, item.offset + 30, new_endurance)
+    offset = _require_parc_field_offset(data, item, "_endurance", 2)
+    old = data[offset:offset + 2]
+    struct.pack_into("<H", data, offset, new_endurance)
     item.endurance = new_endurance
     return bytes(old)
 
@@ -346,8 +375,9 @@ def apply_sharpness_edit(
     item: SaveItem,
     new_sharpness: int,
 ) -> bytes:
-    old = data[item.offset + 32:item.offset + 34]
-    struct.pack_into("<H", data, item.offset + 32, new_sharpness)
+    offset = _require_parc_field_offset(data, item, "_sharpness", 2)
+    old = data[offset:offset + 2]
+    struct.pack_into("<H", data, offset, new_sharpness)
     item.sharpness = new_sharpness
     return bytes(old)
 

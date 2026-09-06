@@ -2,16 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import datetime
 from typing import Dict, List, Optional
-from offline_network import urlopen, Request, OfflineNetworkDisabled
 
 from models import ItemInfo
-
-
-GITHUB_URL = (
-    "https://raw.githubusercontent.com/"
-    "NattKh/CrimsonDesertCommunityItemMapping/main/item_names.json"
-)
 
 import sys as _sys
 _exe_dir = os.path.dirname(os.path.abspath(_sys.executable)) if getattr(_sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
@@ -148,9 +142,6 @@ class ItemNameDB:
         results.sort(key=lambda x: x.item_key)
         return results
 
-    def sync_from_github(self, save_to: str = "") -> tuple[bool, str]:
-        return False, "Online item sync is removed in the offline build. Use Sync Items Local."
-
     def sync_from_local_game(self, game_path: str) -> tuple[bool, str]:
         """Add/update item keys by reading the installed game's local archives."""
         try:
@@ -174,7 +165,8 @@ class ItemNameDB:
             return False, "Local item-data header is truncated."
 
         previous = dict(self.items)
-        added = updated = 0
+        added = updated = parsed = 0
+        extracted_keys: set[int] = set()
         for index in range(count):
             key, offset = struct.unpack_from("<II", header, 2 + index * 8)
             end = (struct.unpack_from("<I", header, 2 + (index + 1) * 8 + 4)[0]
@@ -186,6 +178,8 @@ class ItemNameDB:
                 if not record_key or name_length > 512 or name_start + name_length > end:
                     continue
                 internal = body[name_start:name_start + name_length].decode("ascii", "replace")
+                parsed += 1
+                extracted_keys.add(record_key)
                 existing = previous.get(record_key)
                 display = existing.name if existing and existing.name else internal.replace("_", " ")
                 self.items[record_key] = ItemInfo(
@@ -205,9 +199,37 @@ class ItemNameDB:
         if not self.items:
             return False, "No usable item records were found in the local game data."
         self.version += 1
-        self.loaded_path = self.loaded_path or os.path.join(_exe_dir, "item_names.json")
+        # A bundled one-file resource lives under PyInstaller's temporary
+        # _MEIPASS directory.  Always persist refreshes beside the executable
+        # so the current-client database survives the next launch.
+        self.loaded_path = os.path.join(_exe_dir, "item_names.json")
         self.save()
-        return True, f"Local game scan complete: {len(self.items)} items ({added} added, {updated} refreshed)."
+        report = {
+            "generatedUtc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "source": "installed_client",
+            "gamePath": os.path.abspath(game_path),
+            "archive": "0008",
+            "headerPath": "gamedata/binarystaticinfo__/bin/iteminfo.staticinfoheader",
+            "bodyPath": "gamedata/binarystaticinfo__/bin/iteminfo.staticinfobody",
+            "declaredRecords": count,
+            "parsedRecords": parsed,
+            "uniqueClientItemKeys": len(extracted_keys),
+            "databaseItems": len(self.items),
+            "added": added,
+            "refreshed": updated,
+            "preservedLocalOnlyKeys": len(set(previous) - extracted_keys),
+        }
+        report_path = os.path.join(os.path.dirname(self.loaded_path), "item_scan_report.json")
+        try:
+            with open(report_path, "w", encoding="utf-8") as report_file:
+                json.dump(report, report_file, indent=2, ensure_ascii=False)
+        except OSError:
+            report_path = ""
+        suffix = f" Report: {report_path}" if report_path else ""
+        return True, (
+            f"Local game scan complete: {len(extracted_keys)} current client items; "
+            f"{len(self.items)} total known ({added} added, {updated} refreshed)." + suffix
+        )
 
 
 def _guess_item_category(internal_name: str) -> str:

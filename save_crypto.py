@@ -30,8 +30,11 @@ def _generate_save_key(version: int) -> bytes:
 
 
 KEY = _generate_save_key(2)
+# Public compatibility name used by the standalone diagnostic parser.
+DEFAULT_KEY_HEX = KEY.hex()
 
 HEADER_SIZE = 0x80
+MAGIC = b"SAVE"
 MAGIC_OFFSET = 0x00
 VERSION_OFFSET = 0x04
 FLAGS_OFFSET = 0x06
@@ -188,7 +191,13 @@ def load_save_file(path: str) -> SaveData:
     )
 
     if not hmac_ok:
-        raise Warning("HMAC mismatch - save may be corrupted but was loaded anyway.")
+        # Refuse to parse a tampered/truncated save. Continuing with a bad
+        # integrity digest can produce an editor output that the game rejects
+        # or crashes while loading.
+        raise ValueError(
+            "HMAC verification failed: the save is corrupted, incomplete, "
+            "or was modified by an unsupported tool."
+        )
 
     return save_data
 

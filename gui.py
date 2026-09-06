@@ -9,7 +9,6 @@ import shutil
 import struct
 import sys
 import traceback
-import urllib.request
 from time import perf_counter
 
 log = logging.getLogger(__name__)
@@ -33,7 +32,8 @@ from PySide6.QtWidgets import (
 )
 
 from models import SaveItem, SaveData, UndoEntry
-from save_crypto import load_save_file, load_raw_stream, write_save_file
+from save_crypto import load_save_file, load_raw_stream
+from native_backend import backend as native_backend, NativeBackendError
 from item_scanner import (
     scan_items, apply_stack_edit, apply_enchant_edit,
     apply_endurance_edit, apply_sharpness_edit, apply_item_swap, apply_item_swap_all,
@@ -53,7 +53,6 @@ try:
 except Exception:
     insert_item_to_inventory = insert_item_to_store = clone_block_section = insert_items_batch = None
 from app_version import APP_VERSION
-from offline_network import urlopen as _offline_urlopen
 from icon_cache import IconCache, ICON_SIZE
 from localization import tr, set_language, get_language, get_available_languages
 from theme_support import (
@@ -78,12 +77,6 @@ def _is_game_running() -> bool:
 
 
 COLORS = dict(DARK_COLORS)
-
-# Community editions contained a handful of optional web features.  Keeping
-# this process-wide guard here also prevents any legacy GUI call site from
-# making an HTTP request, including ones imported lazily by a button handler.
-urllib.request.urlopen = _offline_urlopen
-
 
 def _iter_knowledge_records(raw: bytes | bytearray):
     """Yield safe byte-wise candidates for the 16-byte knowledge record shape."""
@@ -113,17 +106,23 @@ class SaveLoadWorker(QObject):
         started = perf_counter()
         timings = {}
         try:
-            self.progress.emit("Decrypting and decompressing save...", 1)
+            self.progress.emit("Validating current save layout with C++ backend...", 1)
+            stage = perf_counter()
+            native_report = native_backend.validate_save(self.path)
+            timings["native_validation"] = perf_counter() - stage
+            timings["native_report"] = native_report
+
+            self.progress.emit("Decrypting and decompressing save...", 2)
             stage = perf_counter()
             save_data = load_save_file(self.path)
             timings["decrypt"] = perf_counter() - stage
 
-            self.progress.emit("Indexing items...", 2)
+            self.progress.emit("Indexing items...", 3)
             stage = perf_counter()
             items = scan_items(save_data.decompressed_blob)
             timings["index"] = perf_counter() - stage
 
-            self.progress.emit("Reading exact item and socket fields...", 3)
+            self.progress.emit("Reading exact item and socket fields...", 4)
             stage = perf_counter()
             enriched, parc_status = enrich_items_with_parc(
                 save_data.decompressed_blob, items
@@ -134,6 +133,10 @@ class SaveLoadWorker(QObject):
                 self.path, save_data, items, enriched, parc_status, timings
             )
         except Exception as exc:
+            log.error(
+                "Save worker failed for %s: %s\n%s",
+                self.path, exc, traceback.format_exc(),
+            )
             self.failed.emit(self.path, str(exc), traceback.format_exc())
 
 
@@ -1753,8 +1756,8 @@ class QuestEditorWindow(QDialog):
                 item.name = self._name_db.get_name(item.item_key)
                 item.category = self._name_db.get_category(item.item_key)
 
-            self._fix_duplicate_item_nos()
             self._parc_status = parc_status
+            self._native_validation = timings.get("native_report", {})
             if enriched > 0:
                 self._status_parc_label.setText(parc_status)
                 self._status_parc_label.setStyleSheet(
@@ -1816,13 +1819,15 @@ class QuestEditorWindow(QDialog):
                 float(timings.get("details", 0.0)),
             )
             self._update_status(
-                f"Loaded: {friendly} ({slot_dir}) in {elapsed:.1f}s"
+                f"Loaded: {friendly} ({slot_dir}) in {elapsed:.1f}s | "
+                f"C++ schema {self._native_validation.get('schema_fingerprint', 'unknown')}"
             )
             if progress is not None:
                 progress.complete(f"Loaded {len(self._items)} items in {elapsed:.1f}s")
         except Exception as exc:
             if progress is not None:
                 progress.close()
+            log.exception("Save load finalization failed for %s", path)
             QMessageBox.critical(
                 self, "Error",
                 "The save was parsed, but the editor could not finish loading it:"
@@ -1831,6 +1836,7 @@ class QuestEditorWindow(QDialog):
 
     @Slot(str, str, str)
     def _on_save_load_failed(self, path: str, err_msg: str, trace: str) -> None:
+        log.error("Failed to load save %s: %s\n%s", path, err_msg, trace)
         progress = getattr(self, "_save_load_progress", None)
         if progress is not None:
             progress.reject()
@@ -1868,12 +1874,25 @@ class QuestEditorWindow(QDialog):
         if reply != QMessageBox.Yes:
             return
         try:
-            from save_crypto import write_save_file
-            write_save_file(self._save_path, bytes(self._save_data.decompressed_blob),
-                           self._save_data.raw_header)
-            self._status.setText(f"Saved to {os.path.basename(self._save_path)}")
-            QMessageBox.information(self, "Saved", f"Quest changes saved to:\n{self._save_path}")
+            self._status.setText("C++ backend is validating and writing the save...")
+            QApplication.processEvents()
+            report = native_backend.write_validated_save(
+                self._save_path,
+                bytes(self._save_data.decompressed_blob),
+                self._save_path,
+            )
+            fingerprint = report.get("schema_fingerprint", "unknown")
+            self._status.setText(
+                f"Validated and saved to {os.path.basename(self._save_path)}"
+            )
+            QMessageBox.information(
+                self,
+                "Validated Save",
+                f"Quest changes were validated by the C++ backend and saved to:\n"
+                f"{self._save_path}\n\nSchema: {fingerprint}",
+            )
         except Exception as e:
+            log.exception("Quest save write failed for %s", self._save_path)
             QMessageBox.critical(self, "Save Error", str(e))
 
 
@@ -3058,10 +3077,9 @@ class MainWindow(QMainWindow):
             f"background-color: {COLORS['input_bg']};"
         )
         self._global_game_path.setToolTip("Game installation path used by Game Data, ItemBuffs, and Stores")
-        gp_detect = QPushButton("Detect")
-        # Fixed width must include the active theme's button padding; 55px
-        # clipped the first/last character at common UI scaling values.
-        gp_detect.setFixedWidth(96)
+        gp_detect = QPushButton("Auto-Detect Client")
+        # Leave enough room for large fonts and Windows display scaling.
+        gp_detect.setMinimumWidth(180)
         gp_detect.setToolTip("Auto-detect game installation")
         gp_detect.clicked.connect(self._global_auto_detect_path)
         info_layout.addWidget(gp_detect)
@@ -3181,11 +3199,6 @@ class MainWindow(QMainWindow):
         ps_refresh_btn = QPushButton("Refresh")
         ps_refresh_btn.clicked.connect(self._pack_browser_refresh)
         ps_layout.addWidget(ps_refresh_btn)
-
-        ps_dl_know_btn = QPushButton("Download Knowledge Packs")
-        ps_dl_know_btn.setToolTip("Download knowledge packs from GitHub for use with Abyss Gates / Knowledge injection")
-        ps_dl_know_btn.clicked.connect(self._download_knowledge_packs)
-        ps_layout.addWidget(ps_dl_know_btn)
 
         ps_open_btn = QPushButton("Open Folder")
         ps_open_btn.setStyleSheet(f"font-size: 10px; color: {COLORS['text_dim']};")
@@ -3627,18 +3640,6 @@ class MainWindow(QMainWindow):
         import_lang_btn.clicked.connect(lambda: self._settings_import_lang(dlg))
         lang_btn_row.addWidget(import_lang_btn)
 
-        dl_lang_btn = QPushButton("Download Name Pack")
-        dl_lang_btn.setToolTip("Download translated item/quest/knowledge names for the selected language from GitHub")
-        dl_lang_btn.clicked.connect(lambda: self._settings_download_name_pack(dlg))
-        lang_btn_row.addWidget(dl_lang_btn)
-
-        dl_all_btn = QPushButton("Download All Packs")
-        dl_all_btn.setToolTip(
-            "Download ALL language packs (UI + names) from GitHub.\n"
-            "Available: de, es, es-mx, fr, it, ja, ko, pl, pt-br, ru, tr, zh, zh-tw")
-        dl_all_btn.clicked.connect(lambda: self._settings_download_all_lang_packs(dlg))
-        lang_btn_row.addWidget(dl_all_btn)
-
         open_lang_btn = QPushButton("Open Locale Folder")
         open_lang_btn.setStyleSheet(f"font-size: 10px; color: {COLORS['text_dim']};")
         open_lang_btn.clicked.connect(lambda: os.startfile(os.path.join(self._app_dir(), 'locale')))
@@ -3650,7 +3651,7 @@ class MainWindow(QMainWindow):
         lang_hint = QLabel(
             "Restart required after changing language.\n"
             "UI translations go in locale/ folder. Name packs go in locale/ or language/ folder.\n"
-            "Community can contribute translations on GitHub."
+            "Install optional community translations by using Import Translation."
         )
         lang_hint.setStyleSheet(f"color: {COLORS['text_dim']}; font-size: 10px;")
         lang_hint.setWordWrap(True)
@@ -3754,134 +3755,6 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(parent_dlg, "Import Error", str(e))
-
-    def _settings_download_name_pack(self, parent_dlg) -> None:
-        lang_code = self._settings_lang.currentData()
-        if not lang_code or lang_code == 'en':
-            QMessageBox.information(parent_dlg, "Download",
-                "English is built-in — no download needed.\n"
-                "Select a different language first.")
-            return
-
-        filename = f"names_{lang_code}.json"
-        url = f"https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/main/language/{filename}"
-
-        locale_dir = os.path.join(self._app_dir(), 'locale')
-        os.makedirs(locale_dir, exist_ok=True)
-        dest = os.path.join(locale_dir, filename)
-
-        if os.path.isfile(dest):
-            reply = QMessageBox.question(parent_dlg, "Download",
-                f"{filename} already exists.\n\nRedownload and overwrite?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply != QMessageBox.Yes:
-                return
-
-        self._update_status(f"Downloading {filename}...")
-        QApplication.processEvents()
-
-        try:
-            from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
-            from PySide6.QtCore import QUrl, QEventLoop
-
-            manager = QNetworkAccessManager()
-            request = QNetworkRequest(QUrl(url))
-            request.setRawHeader(b"User-Agent", b"CrimsonSaveEditor")
-            reply_obj = manager.get(request)
-
-            loop = QEventLoop()
-            reply_obj.finished.connect(loop.quit)
-            loop.exec()
-
-            if reply_obj.error():
-                import urllib.request
-                urllib.request.urlretrieve(url, dest)
-            else:
-                data = reply_obj.readAll().data()
-                with open(dest, 'wb') as f:
-                    f.write(data)
-
-            if os.path.isfile(dest) and os.path.getsize(dest) > 100:
-                size_kb = os.path.getsize(dest) / 1024
-                self._update_status(f"Downloaded {filename} ({size_kb:.0f}KB)")
-                QMessageBox.information(parent_dlg, "Download Complete",
-                    f"Downloaded {filename} ({size_kb:.0f}KB)\n\n"
-                    f"17,267 translated names (items, quests, knowledge).\n"
-                    f"Restart the editor for changes to take effect.")
-            else:
-                QMessageBox.warning(parent_dlg, "Download Failed",
-                    f"Could not download {filename}.\n\n"
-                    f"Try downloading manually from:\n{url}\n\n"
-                    f"Place it in: {locale_dir}")
-
-        except Exception as e:
-            try:
-                import urllib.request
-                self._update_status(f"Downloading {filename} (fallback)...")
-                QApplication.processEvents()
-                urllib.request.urlretrieve(url, dest)
-                size_kb = os.path.getsize(dest) / 1024
-                QMessageBox.information(parent_dlg, "Download Complete",
-                    f"Downloaded {filename} ({size_kb:.0f}KB)\n\nRestart for changes.")
-            except Exception as e2:
-                QMessageBox.critical(parent_dlg, "Download Error",
-                    f"Failed: {e2}\n\nDownload manually from:\n{url}")
-
-    def _settings_download_all_lang_packs(self, parent_dlg) -> None:
-        import urllib.request
-
-        LANGS = ['de', 'es', 'es-mx', 'fr', 'it', 'ja', 'ko', 'pl', 'pt-br', 'ru', 'tr', 'zh', 'zh-tw']
-        GITHUB_BASE = "https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/main"
-
-        locale_dir = os.path.join(self._app_dir(), 'locale')
-        os.makedirs(locale_dir, exist_ok=True)
-
-        reply = QMessageBox.question(parent_dlg, "Download All Language Packs",
-            f"Download {len(LANGS)} language packs from GitHub?\n\n"
-            "Languages: " + ", ".join(LANGS) + "\n\n"
-            "This downloads both UI translations (locale/) and name packs.\n"
-            "Existing files will be overwritten with latest versions.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply != QMessageBox.Yes:
-            return
-
-        downloaded = 0
-        errors = 0
-        files_to_download = []
-
-        for lang in LANGS:
-            files_to_download.append((
-                f"{GITHUB_BASE}/language/names_{lang}.json",
-                os.path.join(locale_dir, f"names_{lang}.json"),
-                f"names_{lang}.json"
-            ))
-        for lang in LANGS:
-            files_to_download.append((
-                f"{GITHUB_BASE}/locale/{lang}.json",
-                os.path.join(locale_dir, f"{lang}.json"),
-                f"{lang}.json"
-            ))
-
-        for url, dest, fname in files_to_download:
-            self._update_status(f"Downloading {fname}...")
-            QApplication.processEvents()
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                if data and len(data) > 50:
-                    with open(dest, 'wb') as f:
-                        f.write(data)
-                    downloaded += 1
-            except Exception:
-                errors += 1
-
-        self._update_status(f"Downloaded {downloaded} language files ({errors} not available)")
-        QMessageBox.information(parent_dlg, "Download Complete",
-            f"Downloaded {downloaded} language files.\n"
-            f"{errors} files not available on GitHub yet (UI translations pending).\n\n"
-            f"Restart the editor to apply.\n"
-            f"Select your language in Settings after restart.")
 
     def _settings_browse_path(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select Save Folder")
@@ -4013,25 +3886,6 @@ class MainWindow(QMainWindow):
         ]:
             act = QAction(guide_name, self)
             act.triggered.connect(lambda checked, k=guide_key: self._show_guide(k))
-            guides_menu.addAction(act)
-
-        guides_menu.addSeparator()
-
-        _video_guides = [
-            ("VIDEO: Drop Rate & Loot Table Editor + Packs Guide",
-             "https://www.youtube.com/watch?v=-yZ3EtZGFf4&t=3s"),
-            ("VIDEO: How to Change In-Game Drop Rate & Loot Table",
-             "https://www.youtube.com/watch?v=oMUQ1w0DZqk&t=5s"),
-            ("VIDEO: How to Modify Base Stats on Any Armor & Weapon",
-             "https://www.youtube.com/watch?v=Fxc3Wn2dImk"),
-            ("VIDEO: Item Editor — Mod Any Item",
-             "https://www.youtube.com/watch?v=nDOP6OKI1_E"),
-            ("VIDEO: How to Dye Any Color Without Unlocking",
-             "https://www.youtube.com/watch?v=W7S3YWWYspw"),
-        ]
-        for title, url in _video_guides:
-            act = QAction(title, self)
-            act.triggered.connect(lambda checked, u=url: __import__('webbrowser').open(u))
             guides_menu.addAction(act)
 
         dev_menu = menu_bar.addMenu("Dev")
@@ -4664,7 +4518,9 @@ QCheckBox::indicator {{
         self._inv_group.setVisible(False)
 
         self._show_icons_btn = QPushButton("Hide Local Icons" if self._config.get("show_icons", False) else "Show Local Icons")
-        self._show_icons_btn.setToolTip("Download and display item icons (requires internet first time)")
+        self._show_icons_btn.setToolTip(
+            "Display icons from the optional icons_local pack beside the editor executable"
+        )
         self._show_icons_btn.clicked.connect(self._toggle_icons)
         top.addWidget(self._show_icons_btn)
         self._icons_enabled = self._config.get("show_icons", False)
@@ -6042,10 +5898,10 @@ QCheckBox::indicator {{
         layout.addWidget(self._make_scope_label("readonly"))
 
         purpose = QLabel(
-            "Help us map every item in Crimson Desert! This tool collects real item templates "
-            "from player saves to build a complete database of all items, equipment, and their binary structures. "
-            "The more saves we scan, the more items the editor can support. "
-            "Click 'Sync with Community' to contribute your discovered items."
+            "Local template tools collect real item structures from your saves. "
+            "Import an optional master_templates JSON file, scan your saves, and export "
+            "new discoveries to a JSON file if you want to share them manually. "
+            "This editor never connects to a server."
         )
         purpose.setWordWrap(True)
         purpose.setStyleSheet(
@@ -6058,7 +5914,7 @@ QCheckBox::indicator {{
         help_row.addWidget(self._make_help_btn("community"))
         layout.addLayout(help_row)
 
-        status_group = QGroupBox("Community Item Template Database")
+        status_group = QGroupBox("Local Item Template Database")
         sg = QVBoxLayout(status_group)
 
         self._community_status = QLabel("Loading template database...")
@@ -6074,22 +5930,16 @@ QCheckBox::indicator {{
         sg.addWidget(self._community_progress)
 
         btn_row = QHBoxLayout()
-        sync_btn = QPushButton("Sync with Community")
-        sync_btn.setObjectName("accentBtn")
-        sync_btn.setToolTip("Download latest DB, scan your saves, upload new templates")
-        sync_btn.clicked.connect(self._community_sync)
-        btn_row.addWidget(sync_btn)
+        import_btn = QPushButton("Import Master JSON")
+        import_btn.setToolTip("Install a master_templates JSON file already on this computer")
+        import_btn.clicked.connect(self._community_import_master)
+        btn_row.addWidget(import_btn)
 
-        dl_btn = QPushButton("Download Latest DB")
-        dl_btn.setToolTip("Download the latest master template database from GitHub")
-        dl_btn.clicked.connect(self._community_download)
-        btn_row.addWidget(dl_btn)
-
-        upload_btn = QPushButton("Upload New Templates")
-        upload_btn.setObjectName("accentBtn")
-        upload_btn.setToolTip("Upload templates you have that the master DB doesn't (no rescan needed)")
-        upload_btn.clicked.connect(self._community_upload)
-        btn_row.addWidget(upload_btn)
+        export_btn = QPushButton("Export New Templates")
+        export_btn.setObjectName("accentBtn")
+        export_btn.setToolTip("Write locally discovered templates to a JSON file for manual sharing")
+        export_btn.clicked.connect(self._community_export)
+        btn_row.addWidget(export_btn)
 
         scan_loaded_btn = QPushButton("Scan Loaded Save")
         scan_loaded_btn.setToolTip("Scan the currently loaded save for item templates (fast)")
@@ -6167,7 +6017,7 @@ QCheckBox::indicator {{
                 f"Master DB: {status['master_count']} templates  |  "
                 f"Coverage: {status['coverage_pct']}% of {status['total_game_items']} game items  |  "
                 f"Local: {status['local_count']} templates  |  "
-                f"New to contribute: {status['new_count']}"
+                f"Not in master: {status['new_count']}"
             )
             self._update_coverage_table()
         except Exception as e:
@@ -6205,80 +6055,49 @@ QCheckBox::indicator {{
         except Exception:
             pass
 
-    def _community_sync(self) -> None:
-        self._community_status.setText("Downloading master DB...")
-        QApplication.processEvents()
+    def _community_import_master(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Local Master Template Database",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
         try:
-            from template_sync import download_master, find_new_templates, upload_contribution, _LOCAL_MASTER
-            from item_template_db import load_db
-            import json
-
-            master = download_master()
-            master_count = len(master.get('templates', {}))
-            self._community_status.setText(f"Master DB: {master_count} templates. Checking local...")
-            QApplication.processEvents()
-
-            db = load_db()
-            new = find_new_templates(db, master)
-
-            if new:
-                self._community_status.setText(f"Uploading {len(new)} new templates...")
-                QApplication.processEvents()
-                ok, msg = upload_contribution(new)
-                if ok:
-                    master_templates = master.get('templates', {})
-                    master_templates.update(new)
-                    master['templates'] = master_templates
-                    master['total_items'] = len(master_templates)
-                    with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-                        json.dump(master, f, separators=(',', ':'))
-                self._community_status.setText(msg)
-            else:
-                self._community_status.setText(
-                    f"Up to date! Master: {master_count} templates, nothing new to contribute."
-                )
-        except Exception as e:
-            self._community_status.setText(f"Sync failed: {e}")
-        self._update_community_status()
-
-    def _community_download(self) -> None:
-        self._community_status.setText("Downloading...")
-        QApplication.processEvents()
-        try:
-            from template_sync import download_master
-            master = download_master()
-            count = len(master.get('templates', {}))
-            self._community_status.setText(f"Downloaded master DB: {count} templates")
-        except Exception as e:
-            self._community_status.setText(f"Download failed: {e}")
-        self._update_community_status()
-
-    def _community_upload(self) -> None:
-        self._community_status.setText("Checking for new templates to upload...")
-        QApplication.processEvents()
-        try:
-            from template_sync import load_local_master, find_new_templates, upload_contribution
-            from item_template_db import load_db
-            db = load_db()
-            master = load_local_master()
-            new = find_new_templates(db, master)
-            if not new:
-                self._community_status.setText("Nothing new to upload — local DB matches master.")
-                return
-            ok, msg = upload_contribution(new)
+            from template_sync import import_master
+            ok, message = import_master(path)
             if ok:
-                master_templates = master.get('templates', {})
-                master_templates.update(new)
-                master['templates'] = master_templates
-                master['total_items'] = len(master_templates)
-                import json
-                from template_sync import _LOCAL_MASTER
-                with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-                    json.dump(master, f, separators=(',', ':'))
-            self._community_status.setText(msg)
-        except Exception as e:
-            self._community_status.setText(f"Upload failed: {e}")
+                from item_template_db import _reload_db
+                _reload_db()
+            self._community_status.setText(message)
+        except Exception as exc:
+            self._community_status.setText(f"Import failed: {exc}")
         self._update_community_status()
+
+    def _community_export(self) -> None:
+        try:
+            from template_sync import export_contribution, find_new_templates, load_local_master
+            from item_template_db import load_db
+            new_templates = find_new_templates(load_db(), load_local_master())
+        except Exception as exc:
+            self._community_status.setText(f"Could not prepare export: {exc}")
+            return
+        if not new_templates:
+            self._community_status.setText("No local templates are missing from the master database.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export New Item Templates",
+            "item_template_contribution.json",
+            "JSON Files (*.json)",
+        )
+        if not path:
+            return
+        ok, message = export_contribution(new_templates, path)
+        self._community_status.setText(message)
+        if not ok:
+            QMessageBox.warning(self, "Template export", message)
 
     def _community_scan_loaded(self) -> None:
         if not self._save_data:
@@ -6308,7 +6127,7 @@ QCheckBox::indicator {{
             new_to_share = find_new_templates(db, master)
             self._community_status.setText(
                 f"Loaded save: {len(templates)} items found, {new_count} new to local DB. "
-                f"{len(new_to_share)} ready to contribute."
+                f"{len(new_to_share)} are not in the local master."
             )
         except Exception as e:
             self._community_status.setText(f"Scan failed: {e}")
@@ -6336,7 +6155,7 @@ QCheckBox::indicator {{
             master = load_local_master()
             new = find_new_templates(local, master)
             self._community_status.setText(
-                f"Scanned: {len(local)} templates found. {len(new)} new to contribute."
+                f"Scanned: {len(local)} templates found. {len(new)} are not in the local master."
             )
         except Exception as e:
             self._community_status.setText(f"Scan failed: {e}")
@@ -6451,69 +6270,6 @@ QCheckBox::indicator {{
             f"{len(all_targets) - len(used_keys)} unmapped targets remaining in range."
         )
         self._update_community_status()
-
-    def _fetch_community_packs(self) -> None:
-        self._packs_status.setText("Fetching...")
-        QApplication.processEvents()
-        ok, msg = self._pack_mgr.fetch_remote_index()
-        self._packs_status.setText(msg)
-
-        table = self._community_table
-        entries = self._pack_mgr.get_remote_index()
-        table.setRowCount(len(entries))
-        for row, e in enumerate(entries):
-            table.setItem(row, 0, QTableWidgetItem(e.name))
-            table.setItem(row, 1, QTableWidgetItem(e.author))
-            table.setItem(row, 2, QTableWidgetItem(str(e.item_count)))
-            table.setItem(row, 3, QTableWidgetItem(e.description))
-            table.setItem(row, 4, QTableWidgetItem(e.filename))
-
-    def _download_community_pack(self) -> None:
-        rows = set(idx.row() for idx in self._community_table.selectedIndexes())
-        if not rows:
-            QMessageBox.information(self, "Download", "Select a pack from the list first.")
-            return
-        row = min(rows)
-        fname_w = self._community_table.item(row, 4)
-        if not fname_w:
-            return
-        filename = fname_w.text()
-
-        self._packs_status.setText(f"Downloading {filename}...")
-        QApplication.processEvents()
-        pack, msg = self._pack_mgr.download_pack(filename)
-        self._packs_status.setText(msg)
-
-        if pack:
-            self._refresh_local_packs()
-            QMessageBox.information(self, "Downloaded", msg)
-
-    def _preview_community_pack(self) -> None:
-        rows = set(idx.row() for idx in self._community_table.selectedIndexes())
-        if not rows:
-            return
-        row = min(rows)
-        fname_w = self._community_table.item(row, 4)
-        name_w = self._community_table.item(row, 0)
-        if not fname_w:
-            return
-
-        pack, msg = self._pack_mgr.download_pack(fname_w.text())
-        if not pack:
-            QMessageBox.warning(self, "Preview", msg)
-            return
-
-        items_text = "\n".join(
-            f"  {it.name or f'Key:{it.item_key}'} x{it.count}"
-            + (f" +{it.enchant}" if it.enchant >= 0 else "")
-            for it in pack.items
-        )
-        QMessageBox.information(
-            self, f"Pack: {pack.name}",
-            f"Author: {pack.author}\n"
-            f"Description: {pack.description}\n"
-            f"Items ({len(pack.items)}):\n{items_text}"
-        )
 
     def _refresh_local_packs(self) -> None:
         packs = self._pack_mgr.scan_local()
@@ -6661,15 +6417,17 @@ QCheckBox::indicator {{
         for pack_item, donor in dlg.mappings:
             patches = smart_item_swap(self._save_data.decompressed_blob, donor, pack_item.item_key)
             old_stack = apply_stack_edit(self._save_data.decompressed_blob, donor, pack_item.count)
+            stack_off = donor.field_offsets["_stackCount"]
             patches.append((
-                donor.offset + 18, old_stack,
-                self._save_data.decompressed_blob[donor.offset + 18:donor.offset + 26]
+                stack_off, old_stack,
+                self._save_data.decompressed_blob[stack_off:stack_off + 8]
             ))
             if pack_item.enchant >= 0 and donor.has_enchant:
                 old_enc = apply_enchant_edit(self._save_data.decompressed_blob, donor, pack_item.enchant)
+                enchant_off = donor.field_offsets["_enchantLevel"]
                 patches.append((
-                    donor.offset + 26, old_enc,
-                    self._save_data.decompressed_blob[donor.offset + 26:donor.offset + 28]
+                    enchant_off, old_enc,
+                    self._save_data.decompressed_blob[enchant_off:enchant_off + 2]
                 ))
             all_patches.extend(patches)
             applied += 1
@@ -6788,19 +6546,15 @@ QCheckBox::indicator {{
         self._db_category.currentTextChanged.connect(self._filter_database)
         top.addWidget(self._db_category)
 
-        sync_btn = QPushButton("Online Sync Removed")
-        sync_btn.setToolTip("This offline build never downloads data. Use local game data when available.")
-        sync_btn.setEnabled(False)
-        sync_btn.clicked.connect(self._sync_github)
-        top.addWidget(sync_btn)
-
         sync_local_btn = QPushButton("Sync Items Local")
         sync_local_btn.setToolTip("Read item keys from the locally installed Crimson Desert client. No internet is used.")
         sync_local_btn.clicked.connect(self._sync_items_local)
         top.addWidget(sync_local_btn)
 
         self._db_show_icons_btn = QPushButton("Hide Local Icons" if self._icons_enabled else "Show Local Icons")
-        self._db_show_icons_btn.setToolTip("Download and display all item icons from GitHub.\nFirst time requires internet. Icons cached locally.")
+        self._db_show_icons_btn.setToolTip(
+            "Display icons from the optional icons_local folder beside the editor."
+        )
         self._db_show_icons_btn.clicked.connect(self._toggle_icons)
         top.addWidget(self._db_show_icons_btn)
 
@@ -7025,28 +6779,9 @@ QCheckBox::indicator {{
             self._save_dye_slot_db(db)
 
     def _dye_sync_slot_db(self) -> None:
-        import urllib.request, json as _json
-        url = (
-            "https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-            "/main/dye_slot_counts.json"
+        self._dye_status.setText(
+            "Online dye database sync is not included; local auto-learning remains available."
         )
-        self._dye_status.setText("Syncing dye slot database...")
-        QApplication.processEvents()
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-            remote = _json.loads(urllib.request.urlopen(req, timeout=10).read())
-        except Exception as e:
-            self._dye_status.setText(f"Sync failed: {e}")
-            return
-
-        local = self._load_dye_slot_db()
-        added = 0
-        for k, v in remote.items():
-            if k not in local:
-                local[k] = v
-                added += 1
-        self._save_dye_slot_db(local)
-        self._dye_status.setText(f"Synced: {added} new items added ({len(local)} total known)")
 
     DYE_COLOR_GROUPS = {
         0xC88211F5: "Herenon",
@@ -9285,7 +9020,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_stack_edit(self._save_data.decompressed_blob, item, new_stack)
-            edits.append((item.offset + 18, old, self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]))
+            stack_off = item.field_offsets["_stackCount"]
+            edits.append((stack_off, old, self._save_data.decompressed_blob[stack_off:stack_off + 8]))
         if edits:
             self._undo_stack.append(UndoEntry(
                 description=f"Repurchase: set stack to {new_stack} for {len(edits)} items",
@@ -9507,10 +9243,11 @@ QCheckBox::indicator {{
                 old_stack_bytes = apply_stack_edit(
                     self._save_data.decompressed_blob, item, new_stack_limit
                 )
+                stack_off = item.field_offsets["_stackCount"]
                 patches.append((
-                    item.offset + 18,
+                    stack_off,
                     old_stack_bytes,
-                    self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]
+                    self._save_data.decompressed_blob[stack_off:stack_off + 8]
                 ))
             method_used = "Key swap (fallback)"
 
@@ -13442,13 +13179,6 @@ QCheckBox::indicator {{
         unlock_abyss_btn.clicked.connect(self._unlock_all_abyss_gates)
         abyss_btn_row.addWidget(unlock_abyss_btn)
 
-        dl_know_btn = QPushButton("Download Knowledge Packs")
-        dl_know_btn.setToolTip(
-            "Download knowledge packs from GitHub.\n"
-            "Required for Unlock Abyss Gates if packs are missing.")
-        dl_know_btn.clicked.connect(self._download_knowledge_packs)
-        abyss_btn_row.addWidget(dl_know_btn)
-
         refog_btn = QPushButton("Re-Fog Map")
         refog_btn.setToolTip("Cover the entire map in fog again.")
         refog_btn.clicked.connect(self._debug_refog_map)
@@ -13587,74 +13317,6 @@ QCheckBox::indicator {{
         except Exception as e:
             import traceback; traceback.print_exc()
             self._waypoint_count.setText(f"Error: {e}")
-
-    _KNOWLEDGE_PACK_REPO = "NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-    _KNOWLEDGE_PACK_DIR = "knowledge_packs"
-    _KNOWLEDGE_PACK_URL = (
-        "https://api.github.com/repos/NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-        "/contents/knowledge_packs"
-    )
-
-    def _get_knowledge_packs_dir(self) -> str:
-        if getattr(sys, 'frozen', False):
-            base = os.path.dirname(os.path.abspath(sys.executable))
-        else:
-            base = os.path.dirname(__file__)
-        d = os.path.join(base, 'knowledge_packs')
-        os.makedirs(d, exist_ok=True)
-        return d
-
-    def _download_knowledge_packs(self) -> None:
-        import urllib.request, urllib.parse, json as _json
-
-        self._update_status("Fetching knowledge pack list from GitHub...")
-        QApplication.processEvents()
-
-        try:
-            req = urllib.request.Request(
-                self._KNOWLEDGE_PACK_URL,
-                headers={"User-Agent": "CrimsonSaveEditor", "Accept": "application/vnd.github.v3+json"},
-            )
-            resp = urllib.request.urlopen(req, timeout=15)
-            listing = _json.loads(resp.read())
-        except Exception as e:
-            QMessageBox.critical(self, "Download Failed",
-                f"Could not fetch pack list from GitHub:\n{e}")
-            self._update_status("Download failed.")
-            return
-
-        packs = [f for f in listing if f['name'].endswith('.json')]
-        if not packs:
-            QMessageBox.information(self, "Knowledge Packs", "No knowledge packs found on GitHub.")
-            return
-
-        dest_dir = self._get_knowledge_packs_dir()
-        downloaded = 0
-        skipped = 0
-        for pack in packs:
-            local_path = os.path.join(dest_dir, pack['name'])
-            if os.path.isfile(local_path):
-                skipped += 1
-                continue
-            self._update_status(f"Downloading {pack['name']}...")
-            QApplication.processEvents()
-            try:
-                dl_url = pack['download_url']
-                req = urllib.request.Request(dl_url, headers={"User-Agent": "CrimsonSaveEditor"})
-                data = urllib.request.urlopen(req, timeout=30).read()
-                with open(local_path, 'wb') as fp:
-                    fp.write(data)
-                downloaded += 1
-            except Exception as e:
-                QMessageBox.warning(self, "Download Error",
-                    f"Failed to download {pack['name']}:\n{e}")
-
-        msg = f"Downloaded {downloaded} pack(s)"
-        if skipped:
-            msg += f", {skipped} already present"
-        msg += f"\nSaved to: {dest_dir}"
-        self._update_status(msg)
-        QMessageBox.information(self, "Knowledge Packs Downloaded", msg)
 
     def _unlock_all_abyss_gates(self) -> None:
         if not self._save_data:
@@ -20387,15 +20049,6 @@ QCheckBox::indicator {{
         import_community_btn.clicked.connect(self._buff_import_community_json)
         bottom_bar.addWidget(import_community_btn)
 
-        sync_names_btn = QPushButton("Sync Buff Names")
-        sync_names_btn.setToolTip(
-            "Download latest community-verified buff/stat/passive names from GitHub.\n"
-            "Updates display names in this tab. Contribute corrections via PR:\n"
-            "github.com/NattKh/CrimsonDesertCommunityItemMapping/buff_names_community.json"
-        )
-        sync_names_btn.clicked.connect(self._buff_sync_community_names)
-        bottom_bar.addWidget(sync_names_btn)
-
         save_cfg_btn = QPushButton("Save Config")
         save_cfg_btn.setToolTip(
             "Save your current edits as a reusable config file.\n"
@@ -25805,21 +25458,20 @@ QCheckBox::indicator {{
             QMessageBox.critical(self, "Error", str(e))
 
     def _buff_sync_community_names(self) -> None:
-        BUFF_NAMES_URL = (
-            "https://raw.githubusercontent.com/"
-            "NattKh/CrimsonDesertCommunityItemMapping/main/buff_names_community.json"
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Buff Names",
+            self._app_dir(),
+            "JSON Files (*.json)",
         )
-        self._buff_status_label.setText("Syncing buff names from GitHub...")
-        QApplication.processEvents()
-
+        if not path:
+            return
         try:
-            from urllib.request import urlopen, Request
-            req = Request(BUFF_NAMES_URL, headers={"User-Agent": "CrimsonSaveEditor/3.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+            with open(path, "r", encoding="utf-8") as source_file:
+                data = json.load(source_file)
         except Exception as e:
-            self._buff_status_label.setText(f"Sync failed: {e}")
-            QMessageBox.warning(self, "Sync Failed", f"Could not download buff names:\n{e}")
+            self._buff_status_label.setText(f"Import failed: {e}")
+            QMessageBox.warning(self, "Import Failed", f"Could not read buff names:\n{e}")
             return
 
         updated_buffs = 0
@@ -25927,9 +25579,7 @@ QCheckBox::indicator {{
                 f"  Buffs updated:    {updated_buffs} / {buffs_count}\n"
                 f"  Passives updated: {updated_passives} / {passives_count}\n\n"
                 f"Changes reflect in the stats table, Add Buff/Passive dropdowns,\n"
-                f"and description search immediately.\n\n"
-                f"Contribute corrections:\n"
-                f"github.com/NattKh/CrimsonDesertCommunityItemMapping")
+                f"and description search immediately.")
         else:
             QMessageBox.information(self, "Already Up to Date",
                 "All names match the latest community database.")
@@ -26946,25 +26596,6 @@ QCheckBox::indicator {{
             with open(path, "w", encoding="utf-8") as f:
                 f.write(self._set_mgr.export_set_json(es))
             self._set_status.setText(f"Exported '{es.name}' to {os.path.basename(path)}")
-
-    def _set_refresh_github(self) -> None:
-        self._set_status.setText("Fetching community sets...")
-        QApplication.processEvents()
-        ok, msg = self._set_mgr.fetch_remote_index()
-        if not ok:
-            self._set_status.setText(msg)
-            return
-        remote = self._set_mgr.get_remote_index()
-        downloaded = 0
-        for entry in remote:
-            local_path = os.path.join(self._set_mgr.local_dir, entry.filename)
-            if not os.path.isfile(local_path):
-                es, dl_msg = self._set_mgr.download_set(entry.filename)
-                if es:
-                    downloaded += 1
-        self._set_refresh_local()
-        self._set_status.setText(f"{msg} Downloaded {downloaded} new sets.")
-
 
     def _build_gamedata_tab(self) -> None:
         tab = QWidget()
@@ -31687,25 +31318,6 @@ QCheckBox::indicator {{
         self._status.addWidget(self._status_parc_label, 1)
         self._status.addPermanentWidget(self._status_action_label)
 
-        discord_btn = QPushButton()
-        discord_btn.setToolTip("Join the Crimson Desert Modding Discord")
-        discord_btn.setCursor(Qt.PointingHandCursor)
-        discord_btn.setFlat(True)
-        discord_btn.setFixedSize(26, 26)
-        try:
-            _dc_path = os.path.join(
-                getattr(sys, '_MEIPASS', os.path.dirname(__file__)), "icons", "discord.png"
-            )
-            if os.path.isfile(_dc_path):
-                discord_btn.setIcon(QIcon(_dc_path))
-                discord_btn.setIconSize(QSize(20, 20))
-        except Exception:
-            discord_btn.setText("DC")
-        discord_btn.clicked.connect(lambda: __import__('PySide6.QtGui', fromlist=['QDesktopServices']).QDesktopServices.openUrl(
-            __import__('PySide6.QtCore', fromlist=['QUrl']).QUrl("https://discord.gg/6wxX5xPS")
-        ))
-        self._status.addPermanentWidget(discord_btn)
-
     def _update_status(self, action: str = "") -> None:
         if self._loaded_path:
             name = os.path.basename(self._loaded_path)
@@ -31881,6 +31493,15 @@ QCheckBox::indicator {{
 
     def _do_save(self, path: str) -> None:
         try:
+            if self._save_data.is_raw_stream:
+                raise NativeBackendError(
+                    "Validated SAVE output requires an original .save container. "
+                    "Raw streams are inspection-only in this safety build."
+                )
+            if not self._loaded_path or not os.path.isfile(self._loaded_path):
+                raise NativeBackendError(
+                    "The original loaded save is unavailable. Reopen it before writing."
+                )
             reply = QMessageBox.question(
                 self, "Backup Save?",
                 "Create a backup of your current save before writing changes?\n\n"
@@ -31895,10 +31516,12 @@ QCheckBox::indicator {{
                 if backup_path:
                     self._update_status(f"Backup created: {os.path.basename(backup_path)}")
 
-            write_save_file(
-                path,
+            self._update_status("C++ backend is validating the edited save...")
+            QApplication.processEvents()
+            report = native_backend.write_validated_save(
+                self._loaded_path,
                 bytes(self._save_data.decompressed_blob),
-                self._save_data.raw_header if self._save_data.raw_header else None,
+                path,
             )
             self._loaded_path = path
             self._dirty = False
@@ -31909,53 +31532,27 @@ QCheckBox::indicator {{
             self._config["last_slot"] = friendly
             self._save_config()
 
-            self._update_status(f"Saved: {friendly} ({slot_dir})")
+            fingerprint = report.get("schema_fingerprint", "unknown")
+            self._native_validation = report
+            self._update_status(
+                f"C++ validated save: {friendly} ({slot_dir}) | schema {fingerprint}"
+            )
             self._refresh_backups()
             self._refresh_sidebar()
-            QMessageBox.warning(
-                self, "Save",
-                f"Save file written successfully.\n{path}\n\n"
-                "WARNING: It is recommended to save again in game after loading\n"
-                "the changes to have a new clean save to work with, before\n"
-                "applying another change."
+            QMessageBox.information(
+                self, "Validated Save",
+                "The C++ backend validated, wrote, and reopened the save successfully.\n"
+                f"{path}\n\nSchema: {fingerprint}\n"
+                f"Objects: {report.get('object_count', 'unknown')}\n"
+                "The destination was not replaced until validation completed."
             )
         except Exception as e:
+            log.exception("Validated save write failed for %s", path)
             QMessageBox.critical(
                 self, "Save Error",
                 f"Failed to save:\n\n{e}\n\n{traceback.format_exc()}"
             )
 
-
-    def _fix_duplicate_item_nos(self) -> None:
-        if not self._items or not self._save_data:
-            return
-
-        from collections import Counter
-        no_counts = Counter(it.item_no for it in self._items)
-        duplicated_nos = {no for no, count in no_counts.items() if count > 1}
-
-        if not duplicated_nos:
-            return
-
-        max_no = get_max_itemno(self._items)
-        next_no = max_no + 1
-        fixed = 0
-
-        for dup_no in duplicated_nos:
-            sharing = [it for it in self._items if it.item_no == dup_no]
-            for item in sharing[1:]:
-                apply_itemno_edit(
-                    self._save_data.decompressed_blob, item, next_no
-                )
-                next_no += 1
-                fixed += 1
-
-        if fixed > 0:
-            self._dirty = True
-            self._update_status(
-                f"Fixed {fixed} duplicate ItemNo(s) across "
-                f"{len(duplicated_nos)} group(s) — each item now has a unique ID."
-            )
 
     def _scan_and_populate(self) -> None:
         if not self._save_data:
@@ -31968,8 +31565,6 @@ QCheckBox::indicator {{
         for item in self._items:
             item.name = self._name_db.get_name(item.item_key)
             item.category = self._name_db.get_category(item.item_key)
-
-        self._fix_duplicate_item_nos()
 
         self._status_parc_label.setText("Loading... (PARC enriching in background)")
         self._status_parc_label.setStyleSheet(f"color: {COLORS['warning']}; padding: 0 8px;")
@@ -32190,39 +31785,6 @@ QCheckBox::indicator {{
         self._populate_repurchase()
         self._filter_database()
         self._merc_refresh()
-
-    def _bulk_download_icons(self) -> None:
-        self._update_status("Icons are local-only. Place icons_local next to the editor executable.")
-        QMessageBox.information(
-            self, "Local icons only",
-            "This offline build never downloads icons. Place the optional icons_local folder "
-            "next to the editor executable.",
-        )
-        return
-
-        self._update_status("Downloading icons from GitHub...")
-        QApplication.processEvents()
-
-        def _progress(folder, downloaded, skipped, errors, total):
-            self._update_status(
-                f"Icons [{folder}]: {downloaded} downloaded, {skipped} cached, "
-                f"{errors} failed ({total} total)")
-            QApplication.processEvents()
-
-        import threading
-        def _do_download():
-            stats = self._icon_cache.bulk_download_all(progress_callback=_progress)
-            from PySide6.QtCore import QMetaObject, Qt as _Qt
-            self._update_status(
-                f"Icons: {stats['downloaded']} downloaded, {stats['skipped']} cached, "
-                f"{stats['errors']} failed")
-
-        thread = threading.Thread(target=_do_download, daemon=True)
-        thread.start()
-        self._populate_swap_list(
-            self._swap_search.text().strip() if hasattr(self, '_swap_search') else "",
-            self._swap_category.currentText() if hasattr(self, '_swap_category') else "All",
-        )
 
     def _on_icon_loaded(self, item_key: int, pixmap) -> None:
         self._icon_ready.emit(item_key)
@@ -32648,7 +32210,8 @@ QCheckBox::indicator {{
             old_bytes = apply_stack_edit(
                 self._save_data.decompressed_blob, item, new_stack
             )
-            edits.append((item.offset + 18, old_bytes, self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]))
+            stack_off = item.field_offsets["_stackCount"]
+            edits.append((stack_off, old_bytes, self._save_data.decompressed_blob[stack_off:stack_off + 8]))
 
         if edits:
             undo = UndoEntry(
@@ -32700,11 +32263,13 @@ QCheckBox::indicator {{
             self._save_data.decompressed_blob, item, new_no
         )
 
+        stack_off = item.field_offsets["_stackCount"]
+        item_no_off = item.field_offsets["_itemNo"]
         patches = [
-            (item.offset + 18, old_stack_bytes,
-             self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]),
-            (item.offset + 4, old_no_bytes,
-             self._save_data.decompressed_blob[item.offset + 4:item.offset + 12]),
+            (stack_off, old_stack_bytes,
+             self._save_data.decompressed_blob[stack_off:stack_off + 8]),
+            (item_no_off, old_no_bytes,
+             self._save_data.decompressed_blob[item_no_off:item_no_off + 8]),
         ]
 
         self._undo_stack.append(UndoEntry(
@@ -32767,7 +32332,8 @@ QCheckBox::indicator {{
         edits = []
         for item in equipped:
             old = apply_stack_edit(blob, item, count)
-            edits.append((item.offset + 18, old, blob[item.offset + 18:item.offset + 26]))
+            stack_off = item.field_offsets["_stackCount"]
+            edits.append((stack_off, old, blob[stack_off:stack_off + 8]))
 
         self._undo_stack.append(UndoEntry(
             description=f"Duplicate all equipment: stack={count} on {len(equipped)} items",
@@ -32811,12 +32377,20 @@ QCheckBox::indicator {{
                 skipped += 1
                 continue
             blob = self._save_data.decompressed_blob
-            old_key = bytes(blob[item.offset + 12:item.offset + 16])
-            old_stack = bytes(blob[item.offset + 18:item.offset + 26])
-            struct.pack_into("<I", blob, item.offset + 12, 0)
-            edits.append((item.offset + 12, old_key, bytes(blob[item.offset + 12:item.offset + 16])))
-            struct.pack_into("<q", blob, item.offset + 18, 0)
-            edits.append((item.offset + 18, old_stack, bytes(blob[item.offset + 18:item.offset + 26])))
+            if not item.parc_parsed:
+                skipped += 1
+                continue
+            key_off = item.field_offsets.get("_itemKey")
+            stack_off = item.field_offsets.get("_stackCount")
+            if key_off is None or stack_off is None:
+                skipped += 1
+                continue
+            old_key = bytes(blob[key_off:key_off + 4])
+            old_stack = bytes(blob[stack_off:stack_off + 8])
+            struct.pack_into("<I", blob, key_off, 0)
+            edits.append((key_off, old_key, bytes(blob[key_off:key_off + 4])))
+            struct.pack_into("<q", blob, stack_off, 0)
+            edits.append((stack_off, old_stack, bytes(blob[stack_off:stack_off + 8])))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -32864,10 +32438,11 @@ QCheckBox::indicator {{
         old_stack_bytes = apply_stack_edit(
             self._save_data.decompressed_blob, donor_item, target_count
         )
+        stack_off = donor_item.field_offsets["_stackCount"]
         patches.append((
-            donor_item.offset + 18,
+            stack_off,
             old_stack_bytes,
-            self._save_data.decompressed_blob[donor_item.offset + 18:donor_item.offset + 26]
+            self._save_data.decompressed_blob[stack_off:stack_off + 8]
         ))
 
         self._undo_stack.append(UndoEntry(
@@ -32958,10 +32533,11 @@ QCheckBox::indicator {{
             old_stack_bytes = apply_stack_edit(
                 self._save_data.decompressed_blob, donor_item, target_count
             )
+            stack_off = donor_item.field_offsets["_stackCount"]
             patches.append((
-                donor_item.offset + 18,
+                stack_off,
                 old_stack_bytes,
-                self._save_data.decompressed_blob[donor_item.offset + 18:donor_item.offset + 26]
+                self._save_data.decompressed_blob[stack_off:stack_off + 8]
             ))
             donor_name = self._name_db.get_name(donor_item.item_key)
             self._undo_stack.append(UndoEntry(
@@ -33023,7 +32599,8 @@ QCheckBox::indicator {{
             if not item.has_enchant:
                 continue
             old = apply_enchant_edit(self._save_data.decompressed_blob, item, new_val)
-            edits.append((item.offset + 26, old, self._save_data.decompressed_blob[item.offset + 26:item.offset + 28]))
+            field_off = item.field_offsets["_enchantLevel"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 2]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -33057,7 +32634,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_endurance_edit(self._save_data.decompressed_blob, item, new_val)
-            edits.append((item.offset + 30, old, self._save_data.decompressed_blob[item.offset + 30:item.offset + 32]))
+            field_off = item.field_offsets["_endurance"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 2]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -33090,7 +32668,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_sharpness_edit(self._save_data.decompressed_blob, item, new_val)
-            edits.append((item.offset + 32, old, self._save_data.decompressed_blob[item.offset + 32:item.offset + 34]))
+            field_off = item.field_offsets["_sharpness"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 2]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -33113,7 +32692,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_stack_edit(self._save_data.decompressed_blob, item, new_stack)
-            edits.append((item.offset + 18, old, self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]))
+            field_off = item.field_offsets["_stackCount"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 8]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -33243,9 +32823,10 @@ QCheckBox::indicator {{
 
         if consume_one:
             old_stack = apply_stack_edit(self._save_data.decompressed_blob, item, 1)
+            stack_off = item.field_offsets["_stackCount"]
             all_patches.append((
-                item.offset + 18, old_stack,
-                self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]
+                stack_off, old_stack,
+                self._save_data.decompressed_blob[stack_off:stack_off + 8]
             ))
 
         patches = smart_item_swap(self._save_data.decompressed_blob, item, new_key)
@@ -33488,10 +33069,11 @@ QCheckBox::indicator {{
                 old_stack_bytes = apply_stack_edit(
                     self._save_data.decompressed_blob, item, new_stack_limit
                 )
+                stack_off = item.field_offsets["_stackCount"]
                 patches.append((
-                    item.offset + 18,
+                    stack_off,
                     old_stack_bytes,
-                    self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]
+                    self._save_data.decompressed_blob[stack_off:stack_off + 8]
                 ))
 
             field_patches = 0
@@ -33822,22 +33404,6 @@ QCheckBox::indicator {{
             f"Saved {len(items)} items to:\n{path}\n\n"
             f"This pack will appear in the DropSets tab Pack dropdown.")
 
-    def _sync_github(self) -> None:
-        self._update_status("Syncing from GitHub...")
-        QApplication.processEvents()
-
-        ok, msg = self._name_db.sync_from_github()
-        if ok:
-            self._populate_database()
-            self._populate_swap_list(self._swap_search.text().strip())
-            for item in self._items:
-                item.name = self._name_db.get_name(item.item_key)
-                item.category = self._name_db.get_category(item.item_key)
-            self._populate_inventory()
-            self._populate_equipment()
-        self._update_status(msg)
-        QMessageBox.information(self, "GitHub Sync", msg)
-
     def _sync_items_local(self) -> None:
         game_path = self._config.get("game_install_path", "")
         if not game_path or not os.path.isdir(game_path):
@@ -33859,74 +33425,6 @@ QCheckBox::indicator {{
             self._populate_equipment()
         self._update_status(message)
         QMessageBox.information(self, "Sync Items Local", message)
-
-    def _sync_all_icons(self) -> None:
-        QMessageBox.information(
-            self, "Local icons only",
-            "This offline build never downloads icons. Place the optional icons_local folder "
-            "next to the editor executable.",
-        )
-        return
-
-        import json as _json
-        from urllib.request import urlopen, Request
-
-        keys = set()
-        for item in self._name_db._items.values():
-            keys.add(item.item_key)
-        for item in self._items:
-            keys.add(item.item_key)
-
-        local_dir = self._icon_cache._local_dir
-        already = sum(1 for k in keys if os.path.isfile(os.path.join(local_dir, f"{k}.webp")))
-        needed = len(keys) - already
-
-        if needed == 0:
-            QMessageBox.information(self, "Sync Icons", f"All {already} icons already downloaded.")
-            return
-
-        reply = QMessageBox.question(
-            self, "Sync All Icons",
-            f"Download {needed} icons from GitHub?\n"
-            f"({already} already cached, {len(keys)} total)\n\n"
-            f"This requires internet and may take a few minutes.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        self._update_status(f"Downloading {needed} icons...")
-        QApplication.processEvents()
-
-        from icon_cache import _GITHUB_ICON_BASE
-        downloaded = 0
-        errors = 0
-        for i, key in enumerate(sorted(keys)):
-            local_path = os.path.join(local_dir, f"{key}.webp")
-            if os.path.isfile(local_path):
-                continue
-            try:
-                url = f"{_GITHUB_ICON_BASE}/{key}.webp"
-                req = Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-                with urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                if data and len(data) > 100:
-                    with open(local_path, 'wb') as f:
-                        f.write(data)
-                    downloaded += 1
-                else:
-                    errors += 1
-            except Exception:
-                errors += 1
-
-            if (downloaded + errors) % 100 == 0:
-                self._update_status(f"Icons: {downloaded} downloaded, {errors} failed, {needed - downloaded - errors} remaining...")
-                QApplication.processEvents()
-
-        msg = f"Downloaded {downloaded} icons, {errors} not available on GitHub.\nTotal cached: {already + downloaded}"
-        self._update_status(msg)
-        QMessageBox.information(self, "Sync Complete", msg)
-
 
     def _get_backup_dir(self) -> str:
         if not self._loaded_path:
@@ -34902,7 +34400,7 @@ QCheckBox::indicator {{
         ),
         "packs": (
             "Item Packs",
-            "Download and apply curated item collections from the community.\n\n"
+            "Import and apply item-pack JSON files stored on this computer.\n\n"
             "HOW TO USE:\n"
             "1. Copy optional pack JSON files into the local packs folder\n"
             "2. Select the pack under 'My Packs'\n"
@@ -34918,20 +34416,12 @@ QCheckBox::indicator {{
             "Use 'Export for Sharing' to save as JSON for others."
         ),
         "community": (
-            "Community Mapping",
-            "Help map every item in Crimson Desert!\n\n"
-            "This tool collects real item templates from player saves to build a\n"
-            "complete database of all items and their binary structures.\n"
-            "The more saves we scan, the more items the editor can support.\n\n"
-            "HOW TO CONTRIBUTE:\n"
-            "1. Click 'Sync with Community' (does everything in one click):\n"
-            "   - Downloads the latest master database\n"
-            "   - Scans your loaded save for new item templates\n"
-            "   - Uploads any new discoveries to the community\n\n"
-            "OR step by step:\n"
-            "1. Click 'Download Latest DB' to get the newest master\n"
+            "Local Template Mapping",
+            "Collect real item templates from saves without connecting to a server.\n\n"
+            "HOW TO USE:\n"
+            "1. Optionally import a master_templates JSON file\n"
             "2. Click 'Scan Loaded Save' or 'Scan All Saves'\n"
-            "3. Click 'Upload New Templates' to share your findings\n\n"
+            "3. Export new templates to a JSON file for manual sharing\n\n"
             "The coverage table shows mapping progress by item category.\n"
             "Green = 90%+, Yellow = 50%+, Red = under 50%."
         ),

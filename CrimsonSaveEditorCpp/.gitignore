@@ -1,0 +1,17 @@
+build/
+build-*/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.obj
+*.lib
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.exp
+imgui.ini
+settings.json
+*.save
+*.log

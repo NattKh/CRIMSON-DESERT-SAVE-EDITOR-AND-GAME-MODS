@@ -11087,7 +11087,7 @@ QCheckBox::indicator {{
 
         try:
             import sys as _sys
-            _sys.path.insert(0, 'Communitydump/desktopeditor')
+            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
             import save_parser as _sp
 
             self._qe_status.setText("Resetting encounters...")
@@ -11161,7 +11161,7 @@ QCheckBox::indicator {{
             return
 
         import sys as _sys
-        _sys.path.insert(0, 'Communitydump/desktopeditor')
+        'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
         import save_parser as _sp
         from quest_deep_parser import parse_quest_deep
 
@@ -11258,7 +11258,7 @@ QCheckBox::indicator {{
 
         try:
             import sys as _sys
-            _sys.path.insert(0, 'Communitydump/desktopeditor')
+            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
             import save_parser as _sp
             _result = _sp.build_result_from_raw(bytes(raw), {'input_kind': 'raw_blob'})
 
@@ -15140,7 +15140,7 @@ QCheckBox::indicator {{
 
         try:
             import sys as _sys
-            _sys.path.insert(0, 'Communitydump/desktopeditor')
+            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
             from save_parser import build_result_from_raw
             raw = bytes(self._save_data.decompressed_blob)
             result = build_result_from_raw(raw, {'input_kind': 'raw_blob'})
@@ -15261,7 +15261,7 @@ QCheckBox::indicator {{
         self._bond_table.setRowCount(0)
         try:
             import sys as _sys
-            _sys.path.insert(0, 'Communitydump/desktopeditor')
+            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
             from save_parser import build_result_from_raw
             raw = bytes(self._save_data.decompressed_blob)
             result = build_result_from_raw(raw, {'input_kind': 'raw_blob'})
@@ -15330,7 +15330,7 @@ QCheckBox::indicator {{
         self._sublevel_table.setRowCount(0)
         try:
             import sys as _sys
-            _sys.path.insert(0, 'Communitydump/desktopeditor')
+            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
             from save_parser import build_result_from_raw
             raw = bytes(self._save_data.decompressed_blob)
             result = build_result_from_raw(raw, {'input_kind': 'raw_blob'})

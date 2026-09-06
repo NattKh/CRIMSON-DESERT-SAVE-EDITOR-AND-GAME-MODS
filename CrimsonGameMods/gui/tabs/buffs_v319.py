@@ -46,12 +46,52 @@ from .helpers import extract_file_data
 from gui.theme import COLORS, CATEGORY_COLORS
 from gui.iteminfo_index import IteminfoIndex
 
+_DOCKING_DEFAULTS = {
+    "gimmick_info_key": 0,
+    "character_key": 0,
+    "item_key": 0,
+    "attach_parent_socket_name": "",
+    "attach_child_socket_name": "",
+    "docking_tag_name_hash": [0, 0, 0, 0],
+    "docking_equip_slot_no": 65535,
+    "spawn_distance_level": 4294967295,
+    "is_item_equip_docking_gimmick": 0,
+    "send_damage_to_parent": 0,
+    "is_body_part": 0,
+    "docking_type": 0,
+    "is_summoner_team": 0,
+    "is_player_only": 0,
+    "is_npc_only": 0,
+    "is_sync_break_parent": 0,
+    "hit_part": 0,
+    "detected_by_npc": 0,
+    "is_bag_docking": 0,
+    "enable_collision": 0,
+    "disable_collision_with_other_gimmick": 1,
+    "docking_slot_key": "",
+    "inherit_summoner": 0,
+    "summon_tag_name_hash": [0, 0, 0, 0],
+    "animation_root_bone_name": "",
+}
+
+
+def _patch_docking_fields(dcd):
+    """Fill 2.01 docking_child_data keys the serializer requires."""
+    if not isinstance(dcd, dict):
+        return dcd
+    dcd.pop("unk_docking_108", None)
+    for key, default in _DOCKING_DEFAULTS.items():
+        if key not in dcd:
+            dcd[key] = default
+    return dcd
+
+
 def _patch_docking_108(items):
-    """Ensure all docking_child_data dicts have the 1.0.8 unk_docking_108 field."""
+    """Ensure docking_child_data dicts match the current iteminfo schema."""
     for it in items:
-        dcd = it.get('docking_child_data')
-        if isinstance(dcd, dict) and 'unk_docking_108' not in dcd:
-            dcd['unk_docking_108'] = 0
+        dcd = it.get("docking_child_data")
+        if isinstance(dcd, dict):
+            _patch_docking_fields(dcd)
 
 def _safe_iv(v, default=0):
     """Safely extract int from plain int, float, or dmm_parser nested dict.
@@ -4418,6 +4458,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             }
 
         ddd = rust_info.get('drop_default_data')
@@ -4505,12 +4546,9 @@ class ItemBuffsTab(QWidget):
                     if isinstance(val, dict):
                         val = {k: v for k, v in val.items() if not k.startswith('_note')}
                     if gf == 'docking_child_data' and isinstance(val, dict):
-                        if 'unk_docking_108' not in val:
-                            val['unk_docking_108'] = 0
+                        _patch_docking_fields(val)
                         if val.get('gimmick_info_key', 0) == 0:
                             continue
-                        val.setdefault('inherit_summoner', 0)
-                        val.setdefault('summon_tag_name_hash', [0, 0, 0, 0])
                     rust_info[gf] = val
 
             if 'cooltime' in new_data:
@@ -6884,6 +6922,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             },
         },
         "lightning_weapon": {
@@ -6923,6 +6962,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             },
         },
         "great_thief": {
@@ -6961,6 +7001,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             },
         },
         "great_thief_all": {
@@ -7001,6 +7042,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             },
         },
         "crime_mask": {
@@ -7223,6 +7265,8 @@ class ItemBuffsTab(QWidget):
                         cur[dk] = int(new)
                 else:
                     rust_info[gf] = new
+                if gf == 'docking_child_data' and isinstance(rust_info.get(gf), dict):
+                    _patch_docking_fields(rust_info[gf])
         
         
         if preset.get('drop_default_data') is not None:
@@ -7683,8 +7727,7 @@ class ItemBuffsTab(QWidget):
             if sample.get(gf) is not None:
                 val = _copy.deepcopy(sample[gf])
                 if gf == 'docking_child_data' and isinstance(val, dict):
-                    val.setdefault('inherit_summoner', 0)
-                    val.setdefault('summon_tag_name_hash', [0, 0, 0, 0])
+                    _patch_docking_fields(val)
                 rust_info[gf] = val
         if sample.get('cooltime') is not None:
             _v = sample['cooltime']
@@ -9788,6 +9831,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             },
         },
         "jump_boots": {
@@ -9827,6 +9871,7 @@ class ItemBuffsTab(QWidget):
                 "docking_slot_key": "",
                 "inherit_summoner": 0,
                 "summon_tag_name_hash": [0, 0, 0, 0],
+                "animation_root_bone_name": "",
             },
         },
     }
@@ -10029,7 +10074,7 @@ class ItemBuffsTab(QWidget):
             return
 
 
-        # Ensure all items with DropChildData have 'unk_docking_108' field
+        # Ensure docking_child_data matches the current 2.01 schema
         _patch_docking_108(self._buff_rust_items)
 
         # Check for global flags
@@ -10985,8 +11030,7 @@ class ItemBuffsTab(QWidget):
                 if gf in changes:
                     val = changes[gf]
                     if gf == 'docking_child_data' and isinstance(val, dict):
-                        val.setdefault('inherit_summoner', 0)
-                        val.setdefault('summon_tag_name_hash', [0, 0, 0, 0])
+                        _patch_docking_fields(val)
                     _set_field(rust_info, gf, val)
 
             if 'cooltime' in changes:

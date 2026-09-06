@@ -1,0 +1,4629 @@
+{
+  "source": "community + slot104 endgame",
+  "total_entries": 333,
+  "entries": [
+    {
+      "key": 1000001,
+      "uuid": "be838ae1661110ffe062807900000000",
+      "pos": [
+        -9.7002,
+        0.0,
+        -11.979
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040124,
+      "end": 5040182,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff0ee84c000000000041420f00be838ae1661110ffe06280790000000000341bc10000000000aa3fc124000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "8b62ba55c30c3c7c3f511ab900000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5040182,
+      "end": 5040228,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff48e84c000000000086420f008b62ba55c30c3c7c3f511ab90000000018000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "1a4dfac2f00f74563c343e3a00000000",
+      "pos": [
+        -10.0186,
+        0.0,
+        9.0205
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040228,
+      "end": 5040286,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff76e84c0000000000a7420f001a4dfac2f00f74563c343e3a00000000004c20c1000000000054104124000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "05c4ac88911074563c7deaa200000000",
+      "pos": [
+        0.3369,
+        0.0,
+        6.4351
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040286,
+      "end": 5040344,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb0e84c000000000048420f0005c4ac88911074563c7deaa2000000000080ac3e0000000000eccd4024000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "f6b03787911074563c7deaa200000000",
+      "pos": [
+        -14.127,
+        0.0,
+        4.5903
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040344,
+      "end": 5040402,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffeae84c000000000048420f00f6b03787911074563c7deaa200000000000862c10000000000e4924024000000"
+    },
+    {
+      "key": 1000079,
+      "uuid": "78805433c30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5040402,
+      "end": 5040448,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff24e94c00000000008f420f0078805433c30c18c04da8a71e0000000018000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "fcf167b7f31074563ce01b7900000000",
+      "pos": [
+        -7.9629,
+        0.0,
+        -6.0002
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040448,
+      "end": 5040506,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff52e94c000000000044420f00fcf167b7f31074563ce01b790000000000d0fec0000000000002c0c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1e9e9449d511d85ed3de8d4400000000",
+      "pos": [
+        -4.5049,
+        0.0,
+        4.3501
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040506,
+      "end": 5040564,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8ce94c000000000041420f001e9e9449d511d85ed3de8d4400000000002890c00000000000348b4024000000"
+    },
+    {
+      "key": 1000003,
+      "uuid": "42ddb001561174563c343d6400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5040564,
+      "end": 5040610,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffc6e94c000000000043420f0042ddb001561174563c343d640000000018000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "a120ca72c30c74563cfa2ba900000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5040610,
+      "end": 5040656,
+      "size": 46,
+      "binary": "0100030d0000fffffffffffffffff4e94c000000000086420f00a120ca72c30c74563cfa2ba90000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "4e4e258cd11110ffe062807900000000",
+      "pos": [
+        6.0586,
+        0.0,
+        -0.7439
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040656,
+      "end": 5040714,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff22ea4c000000000041420f004e4e258cd11110ffe06280790000000000e0c1400000000000703ebf24000000"
+    },
+    {
+      "key": 1000104,
+      "uuid": "74121615ca10d85ed3de8d4400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5040714,
+      "end": 5040760,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff5cea4c0000000000a8420f0074121615ca10d85ed3de8d440000000018000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "1c0d35f1fd1074563cc0fcce00000000",
+      "pos": [
+        -4.1035,
+        0.0,
+        -7.4023
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040760,
+      "end": 5040818,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8aea4c000000000044420f001c0d35f1fd1074563cc0fcce00000000005083c00000000000e0ecc024000000"
+    },
+    {
+      "key": 1000007,
+      "uuid": "402d55f6c20e18c04da8a66c00000000",
+      "pos": null,
+      "discovered": false,
+      "mask": "0b",
+      "start": 5040818,
+      "end": 5040865,
+      "size": 47,
+      "binary": "01000b0d0000ffffffffffffffffc4ea4c000000000047420f00402d55f6c20e18c04da8a66c000000000019000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "dd82e8add60fd85ed3de8d4400000000",
+      "pos": [
+        3.4756,
+        0.0,
+        -0.4268
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040865,
+      "end": 5040923,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff3ea4c000000000041420f00dd82e8add60fd85ed3de8d440000000000705e40000000000080dabe24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "4c02fafc5f1174563ce01b5900000000",
+      "pos": [
+        -4.6768,
+        0.0,
+        1.6104
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5040923,
+      "end": 5040981,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2deb4c000000000041420f004c02fafc5f1174563ce01b590000000000a895c0000000000020ce3f24000000"
+    },
+    {
+      "key": 1000060,
+      "uuid": "2f6cc64dd50c74563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5040981,
+      "end": 5041027,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff67eb4c00000000007c420f002f6cc64dd50c74563c6a6f710000000018000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "d47570af911074563c7deaa200000000",
+      "pos": [
+        -0.957,
+        0.0,
+        1.8784
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041027,
+      "end": 5041085,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff95eb4c000000000048420f00d47570af911074563c7deaa200000000000075bf000000000070f03f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "7205b9f6661110ffe062807900000000",
+      "pos": [
+        -0.0596,
+        0.0,
+        -3.4194
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041085,
+      "end": 5041143,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffcfeb4c000000000041420f007205b9f6661110ffe062807900000000000074bd0000000000d85ac024000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "071c7c06551130560f03041300000000",
+      "pos": [
+        10.1035,
+        0.0,
+        -8.7832
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041143,
+      "end": 5041201,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff09ec4c000000000044420f00071c7c06551130560f0304130000000000a821410000000000880cc124000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "3f773cc6911074563c7deaa200000000",
+      "pos": [
+        -13.6191,
+        0.0,
+        -5.781
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041201,
+      "end": 5041259,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff43ec4c000000000048420f003f773cc6911074563c7deaa20000000000e859c10000000000feb8c024000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "aec0bbaa911074563c7deaa200000000",
+      "pos": [
+        18.0518,
+        0.0,
+        0.6304
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041259,
+      "end": 5041317,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff7dec4c000000000048420f00aec0bbaa911074563c7deaa200000000006a9041000000000060213f24000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "d1473abef31074563ce01b7900000000",
+      "pos": [
+        0.1689,
+        0.0,
+        -9.656
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041317,
+      "end": 5041375,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb7ec4c000000000044420f00d1473abef31074563ce01b790000000000002d3e00000000007f1ac124000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "4014c5e3f31074563ce01b7900000000",
+      "pos": [
+        1.1543,
+        0.0,
+        -0.6936
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041375,
+      "end": 5041433,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff1ec4c000000000044420f004014c5e3f31074563ce01b790000000000c0933f00000000009031bf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "bfbcf3fea10fd85ed3dbeede00000000",
+      "pos": [
+        9.6729,
+        0.0,
+        7.5576
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041433,
+      "end": 5041491,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2bed4c000000000041420f00bfbcf3fea10fd85ed3dbeede0000000000c41a410000000080d7f14024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "99b30283d70fd85ed3de8d4400000000",
+      "pos": [
+        -4.5869,
+        0.0,
+        3.3327
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041491,
+      "end": 5041549,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff65ed4c000000000041420f0099b30283d70fd85ed3de8d440000000000c892c000000000b44a554024000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "ac94fa70b51174563c343d6400000000",
+      "pos": [
+        -9.2412,
+        0.0,
+        -7.754
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041549,
+      "end": 5041607,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff9fed4c0000000000a7420f00ac94fa70b51174563c343d640000000000dc13c1000000000021f8c024000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "ea50d8f65c1130560f03041300000000",
+      "pos": [
+        -0.7393,
+        0.0,
+        0.5574
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041607,
+      "end": 5041665,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd9ed4c000000000044420f00ea50d8f65c1130560f0304130000000000403dbf0000000000b00e3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "36452f51a10fd85ed3dbeede00000000",
+      "pos": [
+        -12.2979,
+        0.0,
+        2.6138
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041665,
+      "end": 5041723,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff13ee4c000000000041420f0036452f51a10fd85ed3dbeede0000000000c444c1000000000048274024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "be9ba87e721110ffe062807900000000",
+      "pos": [
+        -10.3496,
+        0.0,
+        -6.4673
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041723,
+      "end": 5041781,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff4dee4c000000000041420f00be9ba87e721110ffe062807900000000009825c10000000000f4cec024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ffc9c1b5d60fd85ed3de8d4400000000",
+      "pos": [
+        14.5498,
+        0.0,
+        -10.5713
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041781,
+      "end": 5041839,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff87ee4c000000000041420f00ffc9c1b5d60fd85ed3de8d440000000000cc684100000000002429c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "a74e3dbcd60fd85ed3de8d4400000000",
+      "pos": [
+        -1.2988,
+        0.0,
+        -4.847
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041839,
+      "end": 5041897,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc1ee4c000000000041420f00a74e3dbcd60fd85ed3de8d44000000000040a6bf00000000001b9bc024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "7197b777a10fd85ed3dbeede00000000",
+      "pos": [
+        -4.1328,
+        0.0,
+        -16.5747
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041897,
+      "end": 5041955,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffffbee4c000000000041420f007197b777a10fd85ed3dbeede00000000004084c000000000009984c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "37a25be07411d85ed3de8d4400000000",
+      "pos": [
+        0.561,
+        0.0,
+        8.0215
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5041955,
+      "end": 5042013,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff35ef4c000000000041420f0037a25be07411d85ed3de8d440000000000a00f3f000000000058004124000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "37b2ed39b51174563c343d6400000000",
+      "pos": [
+        0.3306,
+        0.0,
+        4.728
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042013,
+      "end": 5042071,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff6fef4c0000000000a7420f0037b2ed39b51174563c343d64000000000040a93e00000000004c974024000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "50c24eb4911074563c7deaa200000000",
+      "pos": [
+        -12.4556,
+        0.0,
+        -4.7812
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042071,
+      "end": 5042129,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa9ef4c000000000048420f0050c24eb4911074563c7deaa200000000004a47c100000000000099c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d3811fc5950fd85ed3de8d4400000000",
+      "pos": [
+        -0.4941,
+        0.0,
+        -0.7607
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042129,
+      "end": 5042187,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffe3ef4c000000000041420f00d3811fc5950fd85ed3de8d44000000000000fdbe0000000000bc42bf24000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "589dbdb3911074563c7deaa200000000",
+      "pos": [
+        8.502,
+        0.0,
+        11.2827
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042187,
+      "end": 5042245,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff1df04c000000000048420f00589dbdb3911074563c7deaa2000000000008084100000000c085344124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d93815a0410f74563cfa2ba900000000",
+      "pos": [
+        6.5322,
+        0.0,
+        -2.7728
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042245,
+      "end": 5042303,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff57f04c000000000041420f00d93815a0410f74563cfa2ba9000000000008d14000000000207531c024000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "069c36c7911074563c7deaa200000000",
+      "pos": [
+        14.3599,
+        0.0,
+        13.8673
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042303,
+      "end": 5042361,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff91f04c000000000048420f00069c36c7911074563c7deaa20000000000c265410000000080e05d4124000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "48b04f8d581130560f03041300000000",
+      "pos": [
+        -0.0928,
+        0.0,
+        -0.3479
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042361,
+      "end": 5042419,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffcbf04c000000000044420f0048b04f8d581130560f030413000000000000bebd000000000020b2be24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "b65552b8d60fd85ed3de8d4400000000",
+      "pos": [
+        -9.2637,
+        0.0,
+        -2.1387
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042419,
+      "end": 5042477,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff05f14c000000000041420f00b65552b8d60fd85ed3de8d4400000000003814c10000000000e008c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d71a1f91721110ffe062807900000000",
+      "pos": [
+        1.8711,
+        0.0,
+        4.408
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042477,
+      "end": 5042535,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff3ff14c000000000041420f00d71a1f91721110ffe0628079000000000080ef3f00000000000e8d4024000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "d44687a9120fd85ed38d42b200000000",
+      "pos": [
+        -0.665,
+        0.0,
+        0.384
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042535,
+      "end": 5042593,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff79f14c000000000044420f00d44687a9120fd85ed38d42b20000000000402abf0000000000a0c43e24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "727f874ba10fd85ed3dbeede00000000",
+      "pos": [
+        -0.3164,
+        0.0,
+        -0.3516
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042593,
+      "end": 5042651,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb3f14c000000000041420f00727f874ba10fd85ed3dbeede000000000000a2be000000000000b4be24000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "73889a44d40f00e04cabe98600000000",
+      "pos": [
+        5.499,
+        0.0,
+        -17.9849
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042651,
+      "end": 5042709,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffedf14c0000000000a7420f0073889a44d40f00e04cabe9860000000000f8af400000000000e18fc124000000"
+    },
+    {
+      "key": 1000007,
+      "uuid": "05ccfd8eca0e74563cc0f83e00000000",
+      "pos": null,
+      "discovered": false,
+      "mask": "0b",
+      "start": 5042709,
+      "end": 5042756,
+      "size": 47,
+      "binary": "01000b0d0000ffffffffffffffff27f24c000000000047420f0005ccfd8eca0e74563cc0f83e000000000019000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "39f3ba3db51174563c343d6400000000",
+      "pos": [
+        -5.5972,
+        0.0,
+        8.2979
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042756,
+      "end": 5042814,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff56f24c0000000000a7420f0039f3ba3db51174563c343d6400000000001cb3c00000000000c4044124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "f3500fbbd60fd85ed3dbeede00000000",
+      "pos": [
+        0.9248,
+        0.0,
+        0.3735
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042814,
+      "end": 5042872,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff90f24c000000000041420f00f3500fbbd60fd85ed3dbeede0000000000c06c3f000000000040bf3e24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "97c9e67da10fd85ed3dbeede00000000",
+      "pos": [
+        2.4736,
+        0.0,
+        0.1296
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042872,
+      "end": 5042930,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffcaf24c000000000041420f0097c9e67da10fd85ed3dbeede0000000000501e400000000000c0043e24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "67e9d07ca10fd85ed3dbeede00000000",
+      "pos": [
+        -14.1975,
+        0.0,
+        -13.7104
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042930,
+      "end": 5042988,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff04f34c000000000041420f0067e9d07ca10fd85ed3dbeede00000000002963c100000000005e5bc124000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "c4fb8dcbf31074563ce01b7900000000",
+      "pos": [
+        -14.4084,
+        0.0,
+        -3.8608
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5042988,
+      "end": 5043046,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff3ef34c000000000044420f00c4fb8dcbf31074563ce01b7900000000008966c100000000001877c024000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "7f0d39caf31074563ce01b7900000000",
+      "pos": [
+        2.6509,
+        0.0,
+        0.5635
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043046,
+      "end": 5043104,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff78f34c000000000044420f007f0d39caf31074563ce01b790000000000a82940000000000040103f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1ddabae3661174563c6a6ead00000000",
+      "pos": [
+        11.2974,
+        0.0,
+        0.79
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043104,
+      "end": 5043162,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb2f34c000000000041420f001ddabae3661174563c6a6ead0000000000c234410000000000404a3f24000000"
+    },
+    {
+      "key": 1000055,
+      "uuid": "67a619e8a610d85ed3dbef3b00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5043162,
+      "end": 5043208,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffecf34c000000000077420f0067a619e8a610d85ed3dbef3b0000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "271c387b681110ffe062807900000000",
+      "pos": [
+        14.4873,
+        0.0,
+        -3.3447
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043208,
+      "end": 5043266,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff1af44c000000000041420f00271c387b681110ffe06280790000000000cc674100000000000f56c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "923c6872741110ffe062807900000000",
+      "pos": [
+        2.6606,
+        0.0,
+        7.3097
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043266,
+      "end": 5043324,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff54f44c000000000041420f00923c6872741110ffe06280790000000000482a4000000000e0e8e94024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "5bae78a22f0fd85ed3de8d4400000000",
+      "pos": [
+        -2.1416,
+        0.0,
+        -12.1443
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043324,
+      "end": 5043382,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8ef44c000000000041420f005bae78a22f0fd85ed3de8d4400000000001009c000000000304f42c124000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "ba0cb857b51174563c343d6400000000",
+      "pos": [
+        1.2188,
+        0.0,
+        1.807
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043382,
+      "end": 5043440,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc8f44c0000000000a7420f00ba0cb857b51174563c343d640000000000009c3f00000000004de73f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3f3dcfb4d60fd85ed3dbeede00000000",
+      "pos": [
+        -5.5435,
+        0.0,
+        -5.9443
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043440,
+      "end": 5043498,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff02f54c000000000041420f003f3dcfb4d60fd85ed3dbeede000000000064b1c0000000000038bec024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "207c3495721110ffe062807900000000",
+      "pos": [
+        -5.052,
+        0.0,
+        0.2646
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043498,
+      "end": 5043556,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff3cf54c000000000041420f00207c3495721110ffe06280790000000000aaa1c0000000000080873e24000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "a477f53ef80fd85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5043556,
+      "end": 5043602,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff76f54c000000000086420f00a477f53ef80fd85ed3a429760000000018000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "10e8e63bf80fd85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5043602,
+      "end": 5043648,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffa4f54c000000000086420f0010e8e63bf80fd85ed3a429760000000018000000"
+    },
+    {
+      "key": 1000064,
+      "uuid": "634246877c1130560f0fa56600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5043648,
+      "end": 5043694,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffd2f54c000000000080420f00634246877c1130560f0fa5660000000018000000"
+    },
+    {
+      "key": 1000073,
+      "uuid": "e89676f3ff0fd85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5043694,
+      "end": 5043740,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff00f64c000000000089420f00e89676f3ff0fd85ed38e49eb0000000018000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "b712a753b511d85ed3dbeede00000000",
+      "pos": [
+        -11.9229,
+        0.0,
+        -9.3152
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043740,
+      "end": 5043798,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2ef64c0000000000a7420f00b712a753b511d85ed3dbeede0000000000c43ec100000000000b15c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "a46e08a22f0fd85ed3de8d4400000000",
+      "pos": [
+        0.458,
+        0.0,
+        2.3564
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043798,
+      "end": 5043856,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff68f64c000000000041420f00a46e08a22f0fd85ed3de8d44000000000080ea3e0000000000d0164024000000"
+    },
+    {
+      "key": 1000019,
+      "uuid": "befbad3f0210d85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5043856,
+      "end": 5043902,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffa2f64c000000000053420f00befbad3f0210d85ed38e49eb0000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "2b53b5aed60fd85ed3dbeede00000000",
+      "pos": [
+        0.0,
+        0.0,
+        0.5891
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043902,
+      "end": 5043960,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd0f64c000000000041420f002b53b5aed60fd85ed3dbeede00000000000000000000000000cc163f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0fecd2152f0fd85ed3de8d4400000000",
+      "pos": [
+        -4.5181,
+        0.0,
+        -9.2634
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5043960,
+      "end": 5044018,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff0af74c000000000041420f000fecd2152f0fd85ed3de8d4400000000009490c000000000c03614c124000000"
+    },
+    {
+      "key": 1000060,
+      "uuid": "832a6b68c30c18c04da3926300000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044018,
+      "end": 5044064,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff44f74c00000000007c420f00832a6b68c30c18c04da392630000000018000000"
+    },
+    {
+      "key": 1000060,
+      "uuid": "5463266ac30c18c04da3926300000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044064,
+      "end": 5044110,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff72f74c00000000007c420f005463266ac30c18c04da392630000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "17c66c69d611d85ed3de8d4400000000",
+      "pos": [
+        -3.5635,
+        0.0,
+        8.004
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044110,
+      "end": 5044168,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa0f74c000000000041420f0017c66c69d611d85ed3de8d4400000000001064c0000000008010004124000000"
+    },
+    {
+      "key": 1000044,
+      "uuid": "10508312771074563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044168,
+      "end": 5044214,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffdaf74c00000000006c420f0010508312771074563c6a6f710000000018000000"
+    },
+    {
+      "key": 1000109,
+      "uuid": "a35d3a7c8a0ed85ed3dbeede00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044214,
+      "end": 5044260,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff08f84c0000000000ad420f00a35d3a7c8a0ed85ed3dbeede0000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "69904674d61110ffe0c571f300000000",
+      "pos": [
+        0.9531,
+        0.0,
+        -13.6255
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044260,
+      "end": 5044318,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff36f84c000000000041420f0069904674d61110ffe0c571f3000000000000743f0000000000025ac124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "8782dc74d611d85ed3de8d4400000000",
+      "pos": [
+        3.0723,
+        0.0,
+        0.5417
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044318,
+      "end": 5044376,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff70f84c000000000041420f008782dc74d611d85ed3de8d440000000000a044400000000000b00a3f24000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "897f3892d50cd85ed3d362e100000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044376,
+      "end": 5044422,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffaaf84c000000000086420f00897f3892d50cd85ed3d362e10000000018000000"
+    },
+    {
+      "key": 1000054,
+      "uuid": "006511b22e008dc50100000000000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044422,
+      "end": 5044468,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffd8f84c000000000076420f00006511b22e008dc5010000000000000018000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "bba0d2d2b70c3c7c3f511ab900000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044468,
+      "end": 5044514,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff06f94c000000000086420f00bba0d2d2b70c3c7c3f511ab90000000018000000"
+    },
+    {
+      "key": 1000076,
+      "uuid": "cc76367fc30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044514,
+      "end": 5044560,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff34f94c00000000008c420f00cc76367fc30c18c04da8a71e0000000018000000"
+    },
+    {
+      "key": 1000060,
+      "uuid": "bbe7e955d50c74563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044560,
+      "end": 5044606,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff62f94c00000000007c420f00bbe7e955d50c74563c6a6f710000000018000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "a7e580c5c50c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044606,
+      "end": 5044652,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff90f94c000000000086420f00a7e580c5c50c18c04da8a71e0000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1f3063212d0fd85ed3de8d4400000000",
+      "pos": [
+        -13.6396,
+        0.0,
+        -9.2001
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044652,
+      "end": 5044710,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffbef94c000000000041420f001f3063212d0fd85ed3de8d4400000000003c5ac100000000803313c124000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "34f27036f80fd85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044710,
+      "end": 5044756,
+      "size": 46,
+      "binary": "0100030d0000fffffffffffffffff8f94c000000000086420f0034f27036f80fd85ed3a429760000000018000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "981e1ed3f31074563ce01b7900000000",
+      "pos": [
+        5.582,
+        0.0,
+        8.9333
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044756,
+      "end": 5044814,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff26fa4c000000000044420f00981e1ed3f31074563ce01b790000000000a0b2400000000000ef0e4124000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "dc63beb7c50c18c04da3926300000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5044814,
+      "end": 5044860,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff60fa4c000000000086420f00dc63beb7c50c18c04da392630000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "adcc22982f0fd85ed3de8d4400000000",
+      "pos": [
+        -18.5195,
+        0.0,
+        -1.9465
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044860,
+      "end": 5044918,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8efa4c000000000041420f00adcc22982f0fd85ed3de8d4400000000002894c1000000000028f9bf24000000"
+    },
+    {
+      "key": 1000008,
+      "uuid": "57e458c8911074563c7deaa200000000",
+      "pos": [
+        10.2871,
+        0.0,
+        -6.9388
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044918,
+      "end": 5044976,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc8fa4c000000000048420f0057e458c8911074563c7deaa2000000000098244100000000000bdec024000000"
+    },
+    {
+      "key": 1000114,
+      "uuid": "fcfcbbf6ac1174563c7deaa200000000",
+      "pos": [
+        -11.5166,
+        0.0,
+        -15.283
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5044976,
+      "end": 5045034,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff02fb4c0000000000b2420f00fcfcbbf6ac1174563c7deaa200000000004438c100000000008774c124000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "83c2a134c30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5045034,
+      "end": 5045080,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff3cfb4c000000000086420f0083c2a134c30c18c04da8a71e0000000018000000"
+    },
+    {
+      "key": 1000067,
+      "uuid": "969895a9c30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5045080,
+      "end": 5045126,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff6afb4c000000000083420f00969895a9c30c18c04da8a71e0000000018000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "1edac8e2f31074563ce01b7900000000",
+      "pos": [
+        -7.7344,
+        0.0,
+        -11.9102
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045126,
+      "end": 5045184,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff98fb4c000000000044420f001edac8e2f31074563ce01b79000000000080f7c00000000000903ec124000000"
+    },
+    {
+      "key": 1000054,
+      "uuid": "80cfcc03b81074563ce01b590e000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5045184,
+      "end": 5045230,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffd2fb4c000000000076420f0080cfcc03b81074563ce01b590e00000018000000"
+    },
+    {
+      "key": 1000044,
+      "uuid": "80cfcc03b81074563ce01b590f000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5045230,
+      "end": 5045276,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff00fc4c00000000006c420f0080cfcc03b81074563ce01b590f00000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "56aeac902f0fd85ed3de8d4400000000",
+      "pos": [
+        13.8428,
+        0.0,
+        3.709
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045276,
+      "end": 5045334,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2efc4c000000000041420f0056aeac902f0fd85ed3de8d4400000000007c5d410000000000606d4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "5bb4148ad61174563cc0fd4300000000",
+      "pos": [
+        8.9463,
+        0.0,
+        6.0342
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045334,
+      "end": 5045392,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff68fc4c000000000041420f005bb4148ad61174563cc0fd430000000000240f41000000000018c14024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "eb3227f7661174563c6a6ead00000000",
+      "pos": [
+        -11.9541,
+        0.0,
+        0.8359
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045392,
+      "end": 5045450,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa2fc4c000000000041420f00eb3227f7661174563c6a6ead0000000000443fc1000000000000563f24000000"
+    },
+    {
+      "key": 1000003,
+      "uuid": "f0900285280d18c04daadb0700000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5045450,
+      "end": 5045496,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffdcfc4c000000000043420f00f0900285280d18c04daadb070000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ced4e501a20fd85ed3dbeede00000000",
+      "pos": [
+        5.9873,
+        0.0,
+        -8.2402
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045496,
+      "end": 5045554,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff0afd4c000000000041420f00ced4e501a20fd85ed3dbeede000000000098bf400000000000d803c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "5e7ad46ed611d85ed3de8d4400000000",
+      "pos": [
+        2.1016,
+        0.0,
+        -0.3329
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045554,
+      "end": 5045612,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff44fd4c000000000041420f005e7ad46ed611d85ed3de8d440000000000800640000000000070aabe24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "bbc6076ed611d85ed3de8d4400000000",
+      "pos": [
+        -9.2861,
+        0.0,
+        6.5024
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045612,
+      "end": 5045670,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff7efd4c000000000041420f00bbc6076ed611d85ed3de8d4400000000009414c1000000000014d04024000000"
+    },
+    {
+      "key": 1000054,
+      "uuid": "39d291eeb71074563ce01b5901000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5045670,
+      "end": 5045716,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffb8fd4c000000000076420f0039d291eeb71074563ce01b590100000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "fd19a64ed611d85ed3dbeede00000000",
+      "pos": [
+        -7.0586,
+        0.0,
+        1.3721
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045716,
+      "end": 5045774,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffe6fd4c000000000041420f00fd19a64ed611d85ed3dbeede0000000000e0e1c00000000000a0af3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ec14a450d611d85ed3dbeede00000000",
+      "pos": [
+        -3.9541,
+        0.0,
+        -1.4395
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045774,
+      "end": 5045832,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff20fe4c000000000041420f00ec14a450d611d85ed3dbeede0000000000107dc0000000000040b8bf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ae7125b2d60fd85ed3de8d4400000000",
+      "pos": [
+        5.3125,
+        0.0,
+        -2.707
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045832,
+      "end": 5045890,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff5afe4c000000000041420f00ae7125b2d60fd85ed3de8d44000000000000aa400000000000402dc024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ec52b490d611d85ed3dbeede00000000",
+      "pos": [
+        16.9854,
+        0.0,
+        1.1875
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045890,
+      "end": 5045948,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff94fe4c000000000041420f00ec52b490d611d85ed3dbeede0000000000e28741000000000000983f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "4eb1b351d611d85ed3dbeede00000000",
+      "pos": [
+        -3.1963,
+        0.0,
+        -16.4434
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5045948,
+      "end": 5046006,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffcefe4c000000000041420f004eb1b351d611d85ed3dbeede0000000000904cc000000000008c83c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "57a1438ed611d85ed3de8d4400000000",
+      "pos": [
+        4.3467,
+        0.0,
+        -11.9414
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046006,
+      "end": 5046064,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff08ff4c000000000041420f0057a1438ed611d85ed3de8d440000000000188b400000000000103fc124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "2768e38bd611d85ed3de8d4400000000",
+      "pos": [
+        -9.1182,
+        0.0,
+        6.6245
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046064,
+      "end": 5046122,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff42ff4c000000000041420f002768e38bd611d85ed3de8d440000000000e411c10000000000fcd34024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "cc5a8a98d61174563cc0fd4300000000",
+      "pos": [
+        -8.8516,
+        0.0,
+        -6.1982
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046122,
+      "end": 5046180,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff7cff4c000000000041420f00cc5a8a98d61174563cc0fd430000000000a00dc1000000000058c6c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "29ec9b962f0fd85ed3de8d4400000000",
+      "pos": [
+        -6.0586,
+        0.0,
+        12.4224
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046180,
+      "end": 5046238,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb6ff4c000000000041420f0029ec9b962f0fd85ed3de8d440000000000e0c1c00000000000c2464124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "402f2b41a20fd85ed3dbeede00000000",
+      "pos": [
+        12.1514,
+        0.0,
+        3.0298
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046238,
+      "end": 5046296,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff0ff4c000000000041420f00402f2b41a20fd85ed3dbeede00000000006c42410000000000e8414024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "6f249855d611d85ed3dbeede00000000",
+      "pos": [
+        -8.5039,
+        0.0,
+        -5.314
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046296,
+      "end": 5046354,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2a004d000000000041420f006f249855d611d85ed3dbeede00000000001008c100000000000caac024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "bceba851a10fd85ed3dbeede00000000",
+      "pos": [
+        12.5684,
+        0.0,
+        4.3276
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046354,
+      "end": 5046412,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff64004d000000000041420f00bceba851a10fd85ed3dbeede000000000018494100000000007c8a4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d2b01083d61110ffe0843b4800000000",
+      "pos": [
+        -13.0156,
+        0.0,
+        8.4526
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046412,
+      "end": 5046470,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff9e004d000000000041420f00d2b01083d61110ffe0843b4800000000004050c100000000003e074124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "b1a47452d611d85ed3dbeede00000000",
+      "pos": [
+        7.4951,
+        0.0,
+        -1.187
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046470,
+      "end": 5046528,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd8004d000000000041420f00b1a47452d611d85ed3dbeede0000000000d8ef400000000000f097bf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "09138195d611d85ed3dbeede00000000",
+      "pos": [
+        5.1426,
+        0.0,
+        -5.3252
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046528,
+      "end": 5046586,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff12014d000000000041420f0009138195d611d85ed3dbeede000000000090a440000000000068aac024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "e57188afd60fd85ed3de8d4400000000",
+      "pos": [
+        0.7373,
+        0.0,
+        2.4121
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046586,
+      "end": 5046644,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff4c014d000000000041420f00e57188afd60fd85ed3de8d440000000000c03c3f0000000000601a4024000000"
+    },
+    {
+      "key": 1000101,
+      "uuid": "bd41f702ce0f74563cc794a900000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5046644,
+      "end": 5046690,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff86014d0000000000a5420f00bd41f702ce0f74563cc794a90000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d8864d79a10fd85ed3dbeede00000000",
+      "pos": [
+        -1.9717,
+        0.0,
+        11.1807
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046690,
+      "end": 5046748,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb4014d000000000041420f00d8864d79a10fd85ed3dbeede000000000060fcbf0000000000e4324124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "b3ccba8ed61174563cc0fd4300000000",
+      "pos": [
+        -0.5693,
+        0.0,
+        5.4185
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046748,
+      "end": 5046806,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffee014d000000000041420f00b3ccba8ed61174563cc0fd430000000000c011bf000000000064ad4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "df505977a10fd85ed3dbeede00000000",
+      "pos": [
+        -0.3496,
+        0.0,
+        0.0742
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046806,
+      "end": 5046864,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff28024d000000000041420f00df505977a10fd85ed3dbeede000000000000b3be000000000000983d24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "41fea698d611d85ed3de8d4400000000",
+      "pos": [
+        -2.1162,
+        0.0,
+        -8.4863
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046864,
+      "end": 5046922,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff62024d000000000041420f0041fea698d611d85ed3de8d4400000000007007c00000000000c807c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "b79f8d972f0fd85ed3de8d4400000000",
+      "pos": [
+        10.4932,
+        0.0,
+        -1.6621
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046922,
+      "end": 5046980,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff9c024d000000000041420f00b79f8d972f0fd85ed3de8d440000000000e427410000000000c0d4bf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "94aacf6bd611d85ed3dbeede00000000",
+      "pos": [
+        5.4717,
+        0.0,
+        -10.7383
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5046980,
+      "end": 5047038,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd6024d000000000041420f0094aacf6bd611d85ed3dbeede000000000018af400000000000d02bc124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ae1b699a2f0fd85ed3de8d4400000000",
+      "pos": [
+        -1.2998,
+        0.0,
+        -2.7871
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047038,
+      "end": 5047096,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff10034d000000000041420f00ae1b699a2f0fd85ed3de8d44000000000060a6bf00000000006032c024000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "5fcc7c37b51174563c343d6400000000",
+      "pos": [
+        0.2378,
+        0.0,
+        -1.6914
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047096,
+      "end": 5047154,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff4a034d0000000000a7420f005fcc7c37b51174563c343d64000000000080733e000000000080d8bf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "c1504184d61110ffe0843b4800000000",
+      "pos": [
+        10.0679,
+        0.0,
+        -7.5869
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047154,
+      "end": 5047212,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff84034d000000000041420f00c1504184d61110ffe0843b4800000000001621410000000000c8f2c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1ad06864d61174563cc0fd4300000000",
+      "pos": [
+        -15.918,
+        0.0,
+        -4.2651
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047212,
+      "end": 5047270,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffbe034d000000000041420f001ad06864d61174563cc0fd430000000000b07ec100000000007c88c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "df9fd7b3d60fd85ed3de8d4400000000",
+      "pos": [
+        17.9355,
+        0.0,
+        0.9399
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047270,
+      "end": 5047328,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff8034d000000000041420f00df9fd7b3d60fd85ed3de8d4400000000007c8f410000000000a0703f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d43509962f0fd85ed3de8d4400000000",
+      "pos": [
+        8.4287,
+        0.0,
+        11.1846
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047328,
+      "end": 5047386,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff32044d000000000041420f00d43509962f0fd85ed3de8d440000000000dc06410000000000f4324124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "9e6b5963d61174563cc0fd4300000000",
+      "pos": [
+        9.5156,
+        0.0,
+        -9.8538
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047386,
+      "end": 5047444,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff6c044d000000000041420f009e6b5963d61174563cc0fd4300000000004018410000000000a91dc124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "7b7b6262d61174563cc0fd4300000000",
+      "pos": [
+        8.1289,
+        0.0,
+        18.2571
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047444,
+      "end": 5047502,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa6044d000000000041420f007b7b6262d61174563cc0fd43000000000010024100000000800e924124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "eb28826ed61174563cc0fd4300000000",
+      "pos": [
+        0.1035,
+        0.0,
+        0.3879
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047502,
+      "end": 5047560,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffe0044d000000000041420f00eb28826ed61174563cc0fd43000000000000d43d0000000000a0c63e24000000"
+    },
+    {
+      "key": 1000082,
+      "uuid": "babc4561001074563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5047560,
+      "end": 5047606,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff1a054d000000000092420f00babc4561001074563c6a6f710000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "6aaef2abd60fd85ed3de8d4400000000",
+      "pos": [
+        -8.1924,
+        0.0,
+        -8.7854
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047606,
+      "end": 5047664,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff48054d000000000041420f006aaef2abd60fd85ed3de8d4400000000001403c10000000000910cc124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "17291073d61174563cc0fd4300000000",
+      "pos": [
+        -17.2686,
+        0.0,
+        1.2075
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047664,
+      "end": 5047722,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff82054d000000000041420f0017291073d61174563cc0fd430000000000268ac10000000000909a3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "34c121972f0fd85ed3de8d4400000000",
+      "pos": [
+        -4.2266,
+        0.0,
+        1.373
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047722,
+      "end": 5047780,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffbc054d000000000041420f0034c121972f0fd85ed3de8d4400000000004087c00000000000c0af3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "11fe3a59d611d85ed3dbeede00000000",
+      "pos": [
+        4.0156,
+        0.0,
+        -1.8726
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047780,
+      "end": 5047838,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff6054d000000000041420f0011fe3a59d611d85ed3dbeede00000000008080400000000000b0efbf24000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "e740f5c0f31074563ce01b7900000000",
+      "pos": [
+        -3.6152,
+        0.0,
+        6.5217
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047838,
+      "end": 5047896,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff30064d000000000044420f00e740f5c0f31074563ce01b7900000000006067c00000000000b2d04024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0e438e4aa10fd85ed3dbeede00000000",
+      "pos": [
+        13.8301,
+        0.0,
+        -6.7454
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047896,
+      "end": 5047954,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff6a064d000000000041420f000e438e4aa10fd85ed3dbeede0000000000485d410000000000dad7c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0a466562d611d85ed3dbeede00000000",
+      "pos": [
+        11.8857,
+        0.0,
+        8.0171
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5047954,
+      "end": 5048012,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa4064d000000000041420f000a466562d611d85ed3dbeede00000000002c3e41000000000046004124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d6943772d611d85ed3de8d4400000000",
+      "pos": [
+        -18.5439,
+        0.0,
+        -3.9417
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048012,
+      "end": 5048070,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffde064d000000000041420f00d6943772d611d85ed3de8d4400000000005a94c10000000000447cc024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "7b1adbb42f0fd85ed3de8d4400000000",
+      "pos": [
+        -1.4951,
+        0.0,
+        -5.2137
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048070,
+      "end": 5048128,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff18074d000000000041420f007b1adbb42f0fd85ed3de8d44000000000060bfbf0000000000d7a6c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "59ed1ea8d60fd85ed3de8d4400000000",
+      "pos": [
+        11.9639,
+        0.0,
+        5.5786
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048128,
+      "end": 5048186,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff52074d000000000041420f0059ed1ea8d60fd85ed3de8d4400000000006c3f41000000000084b24024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "85e8e188d70fd85ed3de8d4400000000",
+      "pos": [
+        6.3613,
+        0.0,
+        2.7003
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048186,
+      "end": 5048244,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8c074d000000000041420f0085e8e188d70fd85ed3de8d44000000000090cb400000000080d12c4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "9a8a8101a20fd85ed3dbeede00000000",
+      "pos": [
+        -1.0801,
+        0.0,
+        -0.1904
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048244,
+      "end": 5048302,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc6074d000000000041420f009a8a8101a20fd85ed3dbeede0000000000408abf0000000000f042be24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "5af25270d611d85ed3de8d4400000000",
+      "pos": [
+        -0.9531,
+        0.0,
+        -6.7795
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048302,
+      "end": 5048360,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff00084d000000000041420f005af25270d611d85ed3de8d4400000000000074bf0000000080f1d8c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "2140396fd61110ffe0843b4800000000",
+      "pos": [
+        -1.957,
+        0.0,
+        -2.5968
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048360,
+      "end": 5048418,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff3a084d000000000041420f002140396fd61110ffe0843b48000000000080fabf00000000003226c024000000"
+    },
+    {
+      "key": 1000054,
+      "uuid": "272418e2ab1010ffe062807901000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5048418,
+      "end": 5048464,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff74084d000000000076420f00272418e2ab1010ffe06280790100000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3122ef8b681110ffe062807900000000",
+      "pos": [
+        4.6572,
+        0.0,
+        9.1407
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048464,
+      "end": 5048522,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa2084d000000000041420f003122ef8b681110ffe06280790000000000089540000000004040124124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "fe086669d61110ffe0843b4800000000",
+      "pos": [
+        -5.2363,
+        0.0,
+        -2.4419
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048522,
+      "end": 5048580,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffdc084d000000000041420f00fe086669d61110ffe0843b48000000000090a7c00000000000481cc024000000"
+    },
+    {
+      "key": 1000097,
+      "uuid": "b6d5e8cde40fd85ed3d365a900000000",
+      "pos": [
+        11541.0684,
+        -718.7471,
+        483.3978
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048580,
+      "end": 5048638,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff16094d0000000000a1420f00b6d5e8cde40fd85ed3d365a90000000046543446d1af33c4ebb2f14324000000"
+    },
+    {
+      "key": 1000054,
+      "uuid": "cbc19b23741110ffe062807901000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5048638,
+      "end": 5048684,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff50094d000000000076420f00cbc19b23741110ffe06280790100000018000000"
+    },
+    {
+      "key": 1000044,
+      "uuid": "cbc19b23741110ffe062807918000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5048684,
+      "end": 5048730,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff7e094d00000000006c420f00cbc19b23741110ffe06280791800000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "4e2aa789d70fd85ed3de8d4400000000",
+      "pos": [
+        -9.9717,
+        0.0,
+        0.8724
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048730,
+      "end": 5048788,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffac094d000000000041420f004e2aa789d70fd85ed3de8d4400000000008c1fc10000000000565f3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d1c33b9d2f0fd85ed3de8d4400000000",
+      "pos": [
+        17.3281,
+        0.0,
+        -9.2135
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048788,
+      "end": 5048846,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffe6094d000000000041420f00d1c33b9d2f0fd85ed3de8d440000000000a08a4100000000806a13c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "025e8875741110ffe062807900000000",
+      "pos": [
+        1.5693,
+        0.0,
+        1.5159
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048846,
+      "end": 5048904,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff200a4d000000000041420f00025e8875741110ffe06280790000000000e0c83f000000000008c23f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "5384b06bd611d85ed3de8d4400000000",
+      "pos": [
+        -7.2178,
+        0.0,
+        -12.0128
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048904,
+      "end": 5048962,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff5a0a4d000000000041420f005384b06bd611d85ed3de8d440000000000f8e6c000000000603440c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3785308ad70fd85ed3de8d4400000000",
+      "pos": [
+        -1.6543,
+        0.0,
+        -1.4891
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5048962,
+      "end": 5049020,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff940a4d000000000041420f003785308ad70fd85ed3de8d440000000000c0d3bf00000000009cbebf24000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "f04954b8581174563c343c9d00000000",
+      "pos": [
+        0.877,
+        0.0,
+        3.0587
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049020,
+      "end": 5049078,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffce0a4d000000000044420f00f04954b8581174563c343c9d000000000080603f0000000000c2434024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "c9621380d61110ffe0843b4800000000",
+      "pos": [
+        10.1045,
+        0.0,
+        -3.2831
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049078,
+      "end": 5049136,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff080b4d000000000041420f00c9621380d61110ffe0843b480000000000ac214100000000001f52c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0f1a4466d611d85ed3dbeede00000000",
+      "pos": [
+        6.0312,
+        0.0,
+        7.1877
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049136,
+      "end": 5049194,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff420b4d000000000041420f000f1a4466d611d85ed3dbeede000000000000c14000000000d001e64024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3b5c328bd70fd85ed3de8d4400000000",
+      "pos": [
+        0.7314,
+        0.0,
+        0.8124
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049194,
+      "end": 5049252,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff7c0b4d000000000041420f003b5c328bd70fd85ed3de8d440000000000403b3f0000000000fa4f3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d5f24908960fd85ed3de8d4400000000",
+      "pos": [
+        0.9941,
+        0.0,
+        -3.2513
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049252,
+      "end": 5049310,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb60b4d000000000041420f00d5f24908960fd85ed3de8d440000000000807e3f00000000801550c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "4fef88c0d611d85ed3de8d4400000000",
+      "pos": [
+        10.9238,
+        0.0,
+        7.3682
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049310,
+      "end": 5049368,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff00b4d000000000041420f004fef88c0d611d85ed3de8d440000000000c82e410000000030c8eb4024000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "98bade6ec30cd85ed3d365a900000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5049368,
+      "end": 5049414,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff2a0c4d000000000086420f0098bade6ec30cd85ed3d365a90000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0697fc9e2f0fd85ed3de8d4400000000",
+      "pos": [
+        2.2861,
+        0.0,
+        -16.2657
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049414,
+      "end": 5049472,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff580c4d000000000041420f000697fc9e2f0fd85ed3de8d44000000000050124000000000202082c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3b938d8fd611d85ed3dbeede00000000",
+      "pos": [
+        -4.4346,
+        0.0,
+        -17.7867
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049472,
+      "end": 5049530,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff920c4d000000000041420f003b938d8fd611d85ed3dbeede0000000000e88dc000000000204b8ec124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3dd4f200a20fd85ed3dbeede00000000",
+      "pos": [
+        4.5479,
+        0.0,
+        8.5525
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049530,
+      "end": 5049588,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffcc0c4d000000000041420f003dd4f200a20fd85ed3dbeede00000000008891400000000000d7084124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "37d4f200a20fd85ed3dbeede00000000",
+      "pos": [
+        -4.0654,
+        0.0,
+        0.3557
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049588,
+      "end": 5049646,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff060d4d000000000041420f0037d4f200a20fd85ed3dbeede00000000001882c0000000000020b63e24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "8817c7f1661110ffe062807900000000",
+      "pos": [
+        4.4131,
+        0.0,
+        -12.1255
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049646,
+      "end": 5049704,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff400d4d000000000041420f008817c7f1661110ffe06280790000000000388d4000000000000242c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "f8652a1a960fd85ed3de8d4400000000",
+      "pos": [
+        5.0791,
+        0.0,
+        -0.1774
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049704,
+      "end": 5049762,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff7a0d4d000000000041420f00f8652a1a960fd85ed3de8d44000000000088a2400000000000a035be24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "73ad0680d611d85ed3de8d4400000000",
+      "pos": [
+        -5.1953,
+        0.0,
+        5.7698
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049762,
+      "end": 5049820,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb40d4d000000000041420f0073ad0680d611d85ed3de8d44000000000040a6c00000000000a2b84024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3fec1449a10fd85ed3dbeede00000000",
+      "pos": [
+        5.5732,
+        0.0,
+        8.5828
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049820,
+      "end": 5049878,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffee0d4d000000000041420f003fec1449a10fd85ed3dbeede000000000058b240000000000053094124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "c8ee3690d611d85ed3de8d4400000000",
+      "pos": [
+        1.7686,
+        0.0,
+        -1.6489
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049878,
+      "end": 5049936,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff280e4d000000000041420f00c8ee3690d611d85ed3de8d44000000000060e23f000000000010d3bf24000000"
+    },
+    {
+      "key": 1000043,
+      "uuid": "9439631bfe0c18c04da3925a00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5049936,
+      "end": 5049982,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff620e4d00000000006b420f009439631bfe0c18c04da3925a0000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "cc8cf391d611d85ed3de8d4400000000",
+      "pos": [
+        -5.2734,
+        0.0,
+        -4.2703
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5049982,
+      "end": 5050040,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff900e4d000000000041420f00cc8cf391d611d85ed3de8d440000000000c0a8c00000000000a688c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1cbe187ad611d85ed3de8d4400000000",
+      "pos": [
+        2.0879,
+        0.0,
+        -2.7709
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050040,
+      "end": 5050098,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffca0e4d000000000041420f001cbe187ad611d85ed3de8d440000000000a0054000000000005631c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "bb1031b52f0fd85ed3de8d4400000000",
+      "pos": [
+        -3.6719,
+        0.0,
+        1.5588
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050098,
+      "end": 5050156,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff040f4d000000000041420f00bb1031b52f0fd85ed3de8d440000000000006bc0000000000088c73f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "34cbfd6cd611d85ed3de8d4400000000",
+      "pos": [
+        3.7754,
+        0.0,
+        -6.0419
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050156,
+      "end": 5050214,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff3e0f4d000000000041420f0034cbfd6cd611d85ed3de8d440000000000a07140000000000057c1c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "458ae49c2f0fd85ed3de8d4400000000",
+      "pos": [
+        -4.9561,
+        0.0,
+        4.0134
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050214,
+      "end": 5050272,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff780f4d000000000041420f00458ae49c2f0fd85ed3de8d440000000000989ec000000000b06d804024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "15a6f46ad611d85ed3de8d4400000000",
+      "pos": [
+        5.7363,
+        0.0,
+        -6.8361
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050272,
+      "end": 5050330,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb20f4d000000000041420f0015a6f46ad611d85ed3de8d44000000000090b7400000000000c1dac024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "403e1269d611d85ed3dbeede00000000",
+      "pos": [
+        -5.8369,
+        0.0,
+        16.0366
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050330,
+      "end": 5050388,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffec0f4d000000000041420f00403e1269d611d85ed3dbeede0000000000c8bac000000000004b804124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "f543217cd61174563cc0fd4300000000",
+      "pos": [
+        -4.3564,
+        0.0,
+        15.192
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050388,
+      "end": 5050446,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff26104d000000000041420f00f543217cd61174563cc0fd430000000000688bc0000000008012734124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "40490777d61174563cc0fd4300000000",
+      "pos": [
+        -0.2012,
+        0.0,
+        -0.4309
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050446,
+      "end": 5050504,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff60104d000000000041420f0040490777d61174563cc0fd430000000000004ebe0000000000a0dcbe24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "b5dffbea661174563c6a6ead00000000",
+      "pos": [
+        -9.8594,
+        0.0,
+        -1.7384
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050504,
+      "end": 5050562,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff9a104d000000000041420f00b5dffbea661174563c6a6ead0000000000c01dc1000000000084debf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "a4e12498d61110ffe0c571f300000000",
+      "pos": [
+        7.5283,
+        0.0,
+        -7.2698
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050562,
+      "end": 5050620,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd4104d000000000041420f00a4e12498d61110ffe0c571f30000000000e8f0400000000000a2e8c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d5710158d611d85ed3dbeede00000000",
+      "pos": [
+        -1.3662,
+        0.0,
+        4.7632
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050620,
+      "end": 5050678,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff0e114d000000000041420f00d5710158d611d85ed3dbeede0000000000e0aebf00000000006c984024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "8e428171d61110ffe0c571f300000000",
+      "pos": [
+        -1.7314,
+        0.0,
+        -16.4775
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050678,
+      "end": 5050736,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff48114d000000000041420f008e428171d61110ffe0c571f30000000000a0ddbf0000000000d283c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "80e821bdd60fd85ed3de8d4400000000",
+      "pos": [
+        12.5874,
+        0.0,
+        5.343
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050736,
+      "end": 5050794,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff82114d000000000041420f0080e821bdd60fd85ed3de8d4400000000006649410000000000faaa4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "bd0d996ad61110ffe0c571f300000000",
+      "pos": [
+        1.5234,
+        0.0,
+        -1.6924
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050794,
+      "end": 5050852,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffbc114d000000000041420f00bd0d996ad61110ffe0c571f3000000000000c33f0000000000a0d8bf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3e51128f2f0fd85ed3de8d4400000000",
+      "pos": [
+        -1.0244,
+        0.0,
+        14.6477
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050852,
+      "end": 5050910,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff6114d000000000041420f003e51128f2f0fd85ed3de8d4400000000002083bf00000000005d6a4124000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "13ce7dee041074563c343e3a00000000",
+      "pos": [
+        -3.5889,
+        0.0,
+        -8.4539
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5050910,
+      "end": 5050968,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff30124d0000000000a7420f0013ce7dee041074563c343e3a0000000000b065c000000000004307c124000000"
+    },
+    {
+      "key": 1000077,
+      "uuid": "79e56598661074563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5050968,
+      "end": 5051014,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff6a124d00000000008d420f0079e56598661074563ce01b590000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "6a89f28ad611d85ed3dbeede00000000",
+      "pos": [
+        -1.645,
+        0.0,
+        -13.3958
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051014,
+      "end": 5051072,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff98124d000000000041420f006a89f28ad611d85ed3dbeede000000000090d2bf00000000005556c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "392774b7d60fd85ed3de8d4400000000",
+      "pos": [
+        -15.6392,
+        0.0,
+        6.3186
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051072,
+      "end": 5051130,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd2124d000000000041420f00392774b7d60fd85ed3de8d4400000000003a7ac1000000000032ca4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "09b53266d61174563cc0fd4300000000",
+      "pos": [
+        -8.5078,
+        0.0,
+        -11.7104
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051130,
+      "end": 5051188,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff0c134d000000000041420f0009b53266d61174563cc0fd4300000000002008c100000000005e3bc124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "614a8674d611d85ed3dbeede00000000",
+      "pos": [
+        -16.8022,
+        0.0,
+        -3.2659
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051188,
+      "end": 5051246,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff46134d000000000041420f00614a8674d611d85ed3dbeede00000000006b86c100000000000451c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d9f091982f0fd85ed3de8d4400000000",
+      "pos": [
+        18.8564,
+        0.0,
+        -5.0525
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051246,
+      "end": 5051304,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff80134d000000000041420f00d9f091982f0fd85ed3de8d440000000000da96410000000000aea1c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "434ef96ed61110ffe0c571f300000000",
+      "pos": [
+        10.5586,
+        0.0,
+        -16.8972
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051304,
+      "end": 5051362,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffba134d000000000041420f00434ef96ed61110ffe0c571f30000000000f0284100000000802d87c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0d867c6ed611d85ed3dbeede00000000",
+      "pos": [
+        3.3066,
+        0.0,
+        -2.9775
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051362,
+      "end": 5051420,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff4134d000000000041420f000d867c6ed611d85ed3dbeede0000000000a053400000000000903ec024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "75b52e78a10fd85ed3dbeede00000000",
+      "pos": [
+        1.8887,
+        0.0,
+        11.9255
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051420,
+      "end": 5051478,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2e144d000000000041420f0075b52e78a10fd85ed3dbeede0000000000c0f13f0000000000cf3e4124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "731288f0661174563c6a6ead00000000",
+      "pos": [
+        2.8965,
+        0.0,
+        -18.2869
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051478,
+      "end": 5051536,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff68144d000000000041420f00731288f0661174563c6a6ead000000000060394000000000804b92c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d22a4f70d611d85ed3dbeede00000000",
+      "pos": [
+        6.5132,
+        0.0,
+        1.5037
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051536,
+      "end": 5051594,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa2144d000000000041420f00d22a4f70d611d85ed3dbeede00000000006cd040000000000078c03f24000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "1774fd3cf80fd85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5051594,
+      "end": 5051640,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffdc144d000000000086420f001774fd3cf80fd85ed3a429760000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "7af6e278a10fd85ed3dbeede00000000",
+      "pos": [
+        -12.3184,
+        0.0,
+        13.2097
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051640,
+      "end": 5051698,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff0a154d000000000041420f007af6e278a10fd85ed3dbeede00000000001845c100000000005b534124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "fa0fe12d910fd85ed3de8d4400000000",
+      "pos": [
+        -6.9458,
+        0.0,
+        -17.1917
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051698,
+      "end": 5051756,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff44154d000000000041420f00fa0fe12d910fd85ed3de8d44000000000044dec000000000808889c124000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "ea8dccd2491174563cc0fcce00000000",
+      "pos": [
+        10.7759,
+        0.0,
+        0.1881
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051756,
+      "end": 5051814,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff7e154d000000000044420f00ea8dccd2491174563cc0fcce00000000006a2c410000000000a0403e24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "c2de3b842d0fd85ed3de8d4400000000",
+      "pos": [
+        -12.3145,
+        0.0,
+        -6.2746
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051814,
+      "end": 5051872,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffb8154d000000000041420f00c2de3b842d0fd85ed3de8d4400000000000845c100000000a0c9c8c024000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "ac7cfb76b51174563c343d6400000000",
+      "pos": [
+        -5.2559,
+        0.0,
+        6.9748
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051872,
+      "end": 5051930,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff2154d0000000000a7420f00ac7cfb76b51174563c343d64000000000030a8c000000000e031df4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "b6a282b5d60fd85ed3dbeede00000000",
+      "pos": [
+        1.0229,
+        0.0,
+        -4.1038
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5051930,
+      "end": 5051988,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff2c164d000000000041420f00b6a282b5d60fd85ed3dbeede0000000000f0823f00000000005283c024000000"
+    },
+    {
+      "key": 1000055,
+      "uuid": "31ee79b30010d85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5051988,
+      "end": 5052034,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff66164d000000000077420f0031ee79b30010d85ed3a429760000000018000000"
+    },
+    {
+      "key": 1000109,
+      "uuid": "050f0737a91074563c343d6400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052034,
+      "end": 5052080,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff94164d0000000000ad420f00050f0737a91074563c343d640000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "5329e561d61110ffe0843b4800000000",
+      "pos": [
+        1.6582,
+        0.0,
+        3.1183
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052080,
+      "end": 5052138,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc2164d000000000041420f005329e561d61110ffe0843b48000000000040d43f000000008092474024000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "f919b719d80f74563c343e3a00000000",
+      "pos": [
+        -0.335,
+        0.0,
+        6.3905
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052138,
+      "end": 5052196,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffffc164d0000000000a7420f00f919b719d80f74563c343e3a000000000080abbe00000000607fcc4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "0e863eacd60fd85ed3dbeede00000000",
+      "pos": [
+        -8.3213,
+        0.0,
+        4.4245
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052196,
+      "end": 5052254,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff36174d000000000041420f000e863eacd60fd85ed3dbeede00000000002405c10000000080958d4024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1b84c4bbd60fd85ed3dbeede00000000",
+      "pos": [
+        -12.5449,
+        0.0,
+        6.1187
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052254,
+      "end": 5052312,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff70174d000000000041420f001b84c4bbd60fd85ed3dbeede0000000000b848c10000000000ccc34024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "6317eaadd60fd85ed3dbeede00000000",
+      "pos": [
+        -14.0195,
+        0.0,
+        -12.6233
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052312,
+      "end": 5052370,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffaa174d000000000041420f006317eaadd60fd85ed3dbeede00000000005060c10000000000f949c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "f7fc4a04a20fd85ed3dbeede00000000",
+      "pos": [
+        9.2031,
+        0.0,
+        -14.7279
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052370,
+      "end": 5052428,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffe4174d000000000041420f00f7fc4a04a20fd85ed3dbeede00000000004013410000000080a56bc124000000"
+    },
+    {
+      "key": 1000103,
+      "uuid": "70f72d60b51174563c343d6400000000",
+      "pos": [
+        -7.3574,
+        0.0,
+        1.8345
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052428,
+      "end": 5052486,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff1e184d0000000000a7420f0070f72d60b51174563c343d64000000000070ebc00000000000d0ea3f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "138666a4d70fd85ed3de8d4400000000",
+      "pos": [
+        -1.1411,
+        0.0,
+        1.6299
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052486,
+      "end": 5052544,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff58184d000000000041420f00138666a4d70fd85ed3de8d4400000000001092bf0000000000a0d03f24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "f55593a82f0fd85ed3de8d4400000000",
+      "pos": [
+        0.1152,
+        0.0,
+        0.0039
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052544,
+      "end": 5052602,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff92184d000000000041420f00f55593a82f0fd85ed3de8d44000000000000ec3d000000000000803b24000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "9879605fbf0c18c04da329b600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052602,
+      "end": 5052648,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffcc184d000000000086420f009879605fbf0c18c04da329b60000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "54f1399ed61110ffe0843b4800000000",
+      "pos": [
+        -2.5156,
+        0.0,
+        2.6978
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052648,
+      "end": 5052706,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffffa184d000000000041420f0054f1399ed61110ffe0843b4800000000000021c00000000000a82c4024000000"
+    },
+    {
+      "key": 1000060,
+      "uuid": "621fe8f6cd0c74563c343d8400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052706,
+      "end": 5052752,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff34194d00000000007c420f00621fe8f6cd0c74563c343d840000000018000000"
+    },
+    {
+      "key": 1000079,
+      "uuid": "c0f02d23cf0c74563c343d8400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052752,
+      "end": 5052798,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff62194d00000000008f420f00c0f02d23cf0c74563c343d840000000018000000"
+    },
+    {
+      "key": 1000055,
+      "uuid": "9cadb26fe00fd85ed3de8d4400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052798,
+      "end": 5052844,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff90194d000000000077420f009cadb26fe00fd85ed3de8d440000000018000000"
+    },
+    {
+      "key": 1000067,
+      "uuid": "8fadb26fe00fd85ed3de8d4400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052844,
+      "end": 5052890,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffbe194d000000000083420f008fadb26fe00fd85ed3de8d440000000018000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "3daeb26fe00fd85ed3de8d4400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052890,
+      "end": 5052936,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffec194d000000000086420f003daeb26fe00fd85ed3de8d440000000018000000"
+    },
+    {
+      "key": 1000079,
+      "uuid": "77adb26fe00fd85ed3de8d4400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5052936,
+      "end": 5052982,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff1a1a4d00000000008f420f0077adb26fe00fd85ed3de8d440000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "a11e379fd61110ffe0843b4800000000",
+      "pos": [
+        -4.5649,
+        0.0,
+        -10.7542
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5052982,
+      "end": 5053040,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff481a4d000000000041420f00a11e379fd61110ffe0843b4800000000001492c00000000000112cc124000000"
+    },
+    {
+      "key": 1000004,
+      "uuid": "b17647d2f31074563ce01b7900000000",
+      "pos": [
+        -4.8384,
+        0.0,
+        -9.9199
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053040,
+      "end": 5053098,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff821a4d000000000044420f00b17647d2f31074563ce01b790000000000d49ac00000000000b81ec124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ba8b7e9c2f0fd85ed3de8d4400000000",
+      "pos": [
+        3.3174,
+        0.0,
+        4.0967
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053098,
+      "end": 5053156,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffbc1a4d000000000041420f00ba8b7e9c2f0fd85ed3de8d440000000000505440000000000018834024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "61e9d07ca10fd85ed3dbeede00000000",
+      "pos": [
+        7.8623,
+        0.0,
+        -11.2285
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053156,
+      "end": 5053214,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff61a4d000000000041420f0061e9d07ca10fd85ed3dbeede000000000098fb400000000000a833c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3453c57ba10fd85ed3dbeede00000000",
+      "pos": [
+        -4.3672,
+        0.0,
+        2.8359
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053214,
+      "end": 5053272,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff301b4d000000000041420f003453c57ba10fd85ed3dbeede0000000000c08bc0000000000080354024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "a343328cd611d85ed3dbeede00000000",
+      "pos": [
+        -0.0825,
+        0.0,
+        4.72
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053272,
+      "end": 5053330,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff6a1b4d000000000041420f00a343328cd611d85ed3dbeede000000000000a9bd00000000000a974024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1e4dee80d70fd85ed3de8d4400000000",
+      "pos": [
+        12.4785,
+        0.0,
+        -3.8149
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053330,
+      "end": 5053388,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffa41b4d000000000041420f001e4dee80d70fd85ed3de8d440000000000a8474100000000002874c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "542c497da10fd85ed3dbeede00000000",
+      "pos": [
+        7.9944,
+        0.0,
+        17.144
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053388,
+      "end": 5053446,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffde1b4d000000000041420f00542c497da10fd85ed3dbeede0000000000d2ff40000000000027894124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1299b57bd61110ffe0c571f300000000",
+      "pos": [
+        -1.6187,
+        0.0,
+        -4.9814
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053446,
+      "end": 5053504,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff181c4d000000000041420f001299b57bd61110ffe0c571f3000000000030cfbf0000000000689fc024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "3a407080d61110ffe0c571f300000000",
+      "pos": [
+        1.0554,
+        0.0,
+        -4.5718
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053504,
+      "end": 5053562,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff521c4d000000000041420f003a407080d61110ffe0c571f3000000000018873f00000000004c92c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d0890f79d61110ffe0c571f300000000",
+      "pos": [
+        17.1123,
+        0.0,
+        4.5854
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053562,
+      "end": 5053620,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8c1c4d000000000041420f00d0890f79d61110ffe0c571f30000000000e688410000000000bc924024000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "e92d65eaf70fd85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5053620,
+      "end": 5053666,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffffc61c4d000000000086420f00e92d65eaf70fd85ed3a429760000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "728315c8d60fd85ed3de8d4400000000",
+      "pos": [
+        -4.79,
+        0.0,
+        10.7588
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053666,
+      "end": 5053724,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffff41c4d000000000041420f00728315c8d60fd85ed3de8d4400000000004899c00000000000242c4124000000"
+    },
+    {
+      "key": 1000043,
+      "uuid": "491b55da6c1174563c6a6ead00000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5053724,
+      "end": 5053770,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff2e1d4d00000000006b420f00491b55da6c1174563c6a6ead0000000018000000"
+    },
+    {
+      "key": 1000109,
+      "uuid": "99df972aa91074563c343d6400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5053770,
+      "end": 5053816,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff5c1d4d0000000000ad420f0099df972aa91074563c343d640000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "10238665d61110ffe0843b4800000000",
+      "pos": [
+        -9.6006,
+        0.0,
+        8.6445
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053816,
+      "end": 5053874,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff8a1d4d000000000041420f0010238665d61110ffe0843b4800000000009c19c10000000000500a4124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "235fa795d61110ffe0c571f300000000",
+      "pos": [
+        12.5171,
+        0.0,
+        -4.8047
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053874,
+      "end": 5053932,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc41d4d000000000041420f00235fa795d61110ffe0c571f300000000004648410000000000c099c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "1278a59b2f0fd85ed3de8d4400000000",
+      "pos": [
+        -9.1938,
+        0.0,
+        -13.6304
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053932,
+      "end": 5053990,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffffe1d4d000000000041420f001278a59b2f0fd85ed3de8d4400000000001a13c10000000000165ac124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "c418b166d61110ffe0843b4800000000",
+      "pos": [
+        -2.54,
+        0.0,
+        -13.0674
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5053990,
+      "end": 5054048,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff381e4d000000000041420f00c418b166d61110ffe0843b4800000000009022c000000000001451c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "d8cf6a7ba10fd85ed3dbeede00000000",
+      "pos": [
+        3.3555,
+        0.0,
+        -13.458
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054048,
+      "end": 5054106,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff721e4d000000000041420f00d8cf6a7ba10fd85ed3dbeede0000000000c0564000000000005457c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "576101c6d60fd85ed3de8d4400000000",
+      "pos": [
+        -3.687,
+        0.0,
+        -0.1934
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054106,
+      "end": 5054164,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffac1e4d000000000041420f00576101c6d60fd85ed3de8d440000000000f86bc000000000000046be24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "54c46876d611d85ed3dbeede00000000",
+      "pos": [
+        1.4712,
+        0.0,
+        2.0251
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054164,
+      "end": 5054222,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffe61e4d000000000041420f0054c46876d611d85ed3dbeede000000000050bc3f00000000009c014024000000"
+    },
+    {
+      "key": 1000070,
+      "uuid": "88a299f8c30c74563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5054222,
+      "end": 5054268,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff201f4d000000000086420f0088a299f8c30c74563c6a6f710000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "f756579b2f0fd85ed3de8d4400000000",
+      "pos": [
+        4.6895,
+        0.0,
+        3.2837
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054268,
+      "end": 5054326,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff4e1f4d000000000041420f00f756579b2f0fd85ed3de8d440000000000109640000000000028524024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "23f75fb9d60fd85ed3de8d4400000000",
+      "pos": [
+        0.8706,
+        0.0,
+        3.25
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054326,
+      "end": 5054384,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff881f4d000000000041420f0023f75fb9d60fd85ed3de8d440000000000e05e3f000000000000504024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "2361343d2d0fd85ed3de8d4400000000",
+      "pos": [
+        9.5938,
+        0.0,
+        -7.2292
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054384,
+      "end": 5054442,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffc21f4d000000000041420f002361343d2d0fd85ed3de8d440000000000801941000000000056e7c024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "6339c7bfd60fd85ed3dbeede00000000",
+      "pos": [
+        -0.3242,
+        0.0,
+        -0.5399
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054442,
+      "end": 5054500,
+      "size": 58,
+      "binary": "0100070d0000fffffffffffffffffc1f4d000000000041420f006339c7bfd60fd85ed3dbeede000000000000a6be0000000000380abf24000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "915ec1de661174563c6a6ead00000000",
+      "pos": [
+        0.9839,
+        0.0,
+        -0.5454
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054500,
+      "end": 5054558,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff36204d000000000041420f00915ec1de661174563c6a6ead0000000000e07b3f0000000000a00bbf24000000"
+    },
+    {
+      "key": 1000054,
+      "uuid": "75b4a0006d1174563c343d6400000000",
+      "pos": null,
+      "discovered": null,
+      "mask": "03",
+      "start": 5054558,
+      "end": 5054604,
+      "size": 46,
+      "binary": "0100030d0000ffffffffffffffff70204d000000000076420f0075b4a0006d1174563c343d640000000018000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "8ad46873d611d85ed3de8d4400000000",
+      "pos": [
+        1.5703,
+        0.0,
+        14.9394
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054604,
+      "end": 5054662,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff9e204d000000000041420f008ad46873d611d85ed3de8d44000000000000c93f00000000c0076f4124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "701b7ea32f0fd85ed3de8d4400000000",
+      "pos": [
+        2.6475,
+        0.0,
+        7.6886
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054662,
+      "end": 5054720,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffffd8204d000000000041420f00701b7ea32f0fd85ed3de8d440000000000702940000000000009f64024000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "ca508971d61110ffe0843b4800000000",
+      "pos": [
+        -9.4351,
+        0.0,
+        -8.2016
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054720,
+      "end": 5054778,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff12214d000000000041420f00ca508971d61110ffe0843b480000000000f616c100000000c03903c124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "627e2b02a20fd85ed3dbeede00000000",
+      "pos": [
+        -12.77,
+        0.0,
+        -10.7155
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054778,
+      "end": 5054836,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff4c214d000000000041420f00627e2b02a20fd85ed3dbeede0000000000524cc10000000080722bc124000000"
+    },
+    {
+      "key": 1000001,
+      "uuid": "a45c8a72d611d85ed3dbeede00000000",
+      "pos": [
+        4.5508,
+        0.0,
+        5.0541
+      ],
+      "discovered": null,
+      "mask": "07",
+      "start": 5054836,
+      "end": 5054894,
+      "size": 58,
+      "binary": "0100070d0000ffffffffffffffff86214d000000000041420f00a45c8a72d611d85ed3dbeede0000000000a091400000000000bba14024000000"
+    },
+    {
+      "key": 1000043,
+      "uuid": "d2b54f12cf00370b0100000000000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff74354700000000006b420f00d2b54f12cf00370b010000000000000018000000",
+      "mask": "",
+      "start": 4666722,
+      "end": 4666768,
+      "size": 46
+    },
+    {
+      "key": 1000007,
+      "uuid": "0c5781fcca0e74563ce01b3f00000000",
+      "pos": null,
+      "discovered": false,
+      "binary": "01000b0d0000ffffffffffffffffa23547000000000047420f000c5781fcca0e74563ce01b3f000000000019000000",
+      "mask": "",
+      "start": 4666768,
+      "end": 4666815,
+      "size": 47
+    },
+    {
+      "key": 1000070,
+      "uuid": "3d0a0d35c30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff733647000000000086420f003d0a0d35c30c18c04da8a71e0000000018000000",
+      "mask": "",
+      "start": 4666977,
+      "end": 4667023,
+      "size": 46
+    },
+    {
+      "key": 1000055,
+      "uuid": "99ec62b1c30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffdb3647000000000077420f0099ec62b1c30c18c04da8a71e0000000018000000",
+      "mask": "",
+      "start": 4667081,
+      "end": 4667127,
+      "size": 46
+    },
+    {
+      "key": 1000062,
+      "uuid": "c939fbfdfa0fd85ed3de8d4400000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff09374700000000007e420f00c939fbfdfa0fd85ed3de8d440000000018000000",
+      "mask": "",
+      "start": 4667127,
+      "end": 4667173,
+      "size": 46
+    },
+    {
+      "key": 1000044,
+      "uuid": "7240ae83561174563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff4d384700000000006c420f007240ae83561174563c6a6f710000000018000000",
+      "mask": "",
+      "start": 4667451,
+      "end": 4667497,
+      "size": 46
+    },
+    {
+      "key": 1000007,
+      "uuid": "0130ef63ca0ed85ed38e464600000000",
+      "pos": null,
+      "discovered": false,
+      "binary": "01000b0d0000ffffffffffffffff7b3847000000000047420f000130ef63ca0ed85ed38e4646000000000019000000",
+      "mask": "",
+      "start": 4667497,
+      "end": 4667544,
+      "size": 47
+    },
+    {
+      "key": 1000007,
+      "uuid": "36a3df5bc20e74563cc0f83e00000000",
+      "pos": null,
+      "discovered": false,
+      "binary": "01000b0d0000ffffffffffffffffe43847000000000047420f0036a3df5bc20e74563cc0f83e000000000019000000",
+      "mask": "",
+      "start": 4667602,
+      "end": 4667649,
+      "size": 47
+    },
+    {
+      "key": 1000008,
+      "uuid": "b78f59ab911074563c7deaa200000000",
+      "pos": [
+        16.4424,
+        0.0,
+        5.3423
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff133947000000000048420f00b78f59ab911074563c7deaa200000000008a83410000000000f4aa4024000000",
+      "mask": "",
+      "start": 4667649,
+      "end": 4667707,
+      "size": 58
+    },
+    {
+      "key": 1000067,
+      "uuid": "7e67f780fe0fd85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff873947000000000083420f007e67f780fe0fd85ed38e49eb0000000018000000",
+      "mask": "",
+      "start": 4667765,
+      "end": 4667811,
+      "size": 46
+    },
+    {
+      "key": 1000054,
+      "uuid": "25b47303b81010ffe062807907000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffef3947000000000076420f0025b47303b81010ffe06280790700000018000000",
+      "mask": "",
+      "start": 4667869,
+      "end": 4667915,
+      "size": 46
+    },
+    {
+      "key": 1000065,
+      "uuid": "d976d99d120f74563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff1d3a47000000000081420f00d976d99d120f74563ce01b590000000018000000",
+      "mask": "",
+      "start": 4667915,
+      "end": 4667961,
+      "size": 46
+    },
+    {
+      "key": 1000054,
+      "uuid": "392c99f3d50000090ffe000100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff4b3a47000000000076420f00392c99f3d50000090ffe00010000000018000000",
+      "mask": "",
+      "start": 4667961,
+      "end": 4668007,
+      "size": 46
+    },
+    {
+      "key": 1000007,
+      "uuid": "c92f10a2c00e74563cc0fd4300000000",
+      "pos": null,
+      "discovered": false,
+      "binary": "01000b0d0000ffffffffffffffff273b47000000000047420f00c92f10a2c00e74563cc0fd43000000000019000000",
+      "mask": "",
+      "start": 4668181,
+      "end": 4668228,
+      "size": 47
+    },
+    {
+      "key": 1000073,
+      "uuid": "f4b4cb65bf0cd85ed3d365a900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffbf3b47000000000089420f00f4b4cb65bf0cd85ed3d365a90000000018000000",
+      "mask": "",
+      "start": 4668333,
+      "end": 4668379,
+      "size": 46
+    },
+    {
+      "key": 1000043,
+      "uuid": "928786030a0d74563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff273c4700000000006b420f00928786030a0d74563ce01b590000000018000000",
+      "mask": "",
+      "start": 4668437,
+      "end": 4668483,
+      "size": 46
+    },
+    {
+      "key": 1000103,
+      "uuid": "1998677bb51174563c343d6400000000",
+      "pos": [
+        1.2109,
+        0.0,
+        13.8413
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff3d3d470000000000a7420f001998677bb51174563c343d640000000000009b3f0000000000765d4124000000",
+      "mask": "",
+      "start": 4668715,
+      "end": 4668773,
+      "size": 58
+    },
+    {
+      "key": 1000007,
+      "uuid": "6362c506130fd85ed3d3662100000000",
+      "pos": null,
+      "discovered": false,
+      "binary": "01000b0d0000ffffffffffffffff773d47000000000047420f006362c506130fd85ed3d36621000000000019000000",
+      "mask": "",
+      "start": 4668773,
+      "end": 4668820,
+      "size": 47
+    },
+    {
+      "key": 1000043,
+      "uuid": "e6d38e786f001dff0000000000000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff0f3e4700000000006b420f00e6d38e786f001dff000000000000000018000000",
+      "mask": "",
+      "start": 4668925,
+      "end": 4668971,
+      "size": 46
+    },
+    {
+      "key": 1000004,
+      "uuid": "2645cfd7f31074563ce01b7900000000",
+      "pos": [
+        4.6826,
+        0.0,
+        -14.4116
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff3d3e47000000000044420f002645cfd7f31074563ce01b790000000000d8954000000000009666c124000000",
+      "mask": "",
+      "start": 4668971,
+      "end": 4669029,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "f3a531ca911074563c7deaa200000000",
+      "pos": [
+        7.6152,
+        0.0,
+        4.7588
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffffeb3e47000000000048420f00f3a531ca911074563c7deaa20000000000b0f340000000000048984024000000",
+      "mask": "",
+      "start": 4669145,
+      "end": 4669203,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "f93ad88e911074563c7deaa200000000",
+      "pos": [
+        5.2979,
+        0.0,
+        16.3037
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff253f47000000000048420f00f93ad88e911074563c7deaa2000000000088a94000000000006e824124000000",
+      "mask": "",
+      "start": 4669203,
+      "end": 4669261,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "82baa0c7911074563c7deaa200000000",
+      "pos": [
+        -11.3232,
+        0.0,
+        -12.1426
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff5f3f47000000000048420f0082baa0c7911074563c7deaa200000000002c35c100000000004842c124000000",
+      "mask": "",
+      "start": 4669261,
+      "end": 4669319,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "80ef12b7911074563c7deaa200000000",
+      "pos": [
+        -0.3779,
+        0.0,
+        -1.9431
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff993f47000000000048420f0080ef12b7911074563c7deaa2000000000080c1be0000000000b8f8bf24000000",
+      "mask": "",
+      "start": 4669319,
+      "end": 4669377,
+      "size": 58
+    },
+    {
+      "key": 1000054,
+      "uuid": "d7054c2cda0000090ffe000100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000fffffffffffffffff54047000000000076420f00d7054c2cda0000090ffe00010000000018000000",
+      "mask": "",
+      "start": 4669667,
+      "end": 4669713,
+      "size": 46
+    },
+    {
+      "key": 1000044,
+      "uuid": "844a8c201a1074563c343d6400000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff7f424700000000006c420f00844a8c201a1074563c343d640000000018000000",
+      "mask": "",
+      "start": 4670061,
+      "end": 4670107,
+      "size": 46
+    },
+    {
+      "key": 1000043,
+      "uuid": "e90cfb116b11d85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffe7424700000000006b420f00e90cfb116b11d85ed38e49eb0000000018000000",
+      "mask": "",
+      "start": 4670165,
+      "end": 4670211,
+      "size": 46
+    },
+    {
+      "key": 1000004,
+      "uuid": "a40290e9f31074563ce01b7900000000",
+      "pos": [
+        -8.0225,
+        0.0,
+        6.0453
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff4f4347000000000044420f00a40290e9f31074563ce01b7900000000005c00c1000000008073c14024000000",
+      "mask": "",
+      "start": 4670269,
+      "end": 4670327,
+      "size": 58
+    },
+    {
+      "key": 1000067,
+      "uuid": "4204d35ffe0fd85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffc34347000000000083420f004204d35ffe0fd85ed38e49eb0000000018000000",
+      "mask": "",
+      "start": 4670385,
+      "end": 4670431,
+      "size": 46
+    },
+    {
+      "key": 1000079,
+      "uuid": "6c2f51a9c10cd85ed3d362e100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000fffffffffffffffff1434700000000008f420f006c2f51a9c10cd85ed3d362e10000000018000000",
+      "mask": "",
+      "start": 4670431,
+      "end": 4670477,
+      "size": 46
+    },
+    {
+      "key": 1000073,
+      "uuid": "280a4cd8ff0fd85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff1f4447000000000089420f00280a4cd8ff0fd85ed38e49eb0000000018000000",
+      "mask": "",
+      "start": 4670477,
+      "end": 4670523,
+      "size": 46
+    },
+    {
+      "key": 1000001,
+      "uuid": "a3592a88681110ffe062807900000000",
+      "pos": [
+        -3.7275,
+        0.0,
+        -0.3918
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff4d4447000000000041420f00a3592a88681110ffe06280790000000000906ec0000000000098c8be24000000",
+      "mask": "",
+      "start": 4670523,
+      "end": 4670581,
+      "size": 58
+    },
+    {
+      "key": 1000055,
+      "uuid": "ae3a8cf0c30cd85ed3d365a900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff354547000000000077420f00ae3a8cf0c30cd85ed3d365a90000000018000000",
+      "mask": "",
+      "start": 4670755,
+      "end": 4670801,
+      "size": 46
+    },
+    {
+      "key": 1000008,
+      "uuid": "e96340ac911074563c7deaa200000000",
+      "pos": [
+        -0.9375,
+        0.0,
+        -1.0057
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff9d4547000000000048420f00e96340ac911074563c7deaa200000000000070bf0000000000bc80bf24000000",
+      "mask": "",
+      "start": 4670859,
+      "end": 4670917,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "4a4449c4911074563c7deaa200000000",
+      "pos": [
+        15.0918,
+        0.0,
+        -7.6895
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffffd74547000000000048420f004a4449c4911074563c7deaa2000000000078714100000000ba10f6c024000000",
+      "mask": "",
+      "start": 4670917,
+      "end": 4670975,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "3af953b7911074563c7deaa200000000",
+      "pos": [
+        4.0479,
+        0.0,
+        -5.5712
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff114647000000000048420f003af953b7911074563c7deaa20000000000888140000000008047b2c024000000",
+      "mask": "",
+      "start": 4670975,
+      "end": 4671033,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "a79ff2b1911074563c7deaa200000000",
+      "pos": [
+        4.8008,
+        0.0,
+        -10.7832
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff4b4647000000000048420f00a79ff2b1911074563c7deaa20000000000a099400000000010882cc124000000",
+      "mask": "",
+      "start": 4671033,
+      "end": 4671091,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "a5b48ac8911074563c7deaa200000000",
+      "pos": [
+        6.0801,
+        0.0,
+        10.9692
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff854647000000000048420f00a5b48ac8911074563c7deaa2000000000090c24000000000c0812f4124000000",
+      "mask": "",
+      "start": 4671091,
+      "end": 4671149,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "37b86fc7911074563c7deaa200000000",
+      "pos": [
+        10.0537,
+        0.0,
+        13.8382
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffffbf4647000000000048420f0037b86fc7911074563c7deaa20000000000dc20410000000030695d4124000000",
+      "mask": "",
+      "start": 4671149,
+      "end": 4671207,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "9413d5ab911074563c7deaa200000000",
+      "pos": [
+        6.7148,
+        0.0,
+        -16.62
+      ],
+      "discovered": null,
+      "binary": "0100070d0000fffffffffffffffff94647000000000048420f009413d5ab911074563c7deaa20000000000e0d64000000000c0f584c124000000",
+      "mask": "",
+      "start": 4671207,
+      "end": 4671265,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "a46a8b9eb510d85ed38e464600000000",
+      "pos": [
+        -5.5132,
+        0.0,
+        -0.8732
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff334747000000000048420f00a46a8b9eb510d85ed38e464600000000006cb0c00000000000885fbf24000000",
+      "mask": "",
+      "start": 4671265,
+      "end": 4671323,
+      "size": 58
+    },
+    {
+      "key": 1000014,
+      "uuid": "af8fcb6b6f1010ffe0627e2600000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff6d474700000000004e420f00af8fcb6b6f1010ffe0627e260000000018000000",
+      "mask": "",
+      "start": 4671323,
+      "end": 4671369,
+      "size": 46
+    },
+    {
+      "key": 1000007,
+      "uuid": "094b0b351d0f74563c6a6ead00000000",
+      "pos": [
+        8943.1611,
+        -695.5704,
+        1774.6191
+      ],
+      "discovered": false,
+      "binary": "01000f0d0000ffffffffffffffff9b4747000000000047420f00094b0b351d0f74563c6a6ead00000000a5bc0b4681e42dc4d0d3dd440025000000",
+      "mask": "",
+      "start": 4671369,
+      "end": 4671428,
+      "size": 59
+    },
+    {
+      "key": 1000007,
+      "uuid": "08281414c20e74563cc0f83e00000000",
+      "pos": [
+        9171.5732,
+        -766.7645,
+        1606.4558
+      ],
+      "discovered": false,
+      "binary": "01000f0d0000ffffffffffffffffd64747000000000047420f0008281414c20e74563cc0f83e000000004b4e0f46edb03fc496cec8440025000000",
+      "mask": "",
+      "start": 4671428,
+      "end": 4671487,
+      "size": 59
+    },
+    {
+      "key": 1000060,
+      "uuid": "c56678bed50c18c04da5857e00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff11484700000000007c420f00c56678bed50c18c04da5857e0000000018000000",
+      "mask": "",
+      "start": 4671487,
+      "end": 4671533,
+      "size": 46
+    },
+    {
+      "key": 1000060,
+      "uuid": "ba7a46f7d50c74563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff3f484700000000007c420f00ba7a46f7d50c74563c6a6f710000000018000000",
+      "mask": "",
+      "start": 4671533,
+      "end": 4671579,
+      "size": 46
+    },
+    {
+      "key": 1000079,
+      "uuid": "7ebb3c31c30c18c04da8a71e00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff6d484700000000008f420f007ebb3c31c30c18c04da8a71e0000000018000000",
+      "mask": "",
+      "start": 4671579,
+      "end": 4671625,
+      "size": 46
+    },
+    {
+      "key": 1000079,
+      "uuid": "9929b355fe0f74563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff0f494700000000008f420f009929b355fe0f74563ce01b590000000018000000",
+      "mask": "",
+      "start": 4671741,
+      "end": 4671787,
+      "size": 46
+    },
+    {
+      "key": 1000082,
+      "uuid": "042931e9ff0f74563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff774947000000000092420f00042931e9ff0f74563c6a6f710000000018000000",
+      "mask": "",
+      "start": 4671845,
+      "end": 4671891,
+      "size": 46
+    },
+    {
+      "key": 1000103,
+      "uuid": "ebf7ae14da0f74563c343e3a00000000",
+      "pos": [
+        1.9741,
+        0.0,
+        7.918
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff814a470000000000a7420f00ebf7ae14da0f74563c343e3a0000000000b0fc3f000000000060fd4024000000",
+      "mask": "",
+      "start": 4672111,
+      "end": 4672169,
+      "size": 58
+    },
+    {
+      "key": 1000001,
+      "uuid": "5f62a488d611d85ed3dbeede00000000",
+      "pos": [
+        6.4272,
+        0.0,
+        -1.1333
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff174c47000000000041420f005f62a488d611d85ed3dbeede0000000000accd4000000000001091bf24000000",
+      "mask": "",
+      "start": 4672517,
+      "end": 4672575,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "b7ec97c4911074563c7deaa200000000",
+      "pos": [
+        1.4663,
+        0.0,
+        -1.2305
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff394d47000000000048420f00b7ec97c4911074563c7deaa20000000000b0bb3f0000000000809dbf24000000",
+      "mask": "",
+      "start": 4672807,
+      "end": 4672865,
+      "size": 58
+    },
+    {
+      "key": 1000008,
+      "uuid": "02bf229f201174563c7deaa200000000",
+      "pos": [
+        -11.7549,
+        0.0,
+        7.6338
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff734d47000000000048420f0002bf229f201174563c7deaa20000000000143cc1000000000048f44024000000",
+      "mask": "",
+      "start": 4672865,
+      "end": 4672923,
+      "size": 58
+    },
+    {
+      "key": 1000042,
+      "uuid": "65047d1b0c1074563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffe74d4700000000006a420f0065047d1b0c1074563ce01b590000000018000000",
+      "mask": "",
+      "start": 4672981,
+      "end": 4673027,
+      "size": 46
+    },
+    {
+      "key": 1000044,
+      "uuid": "86738967bb1074563c343d6400000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff4f4e4700000000006c420f0086738967bb1074563c343d640000000018000000",
+      "mask": "",
+      "start": 4673085,
+      "end": 4673131,
+      "size": 46
+    },
+    {
+      "key": 1000001,
+      "uuid": "bbbd8578d611d85ed3dbeede00000000",
+      "pos": [
+        -0.6426,
+        0.0,
+        0.0791
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff2b4f47000000000041420f00bbbd8578d611d85ed3dbeede00000000008024bf000000000000a23d24000000",
+      "mask": "",
+      "start": 4673305,
+      "end": 4673363,
+      "size": 58
+    },
+    {
+      "key": 1000001,
+      "uuid": "46120783d61110ffe0c571f300000000",
+      "pos": [
+        5.25,
+        0.0,
+        -5.6299
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff654f47000000000041420f0046120783d61110ffe0c571f3000000000000a840000000000028b4c024000000",
+      "mask": "",
+      "start": 4673363,
+      "end": 4673421,
+      "size": 58
+    },
+    {
+      "key": 1000001,
+      "uuid": "b0f7858fd61110ffe0c571f300000000",
+      "pos": [
+        7.0762,
+        0.0,
+        -0.7437
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff9f4f47000000000041420f00b0f7858fd61110ffe0c571f3000000000070e2400000000000603ebf24000000",
+      "mask": "",
+      "start": 4673421,
+      "end": 4673479,
+      "size": 58
+    },
+    {
+      "key": 1000070,
+      "uuid": "228ce7ecf70fd85ed3a4297600000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffd94f47000000000086420f00228ce7ecf70fd85ed3a429760000000018000000",
+      "mask": "",
+      "start": 4673479,
+      "end": 4673525,
+      "size": 46
+    },
+    {
+      "key": 1000070,
+      "uuid": "83b507289a0bd85ed38e49eb00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff075047000000000086420f0083b507289a0bd85ed38e49eb0000000018000000",
+      "mask": "",
+      "start": 4673525,
+      "end": 4673571,
+      "size": 46
+    },
+    {
+      "key": 1000001,
+      "uuid": "2d19018dd61110ffe0c571f300000000",
+      "pos": [
+        -7.5493,
+        0.0,
+        -16.9561
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff6f5047000000000041420f002d19018dd61110ffe0c571f3000000000094f1c00000000000a687c124000000",
+      "mask": "",
+      "start": 4673629,
+      "end": 4673687,
+      "size": 58
+    },
+    {
+      "key": 1000043,
+      "uuid": "389933116c1174563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffa9504700000000006b420f00389933116c1174563ce01b590000000018000000",
+      "mask": "",
+      "start": 4673687,
+      "end": 4673733,
+      "size": 46
+    },
+    {
+      "key": 1000044,
+      "uuid": "73ec8d166c1174563ce01b5900000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffffd7504700000000006c420f0073ec8d166c1174563ce01b590000000018000000",
+      "mask": "",
+      "start": 4673733,
+      "end": 4673779,
+      "size": 46
+    },
+    {
+      "key": 1000001,
+      "uuid": "dc36ae7ad611d85ed3dbeede00000000",
+      "pos": [
+        -2.0273,
+        0.0,
+        -0.3213
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffff3f5147000000000041420f00dc36ae7ad611d85ed3dbeede0000000000c001c0000000000080a4be24000000",
+      "mask": "",
+      "start": 4673837,
+      "end": 4673895,
+      "size": 58
+    },
+    {
+      "key": 1000060,
+      "uuid": "b1cd56f8d50c74563c6a6f7100000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff79514700000000007c420f00b1cd56f8d50c74563c6a6f710000000018000000",
+      "mask": "",
+      "start": 4673895,
+      "end": 4673941,
+      "size": 46
+    },
+    {
+      "key": 1000103,
+      "uuid": "cb3cea53b51174563c343d6400000000",
+      "pos": [
+        -1.0986,
+        0.0,
+        -2.588
+      ],
+      "discovered": null,
+      "binary": "0100070d0000ffffffffffffffffa751470000000000a7420f00cb3cea53b51174563c343d640000000000a08cbf0000000000a225c024000000",
+      "mask": "",
+      "start": 4673941,
+      "end": 4673999,
+      "size": 58
+    },
+    {
+      "key": 1000043,
+      "uuid": "e19b37ee770e74563c6a6ead00000000",
+      "pos": null,
+      "discovered": null,
+      "binary": "0100030d0000ffffffffffffffff55524700000000006b420f00e19b37ee770e74563c6a6ead0000000018000000",
+      "mask": "",
+      "start": 4674115,
+      "end": 4674161,
+      "size": 46
+    }
+  ]
+}

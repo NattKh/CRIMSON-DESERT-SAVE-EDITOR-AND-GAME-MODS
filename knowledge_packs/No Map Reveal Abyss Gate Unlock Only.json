@@ -1,0 +1,1997 @@
+{
+  "name": "Abyss Gate Unlock Only",
+  "type": "knowledge",
+  "count": 398,
+  "entries": [
+    {
+      "key": 1001030,
+      "name": "Knowledge_LevelGimmickIcon_AbyssGate",
+      "display": "Abyss Gate"
+    },
+    {
+      "key": 25001,
+      "name": "AbyssGate_0001",
+      "display": "Dimension's End"
+    },
+    {
+      "key": 25002,
+      "name": "AbyssGate_0002",
+      "display": "Axiom Archive"
+    },
+    {
+      "key": 25003,
+      "name": "AbyssGate_0003",
+      "display": "Vault of Vengeance"
+    },
+    {
+      "key": 25009,
+      "name": "AbyssGate_0009",
+      "display": "Crow's Nest"
+    },
+    {
+      "key": 25013,
+      "name": "AbyssGate_0013",
+      "display": "Root's End"
+    },
+    {
+      "key": 25014,
+      "name": "AbyssGate_0014",
+      "display": "Skyloop Bridge"
+    },
+    {
+      "key": 25016,
+      "name": "AbyssGate_0016",
+      "display": "Ether Rest"
+    },
+    {
+      "key": 25018,
+      "name": "AbyssGate_0018",
+      "display": "Ether Fragment"
+    },
+    {
+      "key": 25023,
+      "name": "AbyssGate_0023",
+      "display": "Sanctorum of Insight"
+    },
+    {
+      "key": 25036,
+      "name": "AbyssGate_0036",
+      "display": "Forgotten Altar"
+    },
+    {
+      "key": 25041,
+      "name": "AbyssGate_0041",
+      "display": "Sanctorum of Darkness"
+    },
+    {
+      "key": 25055,
+      "name": "AbyssGate_0055",
+      "display": "Twisted Thicketway"
+    },
+    {
+      "key": 25079,
+      "name": "AbyssGate_0079",
+      "display": "Nest of Valor"
+    },
+    {
+      "key": 25083,
+      "name": "AbyssGate_0083",
+      "display": "Ascetic's Rest"
+    },
+    {
+      "key": 25084,
+      "name": "AbyssGate_0084",
+      "display": "Tomb of Rest"
+    },
+    {
+      "key": 25089,
+      "name": "AbyssGate_0089",
+      "display": "Ice Cradle"
+    },
+    {
+      "key": 25091,
+      "name": "AbyssGate_0091",
+      "display": "Origin of Thoughts"
+    },
+    {
+      "key": 25097,
+      "name": "AbyssGate_0097",
+      "display": "Roots of Truth"
+    },
+    {
+      "key": 25099,
+      "name": "AbyssGate_0099",
+      "display": "Altar of Solitude"
+    },
+    {
+      "key": 25109,
+      "name": "AbyssGate_0109",
+      "display": "Path of Trials"
+    },
+    {
+      "key": 25113,
+      "name": "AbyssGate_0113",
+      "display": "Disconnected Truth"
+    },
+    {
+      "key": 25121,
+      "name": "AbyssGate_0121",
+      "display": "Sanctum of Transcendence"
+    },
+    {
+      "key": 25122,
+      "name": "AbyssGate_0122",
+      "display": "Path of Serpents"
+    },
+    {
+      "key": 25131,
+      "name": "AbyssGate_0131",
+      "display": "Frostbitten Paradise"
+    },
+    {
+      "key": 25137,
+      "name": "AbyssGate_0137",
+      "display": "Riddle Square"
+    },
+    {
+      "key": 25138,
+      "name": "AbyssGate_0138",
+      "display": "Desert Fragment"
+    },
+    {
+      "key": 25140,
+      "name": "AbyssGate_0140",
+      "display": "Crescent Skybridge"
+    },
+    {
+      "key": 25144,
+      "name": "AbyssGate_0144",
+      "display": "Precipice of Truth"
+    },
+    {
+      "key": 25150,
+      "name": "AbyssGate_0150",
+      "display": "Chaos Forest"
+    },
+    {
+      "key": 25151,
+      "name": "AbyssGate_0151",
+      "display": "Throne of Truth"
+    },
+    {
+      "key": 25152,
+      "name": "AbyssGate_0152",
+      "display": "Tree of Slumber"
+    },
+    {
+      "key": 25158,
+      "name": "AbyssGate_0158",
+      "display": "Courtyard of Precision"
+    },
+    {
+      "key": 25162,
+      "name": "AbyssGate_0162",
+      "display": "Monolith Crown"
+    },
+    {
+      "key": 25175,
+      "name": "AbyssGate_0175",
+      "display": "Loop of Life"
+    },
+    {
+      "key": 25176,
+      "name": "AbyssGate_0176",
+      "display": "Passage of Malice"
+    },
+    {
+      "key": 25184,
+      "name": "AbyssGate_0184",
+      "display": "Corridor of Radiance"
+    },
+    {
+      "key": 25185,
+      "name": "AbyssGate_0185",
+      "display": "Sky King's Tomb"
+    },
+    {
+      "key": 25189,
+      "name": "AbyssGate_0189",
+      "display": "Dimensional Labyrinth"
+    },
+    {
+      "key": 1000099,
+      "name": "AbyssGate_0191",
+      "display": "Secret Garden"
+    },
+    {
+      "key": 25200,
+      "name": "AbyssGate_0200",
+      "display": "Cradle of Truth"
+    },
+    {
+      "key": 1001209,
+      "name": "AbyssGate_0205",
+      "display": "Horizon of Incident"
+    },
+    {
+      "key": 1001249,
+      "name": "AbyssGate_End0006",
+      "display": "Light and Darkness"
+    },
+    {
+      "key": 1001569,
+      "name": "AbyssGate_End0007",
+      "display": "End 0007"
+    },
+    {
+      "key": 1003313,
+      "name": "AbyssGate_1001",
+      "display": "Parallel of Time"
+    },
+    {
+      "key": 1003344,
+      "name": "AbyssGate_1002",
+      "display": "Parallel of Time"
+    },
+    {
+      "key": 1003361,
+      "name": "AbyssGate_1003",
+      "display": "Parallel of Time"
+    },
+    {
+      "key": 1003373,
+      "name": "AbyssGate_1004",
+      "display": "Parallel of Time"
+    },
+    {
+      "key": 1001597,
+      "name": "AbyssGate_1005",
+      "display": "Parallel of Time"
+    },
+    {
+      "key": 1000219,
+      "name": "AbyssGate_0001_AbyssIsland",
+      "display": "Dimension's End"
+    },
+    {
+      "key": 1000328,
+      "name": "AbyssGate_0002_AbyssIsland",
+      "display": "Axiom Archive"
+    },
+    {
+      "key": 1000220,
+      "name": "AbyssGate_0003_AbyssIsland",
+      "display": "Vault of Vengeance"
+    },
+    {
+      "key": 1002010,
+      "name": "AbyssGate_0009_AbyssIsland",
+      "display": "Move to Crowman Field"
+    },
+    {
+      "key": 1000221,
+      "name": "AbyssGate_0013_AbyssIsland",
+      "display": "Root's End"
+    },
+    {
+      "key": 1000224,
+      "name": "AbyssGate_0014_AbyssIsland",
+      "display": "Skyloop Bridge"
+    },
+    {
+      "key": 1000225,
+      "name": "AbyssGate_0016_AbyssIsland",
+      "display": "Ether Rest"
+    },
+    {
+      "key": 1000226,
+      "name": "AbyssGate_0018_AbyssIsland",
+      "display": "Ether Fragment"
+    },
+    {
+      "key": 1000227,
+      "name": "AbyssGate_0023_AbyssIsland",
+      "display": "Sanctorum of Insight"
+    },
+    {
+      "key": 1000228,
+      "name": "AbyssGate_0036_AbyssIsland",
+      "display": "Forgotten Altar"
+    },
+    {
+      "key": 1000229,
+      "name": "AbyssGate_0041_AbyssIsland",
+      "display": "Sanctorum of Darkness"
+    },
+    {
+      "key": 1000233,
+      "name": "AbyssGate_0055_AbyssIsland",
+      "display": "Twisted Thicketway"
+    },
+    {
+      "key": 1000235,
+      "name": "AbyssGate_0079_AbyssIsland",
+      "display": "Nest of Valor"
+    },
+    {
+      "key": 1000236,
+      "name": "AbyssGate_0083_AbyssIsland",
+      "display": "Ascetic's Rest"
+    },
+    {
+      "key": 1000237,
+      "name": "AbyssGate_0084_AbyssIsland",
+      "display": "Tomb of Rest"
+    },
+    {
+      "key": 1000238,
+      "name": "AbyssGate_0089_AbyssIsland",
+      "display": "Ice Cradle"
+    },
+    {
+      "key": 1000240,
+      "name": "AbyssGate_0091_AbyssIsland",
+      "display": "Origin of Thoughts"
+    },
+    {
+      "key": 1000241,
+      "name": "AbyssGate_0097_AbyssIsland",
+      "display": "Roots of Truth"
+    },
+    {
+      "key": 1000242,
+      "name": "AbyssGate_0099_AbyssIsland",
+      "display": "Altar of Solitude"
+    },
+    {
+      "key": 1000243,
+      "name": "AbyssGate_0109_AbyssIsland",
+      "display": "Path of Trials"
+    },
+    {
+      "key": 1000244,
+      "name": "AbyssGate_0113_AbyssIsland",
+      "display": "Disconnected Truth"
+    },
+    {
+      "key": 1000245,
+      "name": "AbyssGate_0121_AbyssIsland",
+      "display": "Sanctum of Transcendence"
+    },
+    {
+      "key": 1000246,
+      "name": "AbyssGate_0122_AbyssIsland",
+      "display": "Path of Serpents"
+    },
+    {
+      "key": 1000248,
+      "name": "AbyssGate_0131_AbyssIsland",
+      "display": "Frostbitten Paradise"
+    },
+    {
+      "key": 1000281,
+      "name": "AbyssGate_0137_AbyssIsland",
+      "display": "Riddle Square"
+    },
+    {
+      "key": 1000282,
+      "name": "AbyssGate_0138_AbyssIsland",
+      "display": "Desert Fragment"
+    },
+    {
+      "key": 1000284,
+      "name": "AbyssGate_0140_AbyssIsland",
+      "display": "Crescent Skybridge"
+    },
+    {
+      "key": 1000286,
+      "name": "AbyssGate_0144_AbyssIsland",
+      "display": "Precipice of Truth"
+    },
+    {
+      "key": 1000309,
+      "name": "AbyssGate_0150_AbyssIsland",
+      "display": "Chaos Forest"
+    },
+    {
+      "key": 1000310,
+      "name": "AbyssGate_0151_AbyssIsland",
+      "display": "Throne of Truth"
+    },
+    {
+      "key": 1000311,
+      "name": "AbyssGate_0152_AbyssIsland",
+      "display": "Tree of Slumber"
+    },
+    {
+      "key": 1000312,
+      "name": "AbyssGate_0158_AbyssIsland",
+      "display": "Courtyard of Precision"
+    },
+    {
+      "key": 1000313,
+      "name": "AbyssGate_0162_AbyssIsland",
+      "display": "Monolith Crown"
+    },
+    {
+      "key": 1000314,
+      "name": "AbyssGate_0175_AbyssIsland",
+      "display": "Loop of Life"
+    },
+    {
+      "key": 1000420,
+      "name": "AbyssGate_0176_AbyssIsland",
+      "display": "Passage of Malice"
+    },
+    {
+      "key": 1000315,
+      "name": "AbyssGate_0184_AbyssIsland",
+      "display": "Corridor of Radiance"
+    },
+    {
+      "key": 1000358,
+      "name": "AbyssGate_0185_AbyssIsland",
+      "display": "Sky King's Tomb"
+    },
+    {
+      "key": 1000317,
+      "name": "AbyssGate_0189_AbyssIsland",
+      "display": "Dimensional Labyrinth"
+    },
+    {
+      "key": 1000218,
+      "name": "AbyssGate_0191_AbyssIsland",
+      "display": "Secret Garden"
+    },
+    {
+      "key": 1000319,
+      "name": "AbyssGate_0200_AbyssIsland",
+      "display": "Cradle of Truth"
+    },
+    {
+      "key": 1001244,
+      "name": "AbyssGate_0205_AbyssIsland",
+      "display": "Horizon of Incident"
+    },
+    {
+      "key": 1000487,
+      "name": "AbyssGate_0206_AbyssIsland",
+      "display": "Light and Darkness"
+    },
+    {
+      "key": 1000326,
+      "name": "AbyssGate_End0006_AbyssIsland",
+      "display": "Light and Darkness"
+    },
+    {
+      "key": 1003314,
+      "name": "AbyssGate_1001_AbyssIsland",
+      "display": "Abyss of Time"
+    },
+    {
+      "key": 1000363,
+      "name": "Knowledge_Paper_AbyssTeleport",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000868,
+      "name": "Knowledge_AbyssRuins_Housing_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000735,
+      "name": "Knowledge_AbyssRuins_Housing_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000038,
+      "name": "Knowledge_AbyssRuins_Her_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000115,
+      "name": "Knowledge_AbyssRuins_Her_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000199,
+      "name": "Knowledge_AbyssRuins_Her_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000216,
+      "name": "Knowledge_AbyssRuins_Her_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000223,
+      "name": "Knowledge_AbyssRuins_Her_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000385,
+      "name": "Knowledge_AbyssRuins_Her_0006",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000035,
+      "name": "Knowledge_AbyssRuins_Her_0007",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000571,
+      "name": "Knowledge_AbyssRuins_Her_0008",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001033,
+      "name": "Knowledge_AbyssRuins_Her_0009",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001034,
+      "name": "Knowledge_AbyssRuins_Her_0010",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001035,
+      "name": "Knowledge_AbyssRuins_Her_0011",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001036,
+      "name": "Knowledge_AbyssRuins_Her_0012",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001037,
+      "name": "Knowledge_AbyssRuins_Her_0013",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000152,
+      "name": "Knowledge_AbyssRuins_Her_0014",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000167,
+      "name": "Knowledge_AbyssRuins_Her_0015",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001329,
+      "name": "Knowledge_AbyssRuins_Her_0016",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001330,
+      "name": "Knowledge_AbyssRuins_Her_0017",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001332,
+      "name": "Knowledge_AbyssRuins_Her_0018",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001333,
+      "name": "Knowledge_AbyssRuins_Her_0019",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001759,
+      "name": "Knowledge_AbyssRuins_Her_0020",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002745,
+      "name": "Knowledge_AbyssRuins_Her_0021",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002746,
+      "name": "Knowledge_AbyssRuins_Her_0022",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002747,
+      "name": "Knowledge_AbyssRuins_Her_0023",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002748,
+      "name": "Knowledge_AbyssRuins_Her_0024",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002749,
+      "name": "Knowledge_AbyssRuins_Her_0025",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002750,
+      "name": "Knowledge_AbyssRuins_Her_0026",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002751,
+      "name": "Knowledge_AbyssRuins_Her_0027",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002752,
+      "name": "Knowledge_AbyssRuins_Her_0028",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002753,
+      "name": "Knowledge_AbyssRuins_Her_0029",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002754,
+      "name": "Knowledge_AbyssRuins_Her_0030",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000736,
+      "name": "Knowledge_AbyssRuins_Her_0031",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000737,
+      "name": "Knowledge_AbyssRuins_Her_0032",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000742,
+      "name": "Knowledge_AbyssRuins_Her_0033",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000790,
+      "name": "Knowledge_AbyssRuins_Her_0034",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000816,
+      "name": "Knowledge_AbyssRuins_Her_0035",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000960,
+      "name": "Knowledge_AbyssRuins_Her_0036",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000962,
+      "name": "Knowledge_AbyssRuins_Her_0037",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000963,
+      "name": "Knowledge_AbyssRuins_Her_0038",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000964,
+      "name": "Knowledge_AbyssRuins_Her_0039",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000967,
+      "name": "Knowledge_AbyssRuins_Her_0040",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000968,
+      "name": "Knowledge_AbyssRuins_Her_0041",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000969,
+      "name": "Knowledge_AbyssRuins_Her_0042",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000970,
+      "name": "Knowledge_AbyssRuins_Her_0043",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000972,
+      "name": "Knowledge_AbyssRuins_Her_0044",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000973,
+      "name": "Knowledge_AbyssRuins_Her_0045",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000974,
+      "name": "Knowledge_AbyssRuins_Her_0046",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000979,
+      "name": "Knowledge_AbyssRuins_Her_0047",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000980,
+      "name": "Knowledge_AbyssRuins_Her_0048",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000249,
+      "name": "Knowledge_AbyssRuins_Dem_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000250,
+      "name": "Knowledge_AbyssRuins_Dem_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000251,
+      "name": "Knowledge_AbyssRuins_Dem_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000252,
+      "name": "Knowledge_AbyssRuins_Dem_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000253,
+      "name": "Knowledge_AbyssRuins_Dem_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000471,
+      "name": "Knowledge_AbyssRuins_Dem_0006",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001038,
+      "name": "Knowledge_AbyssRuins_Dem_0007",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001039,
+      "name": "Knowledge_AbyssRuins_Dem_0008",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001040,
+      "name": "Knowledge_AbyssRuins_Dem_0009",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001041,
+      "name": "Knowledge_AbyssRuins_Dem_0010",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001042,
+      "name": "Knowledge_AbyssRuins_Dem_0011",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002755,
+      "name": "Knowledge_AbyssRuins_Dem_0012",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002756,
+      "name": "Knowledge_AbyssRuins_Dem_0013",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002757,
+      "name": "Knowledge_AbyssRuins_Dem_0014",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002758,
+      "name": "Knowledge_AbyssRuins_Dem_0015",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002759,
+      "name": "Knowledge_AbyssRuins_Dem_0016",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002760,
+      "name": "Knowledge_AbyssRuins_Dem_0017",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002761,
+      "name": "Knowledge_AbyssRuins_Dem_0018",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002762,
+      "name": "Knowledge_AbyssRuins_Dem_0019",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002763,
+      "name": "Knowledge_AbyssRuins_Dem_0020",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002764,
+      "name": "Knowledge_AbyssRuins_Dem_0021",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002765,
+      "name": "Knowledge_AbyssRuins_Dem_0022",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002766,
+      "name": "Knowledge_AbyssRuins_Dem_0023",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002767,
+      "name": "Knowledge_AbyssRuins_Dem_0024",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002768,
+      "name": "Knowledge_AbyssRuins_Dem_0025",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002769,
+      "name": "Knowledge_AbyssRuins_Dem_0026",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002770,
+      "name": "Knowledge_AbyssRuins_Dem_0027",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002771,
+      "name": "Knowledge_AbyssRuins_Dem_0028",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002772,
+      "name": "Knowledge_AbyssRuins_Dem_0029",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002773,
+      "name": "Knowledge_AbyssRuins_Dem_0030",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000985,
+      "name": "Knowledge_AbyssRuins_Dem_0031",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000986,
+      "name": "Knowledge_AbyssRuins_Dem_0032",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000992,
+      "name": "Knowledge_AbyssRuins_Dem_0033",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000998,
+      "name": "Knowledge_AbyssRuins_Dem_0034",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001005,
+      "name": "Knowledge_AbyssRuins_Dem_0035",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001006,
+      "name": "Knowledge_AbyssRuins_Dem_0036",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001008,
+      "name": "Knowledge_AbyssRuins_Dem_0037",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001009,
+      "name": "Knowledge_AbyssRuins_Dem_0038",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001010,
+      "name": "Knowledge_AbyssRuins_Dem_0039",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001012,
+      "name": "Knowledge_AbyssRuins_Dem_0040",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001014,
+      "name": "Knowledge_AbyssRuins_Dem_0041",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001017,
+      "name": "Knowledge_AbyssRuins_Dem_0042",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001018,
+      "name": "Knowledge_AbyssRuins_Dem_0043",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001019,
+      "name": "Knowledge_AbyssRuins_Dem_0044",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001056,
+      "name": "Knowledge_AbyssRuins_Dem_0045",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001057,
+      "name": "Knowledge_AbyssRuins_Dem_0046",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001058,
+      "name": "Knowledge_AbyssRuins_Dem_0047",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001059,
+      "name": "Knowledge_AbyssRuins_Dem_0048",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001060,
+      "name": "Knowledge_AbyssRuins_Dem_0049",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001061,
+      "name": "Knowledge_AbyssRuins_Dem_0050",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000254,
+      "name": "Knowledge_AbyssRuins_Del_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000255,
+      "name": "Knowledge_AbyssRuins_Del_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000256,
+      "name": "Knowledge_AbyssRuins_Del_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000257,
+      "name": "Knowledge_AbyssRuins_Del_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000259,
+      "name": "Knowledge_AbyssRuins_Del_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001043,
+      "name": "Knowledge_AbyssRuins_Del_0006",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001044,
+      "name": "Knowledge_AbyssRuins_Del_0007",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001045,
+      "name": "Knowledge_AbyssRuins_Del_0008",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001046,
+      "name": "Knowledge_AbyssRuins_Del_0009",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001047,
+      "name": "Knowledge_AbyssRuins_Del_0010",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001049,
+      "name": "Knowledge_AbyssRuins_Del_0011",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002774,
+      "name": "Knowledge_AbyssRuins_Del_0012",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002776,
+      "name": "Knowledge_AbyssRuins_Del_0014",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002778,
+      "name": "Knowledge_AbyssRuins_Del_0016",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002779,
+      "name": "Knowledge_AbyssRuins_Del_0017",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002780,
+      "name": "Knowledge_AbyssRuins_Del_0018",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002781,
+      "name": "Knowledge_AbyssRuins_Del_0019",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002782,
+      "name": "Knowledge_AbyssRuins_Del_0020",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002783,
+      "name": "Knowledge_AbyssRuins_Del_0021",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002784,
+      "name": "Knowledge_AbyssRuins_Del_0022",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002785,
+      "name": "Knowledge_AbyssRuins_Del_0023",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002786,
+      "name": "Knowledge_AbyssRuins_Del_0024",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002787,
+      "name": "Knowledge_AbyssRuins_Del_0025",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002788,
+      "name": "Knowledge_AbyssRuins_Del_0026",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002789,
+      "name": "Knowledge_AbyssRuins_Del_0027",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002790,
+      "name": "Knowledge_AbyssRuins_Del_0028",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002792,
+      "name": "Knowledge_AbyssRuins_Del_0030",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001062,
+      "name": "Knowledge_AbyssRuins_Del_0031",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001063,
+      "name": "Knowledge_AbyssRuins_Del_0032",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001073,
+      "name": "Knowledge_AbyssRuins_Del_0033",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001074,
+      "name": "Knowledge_AbyssRuins_Del_0034",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001077,
+      "name": "Knowledge_AbyssRuins_Del_0035",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001084,
+      "name": "Knowledge_AbyssRuins_Del_0036",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001085,
+      "name": "Knowledge_AbyssRuins_Del_0037",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001086,
+      "name": "Knowledge_AbyssRuins_Del_0038",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001087,
+      "name": "Knowledge_AbyssRuins_Del_0039",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001088,
+      "name": "Knowledge_AbyssRuins_Del_0040",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001089,
+      "name": "Knowledge_AbyssRuins_Del_0041",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001090,
+      "name": "Knowledge_AbyssRuins_Del_0042",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001091,
+      "name": "Knowledge_AbyssRuins_Del_0043",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001092,
+      "name": "Knowledge_AbyssRuins_Del_0044",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001094,
+      "name": "Knowledge_AbyssRuins_Del_0045",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001095,
+      "name": "Knowledge_AbyssRuins_Del_0046",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001099,
+      "name": "Knowledge_AbyssRuins_Del_0049",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001121,
+      "name": "Knowledge_AbyssRuins_Del_0050",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000260,
+      "name": "Knowledge_AbyssRuins_Kwe_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000263,
+      "name": "Knowledge_AbyssRuins_Kwe_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000264,
+      "name": "Knowledge_AbyssRuins_Kwe_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000265,
+      "name": "Knowledge_AbyssRuins_Kwe_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000267,
+      "name": "Knowledge_AbyssRuins_Kwe_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000478,
+      "name": "Knowledge_AbyssRuins_Kwe_0006",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001050,
+      "name": "Knowledge_AbyssRuins_Kwe_0007",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001064,
+      "name": "Knowledge_AbyssRuins_Kwe_0008",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001065,
+      "name": "Knowledge_AbyssRuins_Kwe_0009",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001066,
+      "name": "Knowledge_AbyssRuins_Kwe_0010",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001067,
+      "name": "Knowledge_AbyssRuins_Kwe_0011",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002793,
+      "name": "Knowledge_AbyssRuins_Kwe_0012",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002794,
+      "name": "Knowledge_AbyssRuins_Kwe_0013",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002795,
+      "name": "Knowledge_AbyssRuins_Kwe_0014",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002796,
+      "name": "Knowledge_AbyssRuins_Kwe_0015",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002797,
+      "name": "Knowledge_AbyssRuins_Kwe_0016",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002798,
+      "name": "Knowledge_AbyssRuins_Kwe_0017",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002799,
+      "name": "Knowledge_AbyssRuins_Kwe_0018",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002800,
+      "name": "Knowledge_AbyssRuins_Kwe_0019",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002801,
+      "name": "Knowledge_AbyssRuins_Kwe_0020",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002802,
+      "name": "Knowledge_AbyssRuins_Kwe_0021",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002803,
+      "name": "Knowledge_AbyssRuins_Kwe_0022",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002804,
+      "name": "Knowledge_AbyssRuins_Kwe_0023",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002805,
+      "name": "Knowledge_AbyssRuins_Kwe_0024",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002806,
+      "name": "Knowledge_AbyssRuins_Kwe_0025",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002807,
+      "name": "Knowledge_AbyssRuins_Kwe_0026",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002808,
+      "name": "Knowledge_AbyssRuins_Kwe_0027",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002809,
+      "name": "Knowledge_AbyssRuins_Kwe_0028",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002810,
+      "name": "Knowledge_AbyssRuins_Kwe_0029",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002811,
+      "name": "Knowledge_AbyssRuins_Kwe_0030",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001123,
+      "name": "Knowledge_AbyssRuins_Kwe_0031",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001124,
+      "name": "Knowledge_AbyssRuins_Kwe_0032",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001125,
+      "name": "Knowledge_AbyssRuins_Kwe_0033",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001126,
+      "name": "Knowledge_AbyssRuins_Kwe_0034",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001127,
+      "name": "Knowledge_AbyssRuins_Kwe_0035",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001128,
+      "name": "Knowledge_AbyssRuins_Kwe_0036",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001129,
+      "name": "Knowledge_AbyssRuins_Kwe_0037",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001130,
+      "name": "Knowledge_AbyssRuins_Kwe_0038",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001131,
+      "name": "Knowledge_AbyssRuins_Kwe_0039",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001132,
+      "name": "Knowledge_AbyssRuins_Kwe_0040",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001133,
+      "name": "Knowledge_AbyssRuins_Kwe_0041",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001136,
+      "name": "Knowledge_AbyssRuins_Kwe_0042",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001137,
+      "name": "Knowledge_AbyssRuins_Kwe_0043",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001154,
+      "name": "Knowledge_AbyssRuins_Kwe_0044",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001178,
+      "name": "Knowledge_AbyssRuins_Kwe_0045",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001234,
+      "name": "Knowledge_AbyssRuins_Kwe_0046",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001235,
+      "name": "Knowledge_AbyssRuins_Kwe_0047",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001236,
+      "name": "Knowledge_AbyssRuins_Kwe_0048",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001237,
+      "name": "Knowledge_AbyssRuins_Kwe_0049",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001238,
+      "name": "Knowledge_AbyssRuins_Kwe_0050",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000268,
+      "name": "Knowledge_AbyssRuins_CD_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000269,
+      "name": "Knowledge_AbyssRuins_CD_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000270,
+      "name": "Knowledge_AbyssRuins_CD_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000271,
+      "name": "Knowledge_AbyssRuins_CD_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000272,
+      "name": "Knowledge_AbyssRuins_CD_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000274,
+      "name": "Knowledge_AbyssRuins_CD_0006",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000275,
+      "name": "Knowledge_AbyssRuins_CD_0007",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000277,
+      "name": "Knowledge_AbyssRuins_CD_0008",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000279,
+      "name": "Knowledge_AbyssRuins_CD_0009",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000280,
+      "name": "Knowledge_AbyssRuins_CD_0010",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000516,
+      "name": "Knowledge_AbyssRuins_CD_0011",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000517,
+      "name": "Knowledge_AbyssRuins_CD_0012",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001069,
+      "name": "Knowledge_AbyssRuins_CD_0013",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001070,
+      "name": "Knowledge_AbyssRuins_CD_0014",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001071,
+      "name": "Knowledge_AbyssRuins_CD_0015",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002812,
+      "name": "Knowledge_AbyssRuins_CD_0016",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002813,
+      "name": "Knowledge_AbyssRuins_CD_0017",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002814,
+      "name": "Knowledge_AbyssRuins_CD_0018",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002815,
+      "name": "Knowledge_AbyssRuins_CD_0019",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002816,
+      "name": "Knowledge_AbyssRuins_CD_0020",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002817,
+      "name": "Knowledge_AbyssRuins_CD_0021",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002818,
+      "name": "Knowledge_AbyssRuins_CD_0022",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002819,
+      "name": "Knowledge_AbyssRuins_CD_0023",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002820,
+      "name": "Knowledge_AbyssRuins_CD_0024",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002821,
+      "name": "Knowledge_AbyssRuins_CD_0025",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002822,
+      "name": "Knowledge_AbyssRuins_CD_0026",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002823,
+      "name": "Knowledge_AbyssRuins_CD_0027",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002824,
+      "name": "Knowledge_AbyssRuins_CD_0028",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002825,
+      "name": "Knowledge_AbyssRuins_CD_0029",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002826,
+      "name": "Knowledge_AbyssRuins_CD_0030",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001239,
+      "name": "Knowledge_AbyssRuins_CD_0031",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001240,
+      "name": "Knowledge_AbyssRuins_CD_0032",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001241,
+      "name": "Knowledge_AbyssRuins_CD_0033",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001242,
+      "name": "Knowledge_AbyssRuins_CD_0034",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001243,
+      "name": "Knowledge_AbyssRuins_CD_0035",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001423,
+      "name": "Knowledge_AbyssRuins_CD_0036",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001424,
+      "name": "Knowledge_AbyssRuins_CD_0037",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001425,
+      "name": "Knowledge_AbyssRuins_CD_0038",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001490,
+      "name": "Knowledge_AbyssRuins_CD_0039",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001491,
+      "name": "Knowledge_AbyssRuins_CD_0040",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001492,
+      "name": "Knowledge_AbyssRuins_CD_0041",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001493,
+      "name": "Knowledge_AbyssRuins_CD_0042",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001494,
+      "name": "Knowledge_AbyssRuins_CD_0043",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001495,
+      "name": "Knowledge_AbyssRuins_CD_0044",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001496,
+      "name": "Knowledge_AbyssRuins_CD_0045",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001497,
+      "name": "Knowledge_AbyssRuins_CD_0046",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001498,
+      "name": "Knowledge_AbyssRuins_CD_0047",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001499,
+      "name": "Knowledge_AbyssRuins_CD_0048",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001500,
+      "name": "Knowledge_AbyssRuins_CD_0049",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001501,
+      "name": "Knowledge_AbyssRuins_CD_0050",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001155,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001156,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001157,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001162,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0009",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001163,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0013",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001164,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0014",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001166,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0016",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001167,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0018",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001169,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0023",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001170,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0036",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001171,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0041",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001172,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0043",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001173,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0045",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001174,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0054",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001175,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0055",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001193,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0072",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001194,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0073",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001195,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0079",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001196,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0083",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001197,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0084",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001198,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0089",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001199,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0091",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001248,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0099",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001764,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0109",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001769,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0113",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001772,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0120",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001802,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0121",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001814,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0122",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001815,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0131",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001816,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0137",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001817,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0138",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001818,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0140",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001819,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0144",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001820,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0150",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001821,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0151",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001822,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0152",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001823,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0158",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001824,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0162",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001872,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0175",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001929,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0176",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001934,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0184",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001947,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0185",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001948,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0189",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001949,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0191",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001950,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0200",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1002243,
+      "name": "Knowledge_AbyssRuins_AbyssIsland_0201",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003576,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003591,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003610,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003615,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003630,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003632,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0006",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1003635,
+      "name": "Knowledge_AbyssRuins_AbyssIslandCore_0007",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000041,
+      "name": "Knowledge_AbyssRuins_HyperSpace_0001",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000045,
+      "name": "Knowledge_AbyssRuins_HyperSpace_0002",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000046,
+      "name": "Knowledge_AbyssRuins_HyperSpace_0003",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000048,
+      "name": "Knowledge_AbyssRuins_HyperSpace_0004",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1000055,
+      "name": "Knowledge_AbyssRuins_HyperSpace_0005",
+      "display": "Abyss Nexus"
+    },
+    {
+      "key": 1001031,
+      "name": "Knowledge_LevelGimmickIcon_AbyssRuins",
+      "display": "Abyss Nexus"
+    }
+  ]
+}

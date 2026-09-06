@@ -1,0 +1,652 @@
+{
+  "104132": {
+    "name": "Chartian_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2133137": {
+    "name": "Ziggurat_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1003769": {
+    "name": "Lavrak_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "104139": {
+    "name": "Derish_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "104028": {
+    "name": "Luconek_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1003770": {
+    "name": "Rivelorn_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "104015": {
+    "name": "Lardein_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "103023": {
+    "name": "Deer_King_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1002270": {
+    "name": "Delegation_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "103094": {
+    "name": "Ledcy_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "104175": {
+    "name": "Abyss_Surreal_Wolf_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "104176": {
+    "name": "Abyss_Surreal_Human_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1003771": {
+    "name": "Vorren_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "14109": {
+    "name": "Legendary_MarniGolem_Plate_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000057": {
+    "name": "Samuel_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "111253": {
+    "name": "Golden_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000299": {
+    "name": "Legendary_MarniGolem_Plate_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000301": {
+    "name": "Golden_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "14415": {
+    "name": "CrowMan_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000906": {
+    "name": "Golden_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "111214": {
+    "name": "Carta_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "111257": {
+    "name": "Corvo_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "14101": {
+    "name": "Redknight_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "114521": {
+    "name": "Vdure_ChainMail_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "8700": {
+    "name": "Redsentinel_ChainMail_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "2111099": {
+    "name": "Makan_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000225": {
+    "name": "DarknessKing_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000268": {
+    "name": "Vdure_ChainMail_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000287": {
+    "name": "Redsentinel_ChainMail_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000300": {
+    "name": "Paphneil_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000315": {
+    "name": "Redknight_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000306": {
+    "name": "Makan_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000383": {
+    "name": "DarknessKing_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "14401": {
+    "name": "Redknight_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "14416": {
+    "name": "SkullKnight_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "14405": {
+    "name": "Redsentinel_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "101078": {
+    "name": "Endour_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2101011": {
+    "name": "Witters_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1164512": {
+    "name": "Lyfellen_ChainMail_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000052": {
+    "name": "OrcuMer_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000305": {
+    "name": "king_LostPeople_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000285": {
+    "name": "Lyfellen_ChainMail_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1002283": {
+    "name": "OrcuMer_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "101056": {
+    "name": "Londel_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "14417": {
+    "name": "Carta_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "101117": {
+    "name": "Tarbal_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000051": {
+    "name": "OrcuMer_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "113696": {
+    "name": "Pitspec_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "2111103": {
+    "name": "Canta_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000312": {
+    "name": "Pitspec_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000313": {
+    "name": "Canta_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "2101033": {
+    "name": "Lauqus_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "101122": {
+    "name": "Luknian_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2101021": {
+    "name": "Duemeniss_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000732": {
+    "name": "Beltran_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2101016": {
+    "name": "Mortain_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001810": {
+    "name": "Hartman_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "101014": {
+    "name": "Grace_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000953": {
+    "name": "Oongka_PlateArmor_Armor_II",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000981": {
+    "name": "Oongka_PlateArmor_Cloak_II",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000992": {
+    "name": "Oongka_PlateArmor_Helm_II",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "111168": {
+    "name": "Ashad_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "111169": {
+    "name": "Solas_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000978": {
+    "name": "Oongka_PlateArmor_Armor_III",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000681": {
+    "name": "Ashad_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000682": {
+    "name": "Solas_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000982": {
+    "name": "Oongka_PlateArmor_Cloak_III",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000993": {
+    "name": "Oongka_PlateArmor_Helm_III",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2600012": {
+    "name": "Demian_PlateArmor_Armor_II",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000685": {
+    "name": "Demian_PlateArmor_Cloak_III",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000805": {
+    "name": "Demian_PlateArmor_Helm_VIII",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000769": {
+    "name": "Demian_PlateArmor_Helm_VI",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000891": {
+    "name": "Demian_PlateArmor_Helm_XIII",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000013": {
+    "name": "Demian_PlateArmor_Armor_VI",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000686": {
+    "name": "Demian_PlateArmor_Cloak_V",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "14400": {
+    "name": "Demian_PlateArmor_Helm_V",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2600019": {
+    "name": "Demian_PlateArmor_Helm_I",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000802": {
+    "name": "Demian_PlateArmor_Helm_VII",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000842": {
+    "name": "Demian_PlateArmor_Helm_XI",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "111249": {
+    "name": "Paphneil_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "111005": {
+    "name": "king_LostPeople_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1002122": {
+    "name": "Card_Vision_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000073": {
+    "name": "Gas_Mask_Helm_I",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000247": {
+    "name": "riding_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "9402": {
+    "name": "Volcker_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1473348912": {
+    "name": "WellsKnight_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000303": {
+    "name": "WellsKnight_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000521": {
+    "name": "Kliff_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000524": {
+    "name": "Kliff_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000546": {
+    "name": "Kliff_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "111165": {
+    "name": "Bolton_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000308": {
+    "name": "Bolton_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "103112": {
+    "name": "Huroi_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "104169": {
+    "name": "Abidon_Fabric_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "2114057": {
+    "name": "Kintun_ChainMail_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "111210": {
+    "name": "Delesian_Friend_PlateArmor_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000317": {
+    "name": "Delesian_Friend_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "103035": {
+    "name": "Tesslit_Leather_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "112078": {
+    "name": "Dragon_Knight_Commander_ChainMail_Armor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000286": {
+    "name": "Dragon_Knight_Commander_ChainMail_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "2101037": {
+    "name": "Lacsha_PlateArmor_Helm",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000314": {
+    "name": "Sazahan_PlateArmor_Cloak",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1001072": {
+    "name": "Testarmor",
+    "slots": 8,
+    "gimmick": 18020007
+  },
+  "1000907": {
+    "name": "Abidon_Fabric_Helm_T5_QA",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000921": {
+    "name": "Deer_King_Leather_Helm_T4_QA",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000922": {
+    "name": "Tesslit_Leather_Helm_T2_QA",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000261": {
+    "name": "WarRobot_Body_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001094": {
+    "name": "WarRobot_Body_02",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000758": {
+    "name": "WarRobot_Body_03",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000475": {
+    "name": "WarRobot_Backpack_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001095": {
+    "name": "WarRobot_Backpack_02",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001068": {
+    "name": "WarRobot_Backpack_03",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001429": {
+    "name": "WarRobot_Foot_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001096": {
+    "name": "WarRobot_Foot_02",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000855": {
+    "name": "WarRobot_Foot_03",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1002744": {
+    "name": "WarRobot_Fist_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1002743": {
+    "name": "WarRobot_Cannon_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1002503": {
+    "name": "WarRobot_Laser_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001923": {
+    "name": "WarRobot_RepairTool_01_L",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1002745": {
+    "name": "WarRobot_Gatling_01",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1002099": {
+    "name": "WarRobot_RepairTool_01_R",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1578535467": {
+    "name": "Legendary_GoldStar_OneHandCannon",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "9502": {
+    "name": "Legendary_MarniDragon_OneHandCannon",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "9508": {
+    "name": "DragonSlayerLeader_OneHandCannon",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "410002": {
+    "name": "Volcanic_OneHandCannon",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1001039": {
+    "name": "Legendary_Abyss_OneHandCannon",
+    "slots": 4,
+    "gimmick": 18020014
+  },
+  "1000578": {
+    "name": "Fated Shadow",
+    "slots": 4,
+    "source": "auto_learned"
+  },
+  "13605": {
+    "name": "Delesyian Ornamental Shield",
+    "slots": 5,
+    "source": "auto_learned"
+  },
+  "1000058": {
+    "name": "Dark Marksman's Plate Gloves",
+    "slots": 4,
+    "source": "auto_learned"
+  },
+  "1000382": {
+    "name": "Plate Boots of the Shadows",
+    "slots": 3,
+    "source": "auto_learned"
+  }
+}

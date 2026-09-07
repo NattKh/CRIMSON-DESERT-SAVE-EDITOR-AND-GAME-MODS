@@ -330,13 +330,24 @@ def apply_enchant_edit(
     return bytes(old)
 
 
+def _field_write_offset(item: SaveItem, name: str, legacy_relative: int) -> int:
+    """Prefer the exact parser-recorded field offset when it is available."""
+    off = (item.field_offsets or {}).get(name)
+    if off is None:
+        off = item.offset + legacy_relative
+    return off
+
+
 def apply_endurance_edit(
     data: bytearray,
     item: SaveItem,
     new_endurance: int,
 ) -> bytes:
-    old = data[item.offset + 30:item.offset + 32]
-    struct.pack_into("<H", data, item.offset + 30, new_endurance)
+    pos = _field_write_offset(item, "_endurance", 30)
+    if pos < 0 or pos + 2 > len(data):
+        raise ValueError("endurance field is outside the blob")
+    old = data[pos:pos + 2]
+    struct.pack_into("<H", data, pos, new_endurance)
     item.endurance = new_endurance
     return bytes(old)
 
@@ -346,8 +357,11 @@ def apply_sharpness_edit(
     item: SaveItem,
     new_sharpness: int,
 ) -> bytes:
-    old = data[item.offset + 32:item.offset + 34]
-    struct.pack_into("<H", data, item.offset + 32, new_sharpness)
+    pos = _field_write_offset(item, "_sharpness", 32)
+    if pos < 0 or pos + 2 > len(data):
+        raise ValueError("sharpness field is outside the blob")
+    old = data[pos:pos + 2]
+    struct.pack_into("<H", data, pos, new_sharpness)
     item.sharpness = new_sharpness
     return bytes(old)
 

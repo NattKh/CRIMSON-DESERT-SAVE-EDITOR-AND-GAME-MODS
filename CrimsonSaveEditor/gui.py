@@ -4,15 +4,19 @@ import datetime
 import json
 import logging
 import os
+import re
 import shutil
 import struct
 import sys
 import traceback
+from time import perf_counter
 
 log = logging.getLogger(__name__)
 from typing import List, Optional, Tuple
 
-from PySide6.QtCore import Qt, QTimer, QSortFilterProxyModel, Signal, QSize
+from PySide6.QtCore import (
+    Qt, QTimer, QSortFilterProxyModel, Signal, QSize, QObject, QThread, Slot,
+)
 from PySide6.QtGui import (
     QAction, QActionGroup, QColor, QFont, QIcon, QKeySequence, QBrush, QShortcut,
 )
@@ -28,9 +32,10 @@ from PySide6.QtWidgets import (
 )
 
 from models import SaveItem, SaveData, UndoEntry
-from save_crypto import load_save_file, load_raw_stream, write_save_file
+from save_crypto import load_save_file, load_raw_stream
+from native_backend import backend as native_backend, NativeBackendError
 from item_scanner import (
-    scan_items, scan_items_smart, apply_stack_edit, apply_enchant_edit,
+    scan_items, apply_stack_edit, apply_enchant_edit,
     apply_endurance_edit, apply_sharpness_edit, apply_item_swap, apply_item_swap_all,
     enrich_items_with_parc, smart_item_swap,
     apply_itemno_edit, get_max_itemno,
@@ -47,9 +52,15 @@ try:
     from parc_inserter3 import insert_item_to_inventory, insert_item_to_store, clone_block_section, insert_items_batch
 except Exception:
     insert_item_to_inventory = insert_item_to_store = clone_block_section = insert_items_batch = None
-from updater import APP_VERSION, check_for_update, download_update, apply_update_and_restart
+from app_version import APP_VERSION
 from icon_cache import IconCache, ICON_SIZE
 from localization import tr, set_language, get_language, get_available_languages
+from theme_support import (
+    AppearanceDialog, DARK_COLORS, THEME_PRESETS, get_theme_definition,
+    contrast_text, normalize_custom_colors, resolve_theme_key,
+    DEFAULT_POPUP_BRANDING, normalize_popup_branding,
+    DEFAULT_STARTUP_SPLASH_TITLE,
+)
 
 
 def _is_game_running() -> bool:
@@ -65,20 +76,177 @@ def _is_game_running() -> bool:
         return False
 
 
-COLORS = {
-    "bg": "#1a1510",
-    "panel": "#272018",
-    "header": "#3d2e1a",
-    "accent": "#daa850",
-    "text": "#f0e6d4",
-    "text_dim": "#b0a088",
-    "selected": "#5c4320",
-    "border": "#554430",
-    "input_bg": "#1e1610",
-    "success": "#9cc470",
-    "warning": "#f0b040",
-    "error": "#d44f40",
-}
+COLORS = dict(DARK_COLORS)
+
+def _iter_knowledge_records(raw: bytes | bytearray):
+    """Yield safe byte-wise candidates for the 16-byte knowledge record shape."""
+    # Each candidate reads 4-byte key + 4-byte level + 8-byte timestamp.
+    # The previous ``range(len(raw) - 14)`` admitted one final start offset
+    # whose timestamp ended one byte beyond the KnowledgeSaveData block.
+    for offset in range(max(0, len(raw) - 15)):
+        key = struct.unpack_from("<I", raw, offset)[0]
+        level = struct.unpack_from("<I", raw, offset + 4)[0]
+        timestamp = struct.unpack_from("<Q", raw, offset + 8)[0]
+        yield offset, key, level, timestamp
+
+
+class SaveLoadWorker(QObject):
+    """Read and parse a save without blocking Qt's interface thread."""
+
+    progress = Signal(str, int)
+    finished = Signal(str, object, object, int, str, object)
+    failed = Signal(str, str, str)
+
+    def __init__(self, path: str):
+        super().__init__()
+        self.path = path
+
+    @Slot()
+    def run(self) -> None:
+        started = perf_counter()
+        timings = {}
+        try:
+            self.progress.emit("Validating current save layout with C++ backend...", 1)
+            stage = perf_counter()
+            native_report = native_backend.validate_save(self.path)
+            timings["native_validation"] = perf_counter() - stage
+            timings["native_report"] = native_report
+
+            self.progress.emit("Decrypting and decompressing save...", 2)
+            stage = perf_counter()
+            save_data = load_save_file(self.path)
+            timings["decrypt"] = perf_counter() - stage
+
+            self.progress.emit("Indexing items...", 3)
+            stage = perf_counter()
+            items = scan_items(save_data.decompressed_blob)
+            timings["index"] = perf_counter() - stage
+
+            self.progress.emit("Reading exact item and socket fields...", 4)
+            stage = perf_counter()
+            enriched, parc_status = enrich_items_with_parc(
+                save_data.decompressed_blob, items
+            )
+            timings["details"] = perf_counter() - stage
+            timings["worker_total"] = perf_counter() - started
+            self.finished.emit(
+                self.path, save_data, items, enriched, parc_status, timings
+            )
+        except Exception as exc:
+            log.error(
+                "Save worker failed for %s: %s\n%s",
+                self.path, exc, traceback.format_exc(),
+            )
+            self.failed.emit(self.path, str(exc), traceback.format_exc())
+
+
+class SaveLoadBridge(QObject):
+    """Guarantee that worker notifications reach widgets on Qt's UI thread."""
+
+    def __init__(self, owner):
+        super().__init__(owner)
+        self.owner = owner
+
+    @Slot(str, int)
+    def progress(self, message: str, value: int) -> None:
+        self.owner._on_save_load_progress(message, value)
+
+    @Slot(str, object, object, int, str, object)
+    def finished(self, path, save_data, items, enriched, status, timings) -> None:
+        self.owner._on_save_load_finished(
+            path, save_data, items, enriched, status, timings
+        )
+
+    @Slot(str, str, str)
+    def failed(self, path: str, message: str, trace: str) -> None:
+        self.owner._on_save_load_failed(path, message, trace)
+
+    @Slot()
+    def thread_finished(self) -> None:
+        self.owner._on_save_load_thread_finished()
+
+
+class SaveLoadProgressDialog(QDialog):
+    """Always-visible save loading status, updated while parsing runs off-thread."""
+
+    def __init__(self, parent=None, branding_text=None):
+        super().__init__(parent)
+        self._branding_text = normalize_popup_branding(branding_text)
+        self.setWindowTitle("Crimson Save Editor Enhanced Update")
+        self.setWindowTitle(self._branding_text)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setMinimumWidth(490)
+        self.setObjectName("saveLoadPopup")
+        self._started = perf_counter()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(10)
+        heading = QLabel("Crimson Save Editor Enhanced Update")
+        heading.setText(self._branding_text)
+        self._heading = heading
+        heading.setObjectName("saveLoadHeading")
+        layout.addWidget(heading)
+        subtitle = QLabel("Standalone save editing toolkit")
+        subtitle.setObjectName("saveLoadSubtitle")
+        layout.addWidget(subtitle)
+        version = QLabel(f"v{APP_VERSION}")
+        version.setObjectName("saveLoadVersion")
+        layout.addWidget(version)
+        layout.addSpacing(28)
+        self._message = QLabel("Preparing save loader...")
+        self._message.setObjectName("saveLoadMessage")
+        self._message.setWordWrap(True)
+        layout.addWidget(self._message)
+        self._bar = QProgressBar()
+        self._bar.setObjectName("saveLoadProgress")
+        self._bar.setRange(0, 7)
+        self._bar.setValue(0)
+        self._bar.setTextVisible(False)
+        layout.addWidget(self._bar)
+        self._elapsed = QLabel("Elapsed: 0.0s")
+        self._elapsed.setObjectName("saveLoadElapsed")
+        layout.addWidget(self._elapsed)
+        self.setStyleSheet(f"""
+            QDialog#saveLoadPopup {{
+                background-color: {COLORS['bg']};
+                border: 2px solid {COLORS['accent']};
+                color: {COLORS['text']};
+            }}
+            QLabel {{ background: transparent; color: {COLORS['text']}; }}
+            QLabel#saveLoadHeading {{ font-size: 18px; font-weight: bold; }}
+            QLabel#saveLoadSubtitle, QLabel#saveLoadElapsed {{ color: {COLORS['text_dim']}; }}
+            QLabel#saveLoadVersion {{ color: {COLORS['accent']}; font-weight: bold; }}
+            QLabel#saveLoadMessage {{ font-weight: bold; }}
+            QProgressBar#saveLoadProgress {{
+                min-height: 8px; max-height: 8px;
+                background-color: {COLORS['input_bg']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 4px;
+            }}
+            QProgressBar#saveLoadProgress::chunk {{
+                background-color: {COLORS['accent']};
+                border-radius: 3px;
+            }}
+        """)
+        self._timer = QTimer(self)
+        self._timer.setInterval(100)
+        self._timer.timeout.connect(self._update_elapsed)
+        self._timer.start()
+
+    def _update_elapsed(self):
+        self._elapsed.setText(f"Elapsed: {perf_counter() - self._started:.1f}s")
+
+    def set_stage(self, message: str, value: int):
+        self._message.setText(message)
+        self._bar.setValue(max(0, min(7, value)))
+        self._update_elapsed()
+        self.repaint()
+
+    def complete(self, message: str):
+        self.set_stage(message, 7)
+        self._timer.stop()
+        self.accept()
 
 CATEGORY_COLORS = {
     "Equipment": "#d4a24e",
@@ -110,7 +278,7 @@ QMainWindow, QWidget {{
 }}
 QMenuBar {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     border-bottom: 1px solid {COLORS['border']};
     padding: 2px;
 }}
@@ -124,6 +292,7 @@ QMenu {{
 }}
 QMenu::item:selected {{
     background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
 }}
 QTabWidget::pane {{
     border: 1px solid {COLORS['border']};
@@ -131,7 +300,7 @@ QTabWidget::pane {{
 }}
 QTabBar::tab {{
     background-color: {COLORS['panel']};
-    color: {COLORS['text']};
+    color: {COLORS.get('panel_text', COLORS['text'])};
     padding: 8px 18px;
     margin-right: 2px;
     border-top-left-radius: 4px;
@@ -147,13 +316,18 @@ QTabBar::tab:selected {{
 }}
 QTabBar::tab:hover {{
     background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
 }}
-QTableWidget {{
+QTabBar::tab:disabled {{
+    background-color: {COLORS['panel']};
+    color: {COLORS.get('panel_text', COLORS['text'])};
+}}
+QTableWidget, QTableView {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     gridline-color: {COLORS['border']};
     selection-background-color: {COLORS['selected']};
-    selection-color: white;
+    selection-color: {COLORS.get('selection_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
     font-family: Consolas, monospace;
     font-size: 12px;
@@ -163,14 +337,14 @@ QTableWidget::item {{
 }}
 QHeaderView::section {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     padding: 5px 8px;
     border: 1px solid {COLORS['border']};
     font-weight: bold;
 }}
 QPushButton {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
     padding: 6px 16px;
     border-radius: 3px;
@@ -178,26 +352,34 @@ QPushButton {{
 }}
 QPushButton:hover {{
     background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
     border-color: {COLORS['accent']};
 }}
 QPushButton:pressed {{
     background-color: {COLORS['accent']};
+    color: {COLORS.get('accent_text', '#111111')};
 }}
 QPushButton#accentBtn {{
     background-color: {COLORS['accent']};
-    color: white;
+    color: {COLORS.get('accent_text', '#111111')};
 }}
 QPushButton#accentBtn:hover {{
-    background-color: #e8b85e;
+    background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
 }}
-QLineEdit, QSpinBox, QComboBox {{
+QPushButton:disabled {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text_dim']};
+    border-color: {COLORS['border']};
+}}
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {{
     background-color: {COLORS['input_bg']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
     padding: 5px 8px;
     border-radius: 3px;
 }}
-QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus {{
     border-color: {COLORS['accent']};
 }}
 QComboBox::drop-down {{
@@ -215,6 +397,7 @@ QComboBox QAbstractItemView {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     selection-background-color: {COLORS['selected']};
+    selection-color: {COLORS.get('selection_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
 }}
 QGroupBox {{
@@ -232,19 +415,47 @@ QGroupBox::title {{
 }}
 QStatusBar {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     border-top: 1px solid {COLORS['border']};
 }}
-QListWidget {{
+QListWidget, QListView, QTreeWidget, QTreeView {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
     selection-background-color: {COLORS['selected']};
+    selection-color: {COLORS.get('selection_text', COLORS['text'])};
 }}
-QTextEdit {{
+QTextEdit, QTextBrowser {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
+}}
+QDockWidget {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text']};
+    border: 1px solid {COLORS['border']};
+}}
+QDockWidget::title {{
+    background-color: {COLORS['accent']};
+    color: {COLORS.get('accent_text', '#111111')};
+    border-bottom: 1px solid {COLORS['border']};
+    padding: 4px;
+}}
+QProgressBar {{
+    background-color: {COLORS['input_bg']};
+    color: {COLORS['text']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 4px;
+    text-align: center;
+}}
+QProgressBar::chunk {{
+    background-color: {COLORS['accent']};
+    border-radius: 3px;
+}}
+QToolTip {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text']};
+    border: 1px solid {COLORS['accent']};
 }}
 QScrollBar:vertical {{
     background-color: {COLORS['bg']};
@@ -1032,7 +1243,7 @@ class QuestEditorWindow(QDialog):
         warn.setStyleSheet(f"color: {COLORS['error']}; padding: 2px;")
         layout.addWidget(warn)
 
-        self.setStyleSheet(DARK_STYLESHEET)
+        self.setStyleSheet(parent.styleSheet() if parent and parent.styleSheet() else DARK_STYLESHEET)
 
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self._parse_quests)
@@ -1136,10 +1347,7 @@ class QuestEditorWindow(QDialog):
                             entry['state_name'] = self.QUEST_STATE_NAMES.get(entry['state'], f'0x{entry["state"]:02X}')
                             entry['state_raw'] = entry['state']
                             entry['display'] = entry['name']
-                            # Quest chains are keyed by quest keys; missions
-                            # number independently, so looking one up here
-                            # attaches an unrelated quest's chain.
-                            chain = None
+                            chain = self._quest_chains.get(entry['key'])
                             entry['chain'] = chain
                             self._mission_entries.append(entry)
                 break
@@ -1477,6 +1685,183 @@ class QuestEditorWindow(QDialog):
             import traceback; traceback.print_exc()
             QMessageBox.critical(self, "Insert Error", str(e))
 
+    def _start_save_load(self, path: str) -> None:
+        active_thread = getattr(self, "_save_load_thread", None)
+        if active_thread is not None and active_thread.isRunning():
+            self._update_status("A save is already loading. Please wait...")
+            return
+
+        progress = SaveLoadProgressDialog(self, self._popup_branding_text())
+        progress.show()
+        progress.raise_()
+        progress.activateWindow()
+        QApplication.processEvents()
+        self._save_load_started = perf_counter()
+        self._save_load_progress = progress
+
+        thread = QThread(self)
+        worker = SaveLoadWorker(path)
+        bridge = SaveLoadBridge(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(
+            bridge.progress, Qt.QueuedConnection
+        )
+        worker.finished.connect(
+            bridge.finished, Qt.QueuedConnection
+        )
+        worker.failed.connect(
+            bridge.failed, Qt.QueuedConnection
+        )
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(bridge.thread_finished, Qt.QueuedConnection)
+
+        self._save_load_thread = thread
+        self._save_load_worker = worker
+        self._save_load_bridge = bridge
+        thread.start()
+
+    @Slot(str, int)
+    def _on_save_load_progress(self, message: str, value: int) -> None:
+        progress = getattr(self, "_save_load_progress", None)
+        if progress is not None:
+            progress.set_stage(message, value)
+        if hasattr(self, "_center_status"):
+            self._center_status.setText(message)
+
+    @Slot(str, object, object, int, str, object)
+    def _on_save_load_finished(
+        self, path: str, save_data, items, enriched: int,
+        parc_status: str, timings,
+    ) -> None:
+        progress = getattr(self, "_save_load_progress", None)
+        if progress is not None:
+            progress.set_stage("Applying item names and preparing editor data...", 4)
+        QApplication.processEvents()
+
+        try:
+            self._save_data = save_data
+            self._loaded_path = path
+            self._dirty = False
+            self._undo_stack.clear()
+            self._quest_entries = []
+            self._mission_entries = []
+            self._items = items
+
+            for item in self._items:
+                item.name = self._name_db.get_name(item.item_key)
+                item.category = self._name_db.get_category(item.item_key)
+
+            self._parc_status = parc_status
+            self._native_validation = timings.get("native_report", {})
+            if enriched > 0:
+                self._status_parc_label.setText(parc_status)
+                self._status_parc_label.setStyleSheet(
+                    f"color: {COLORS['success']}; padding: 0 8px;"
+                )
+            else:
+                self._status_parc_label.setText("Legacy mode: pattern-based scanning")
+                self._status_parc_label.setStyleSheet(
+                    f"color: {COLORS['text_dim']}; padding: 0 8px;"
+                )
+
+            if progress is not None:
+                progress.set_stage("Building inventory, equipment, and socket views...", 5)
+            QApplication.processEvents()
+            self._repurch_items = []
+            self._repurchase_loaded = False
+            self._update_inv_subtab_counts()
+            # The old load path built these tables before enrichment and then
+            # rebuilt them afterward. Build each data view only once.
+            self._populate_inventory()
+            self._populate_equipment()
+            self._populate_socket_items()
+            # Vendor parsing is one of the slowest secondary scans. Defer it
+            # unless Repurchase is the tab the user is currently viewing.
+            self._on_save_subtab_changed(self._save_tabs.currentIndex())
+            self._faction_loaded_blob_id = None
+            if hasattr(self, "_faction_count"):
+                self._faction_count.setText(
+                    "Open this tab to load faction data."
+                )
+            self._refresh_backups()
+            self._inv_count_label.setText(str(len(self._items)))
+
+            if progress is not None:
+                progress.set_stage("Refreshing backups and save browser...", 6)
+            QApplication.processEvents()
+            pristine = self._create_pristine_backup(path)
+            if pristine:
+                log.info("Pristine backup created: %s", pristine)
+
+            slot_dir = os.path.basename(os.path.dirname(path))
+            friendly = self._friendly_slot_name(slot_dir)
+            self._config["last_save_path"] = path
+            self._config["last_slot"] = friendly
+            self._save_config()
+            self._refresh_sidebar()
+
+            self._quick_save_btn.setEnabled(True)
+            self._quick_save_btn.setToolTip(f"Save to: {path}")
+            self.setWindowTitle(f"Crimson Desert Save Editor - {friendly}")
+
+            elapsed = perf_counter() - getattr(
+                self, "_save_load_started", perf_counter()
+            )
+            log.info(
+                "Save loaded in %.3fs (decrypt %.3fs, index %.3fs, details %.3fs)",
+                elapsed, float(timings.get("decrypt", 0.0)),
+                float(timings.get("index", 0.0)),
+                float(timings.get("details", 0.0)),
+            )
+            self._update_status(
+                f"Loaded: {friendly} ({slot_dir}) in {elapsed:.1f}s | "
+                f"C++ schema {self._native_validation.get('schema_fingerprint', 'unknown')}"
+            )
+            if progress is not None:
+                progress.complete(f"Loaded {len(self._items)} items in {elapsed:.1f}s")
+        except Exception as exc:
+            if progress is not None:
+                progress.close()
+            log.exception("Save load finalization failed for %s", path)
+            QMessageBox.critical(
+                self, "Error",
+                "The save was parsed, but the editor could not finish loading it:"
+                f"\n\n{exc}\n\n{traceback.format_exc()}"
+            )
+
+    @Slot(str, str, str)
+    def _on_save_load_failed(self, path: str, err_msg: str, trace: str) -> None:
+        log.error("Failed to load save %s: %s\n%s", path, err_msg, trace)
+        progress = getattr(self, "_save_load_progress", None)
+        if progress is not None:
+            progress.reject()
+        hint = ""
+        if "byte must be in range" in err_msg or "chacha20" in trace.lower():
+            hint = (
+                "\n\nThis file appears to be corrupted or is not a valid save file.\n"
+                "If this is a backup, it may have been created from an already-broken save.\n"
+                "Try loading a different save or restoring from an earlier backup."
+            )
+        QMessageBox.critical(
+            self, "Error",
+            f"Failed to load save file:\n\n{err_msg}{hint}\n\n{trace}"
+        )
+
+    @Slot()
+    def _on_save_load_thread_finished(self) -> None:
+        self._save_load_worker = None
+        self._save_load_thread = None
+        self._save_load_progress = None
+        bridge = getattr(self, "_save_load_bridge", None)
+        self._save_load_bridge = None
+        if bridge is not None:
+            bridge.deleteLater()
+
     def _save_file(self) -> None:
         reply = QMessageBox.question(
             self, "Save Quest Changes",
@@ -1489,12 +1874,25 @@ class QuestEditorWindow(QDialog):
         if reply != QMessageBox.Yes:
             return
         try:
-            from save_crypto import write_save_file
-            write_save_file(self._save_path, bytes(self._save_data.decompressed_blob),
-                           self._save_data.raw_header)
-            self._status.setText(f"Saved to {os.path.basename(self._save_path)}")
-            QMessageBox.information(self, "Saved", f"Quest changes saved to:\n{self._save_path}")
+            self._status.setText("C++ backend is validating and writing the save...")
+            QApplication.processEvents()
+            report = native_backend.write_validated_save(
+                self._save_path,
+                bytes(self._save_data.decompressed_blob),
+                self._save_path,
+            )
+            fingerprint = report.get("schema_fingerprint", "unknown")
+            self._status.setText(
+                f"Validated and saved to {os.path.basename(self._save_path)}"
+            )
+            QMessageBox.information(
+                self,
+                "Validated Save",
+                f"Quest changes were validated by the C++ backend and saved to:\n"
+                f"{self._save_path}\n\nSchema: {fingerprint}",
+            )
         except Exception as e:
+            log.exception("Quest save write failed for %s", self._save_path)
             QMessageBox.critical(self, "Save Error", str(e))
 
 
@@ -2397,13 +2795,19 @@ class MainWindow(QMainWindow):
 
     _icon_ready = Signal(int)
 
+    _start_save_load = QuestEditorWindow._start_save_load
+    _on_save_load_progress = QuestEditorWindow._on_save_load_progress
+    _on_save_load_finished = QuestEditorWindow._on_save_load_finished
+    _on_save_load_failed = QuestEditorWindow._on_save_load_failed
+    _on_save_load_thread_finished = QuestEditorWindow._on_save_load_thread_finished
+
     _CONFIG_FILE = "editor_config.json"
 
     @staticmethod
     def _splash(text: str) -> None:
         try:
-            import pyi_splash
-            pyi_splash.update_text(text)
+            from startup_splash import update_startup_status
+            update_startup_status(text)
         except Exception:
             pass
 
@@ -2416,11 +2820,6 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(800, 500)
 
         self._save_data: Optional[SaveData] = None
-        # One full parse per loaded save, reused by item extraction (and any
-        # future consumer). In-place byte edits keep it valid; replacing the
-        # blob makes the next call re-parse.
-        from parse_reuse import ParsedResultCache
-        self._parse_cache = ParsedResultCache()
         self._items: List[SaveItem] = []
         self._name_db = ItemNameDB()
         self._pack_mgr = PackManager()
@@ -2449,6 +2848,10 @@ class MainWindow(QMainWindow):
         self._dirty: bool = False
         self._parc_status: str = ""
         self._config: dict = self._load_config()
+        self._apply_theme_palette(
+            self._config.get("theme", "dark"),
+            self._config.get("custom_theme_colors", {}),
+        )
 
         saved_lang = self._config.get("language", "en")
         set_language(saved_lang)
@@ -2466,7 +2869,7 @@ class MainWindow(QMainWindow):
         self._splash("Building status bar...")
         self._build_status_bar()
 
-        self.setStyleSheet(DARK_STYLESHEET)
+        self._apply_ui_settings()
 
         saved_scale = self._config.get("font_scale")
         if saved_scale and saved_scale != 1.0:
@@ -2514,6 +2917,11 @@ class MainWindow(QMainWindow):
                 json.dump(self._config, f, indent=2)
         except OSError:
             pass
+
+    def _popup_branding_text(self) -> str:
+        return normalize_popup_branding(
+            self._config.get("loading_popup_branding", DEFAULT_POPUP_BRANDING)
+        )
 
 
     def _build_main_layout(self) -> None:
@@ -2565,7 +2973,7 @@ class MainWindow(QMainWindow):
         browse_btn.setToolTip("Set save folder path")
         browse_btn.clicked.connect(self._browse_save_root)
         path_row.addWidget(browse_btn)
-        self._global_icons_btn = QPushButton("Hide Icons" if self._config.get("show_icons", False) else "Show Icons")
+        self._global_icons_btn = QPushButton("Hide Local Icons" if self._config.get("show_icons", False) else "Show Local Icons")
         self._global_icons_btn.setFixedHeight(22)
         self._global_icons_btn.setToolTip("Toggle item icons on all tabs")
         self._global_icons_btn.clicked.connect(self._toggle_icons)
@@ -2592,7 +3000,7 @@ class MainWindow(QMainWindow):
 
         self._quick_save_btn = QPushButton("SAVE EDIT TO SELECTED FILE")
         self._quick_save_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {COLORS['accent']}; color: white; font-weight: bold; "
+            f"QPushButton {{ background-color: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')}; font-weight: bold; "
             f"padding: 8px; border-radius: 4px; font-size: 11px; }}"
             f"QPushButton:hover {{ background-color: #ff5577; }}"
             f"QPushButton:disabled {{ background-color: #555; color: #888; }}"
@@ -2629,7 +3037,7 @@ class MainWindow(QMainWindow):
         )
         self._save_dock.setStyleSheet(
             f"QDockWidget::title {{ background: {COLORS['accent']}; padding: 4px; "
-            f"color: white; font-weight: bold; }}"
+            f"color: {COLORS.get('accent_text', '#111111')}; font-weight: bold; }}"
             f"QDockWidget {{ border: 1px solid {COLORS['accent']}; }}")
         self._save_dock.setWidget(sidebar)
         self._save_dock.visibilityChanged.connect(
@@ -2669,6 +3077,12 @@ class MainWindow(QMainWindow):
             f"background-color: {COLORS['input_bg']};"
         )
         self._global_game_path.setToolTip("Game installation path used by Game Data, ItemBuffs, and Stores")
+        gp_detect = QPushButton("Auto-Detect Client")
+        # Leave enough room for large fonts and Windows display scaling.
+        gp_detect.setMinimumWidth(180)
+        gp_detect.setToolTip("Auto-detect game installation")
+        gp_detect.clicked.connect(self._global_auto_detect_path)
+        info_layout.addWidget(gp_detect)
         info_layout.addWidget(self._global_game_path, 1)
 
         gp_browse = QPushButton("Browse")
@@ -2676,18 +3090,12 @@ class MainWindow(QMainWindow):
         gp_browse.clicked.connect(self._global_browse_game_path)
         info_layout.addWidget(gp_browse)
 
-        gp_detect = QPushButton("Detect")
-        gp_detect.setFixedWidth(55)
-        gp_detect.setToolTip("Auto-detect game installation")
-        gp_detect.clicked.connect(self._global_auto_detect_path)
-        info_layout.addWidget(gp_detect)
-
         self._global_hide_btn = QPushButton("X")
         self._global_hide_btn.setFixedSize(24, 24)
         self._global_hide_btn.setCheckable(True)
         self._global_hide_btn.setToolTip("Hide/Show game path bar")
         self._global_hide_btn.setStyleSheet(
-            f"QPushButton {{ background: {COLORS['accent']}; color: white; "
+            f"QPushButton {{ background: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')}; "
             f"font-weight: bold; border-radius: 12px; font-size: 12px; }}"
             f"QPushButton:checked {{ background: #4CAF50; }}")
         self._global_hide_btn.clicked.connect(self._toggle_global_info)
@@ -2792,11 +3200,6 @@ class MainWindow(QMainWindow):
         ps_refresh_btn.clicked.connect(self._pack_browser_refresh)
         ps_layout.addWidget(ps_refresh_btn)
 
-        ps_dl_know_btn = QPushButton("Download Knowledge Packs")
-        ps_dl_know_btn.setToolTip("Download knowledge packs from GitHub for use with Abyss Gates / Knowledge injection")
-        ps_dl_know_btn.clicked.connect(self._download_knowledge_packs)
-        ps_layout.addWidget(ps_dl_know_btn)
-
         ps_open_btn = QPushButton("Open Folder")
         ps_open_btn.setStyleSheet(f"font-size: 10px; color: {COLORS['text_dim']};")
         ps_open_btn.clicked.connect(self._pack_browser_open_folder)
@@ -2812,7 +3215,7 @@ class MainWindow(QMainWindow):
         )
         self._pack_dock.setStyleSheet(
             f"QDockWidget::title {{ background: {COLORS['accent']}; padding: 4px; "
-            f"color: white; font-weight: bold; }}"
+            f"color: {COLORS.get('accent_text', '#111111')}; font-weight: bold; }}"
             f"QDockWidget {{ border: 1px solid {COLORS['accent']}; }}")
         self._pack_dock.setWidget(pack_sidebar)
         self._pack_dock.visibilityChanged.connect(
@@ -2857,6 +3260,7 @@ class MainWindow(QMainWindow):
         self._build_sockets_tab()
         self._build_mercenary_tab()
         self._build_dye_tab()
+        self._save_tabs.currentChanged.connect(self._on_save_subtab_changed)
 
 
         self._tabs = _real_tabs
@@ -3236,18 +3640,6 @@ class MainWindow(QMainWindow):
         import_lang_btn.clicked.connect(lambda: self._settings_import_lang(dlg))
         lang_btn_row.addWidget(import_lang_btn)
 
-        dl_lang_btn = QPushButton("Download Name Pack")
-        dl_lang_btn.setToolTip("Download translated item/quest/knowledge names for the selected language from GitHub")
-        dl_lang_btn.clicked.connect(lambda: self._settings_download_name_pack(dlg))
-        lang_btn_row.addWidget(dl_lang_btn)
-
-        dl_all_btn = QPushButton("Download All Packs")
-        dl_all_btn.setToolTip(
-            "Download ALL language packs (UI + names) from GitHub.\n"
-            "Available: de, es, es-mx, fr, it, ja, ko, pl, pt-br, ru, tr, zh, zh-tw")
-        dl_all_btn.clicked.connect(lambda: self._settings_download_all_lang_packs(dlg))
-        lang_btn_row.addWidget(dl_all_btn)
-
         open_lang_btn = QPushButton("Open Locale Folder")
         open_lang_btn.setStyleSheet(f"font-size: 10px; color: {COLORS['text_dim']};")
         open_lang_btn.clicked.connect(lambda: os.startfile(os.path.join(self._app_dir(), 'locale')))
@@ -3259,7 +3651,7 @@ class MainWindow(QMainWindow):
         lang_hint = QLabel(
             "Restart required after changing language.\n"
             "UI translations go in locale/ folder. Name packs go in locale/ or language/ folder.\n"
-            "Community can contribute translations on GitHub."
+            "Install optional community translations by using Import Translation."
         )
         lang_hint.setStyleSheet(f"color: {COLORS['text_dim']}; font-size: 10px;")
         lang_hint.setWordWrap(True)
@@ -3364,134 +3756,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(parent_dlg, "Import Error", str(e))
 
-    def _settings_download_name_pack(self, parent_dlg) -> None:
-        lang_code = self._settings_lang.currentData()
-        if not lang_code or lang_code == 'en':
-            QMessageBox.information(parent_dlg, "Download",
-                "English is built-in — no download needed.\n"
-                "Select a different language first.")
-            return
-
-        filename = f"names_{lang_code}.json"
-        url = f"https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/main/language/{filename}"
-
-        locale_dir = os.path.join(self._app_dir(), 'locale')
-        os.makedirs(locale_dir, exist_ok=True)
-        dest = os.path.join(locale_dir, filename)
-
-        if os.path.isfile(dest):
-            reply = QMessageBox.question(parent_dlg, "Download",
-                f"{filename} already exists.\n\nRedownload and overwrite?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply != QMessageBox.Yes:
-                return
-
-        self._update_status(f"Downloading {filename}...")
-        QApplication.processEvents()
-
-        try:
-            from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
-            from PySide6.QtCore import QUrl, QEventLoop
-
-            manager = QNetworkAccessManager()
-            request = QNetworkRequest(QUrl(url))
-            request.setRawHeader(b"User-Agent", b"CrimsonSaveEditor")
-            reply_obj = manager.get(request)
-
-            loop = QEventLoop()
-            reply_obj.finished.connect(loop.quit)
-            loop.exec()
-
-            if reply_obj.error():
-                import urllib.request
-                urllib.request.urlretrieve(url, dest)
-            else:
-                data = reply_obj.readAll().data()
-                with open(dest, 'wb') as f:
-                    f.write(data)
-
-            if os.path.isfile(dest) and os.path.getsize(dest) > 100:
-                size_kb = os.path.getsize(dest) / 1024
-                self._update_status(f"Downloaded {filename} ({size_kb:.0f}KB)")
-                QMessageBox.information(parent_dlg, "Download Complete",
-                    f"Downloaded {filename} ({size_kb:.0f}KB)\n\n"
-                    f"17,267 translated names (items, quests, knowledge).\n"
-                    f"Restart the editor for changes to take effect.")
-            else:
-                QMessageBox.warning(parent_dlg, "Download Failed",
-                    f"Could not download {filename}.\n\n"
-                    f"Try downloading manually from:\n{url}\n\n"
-                    f"Place it in: {locale_dir}")
-
-        except Exception as e:
-            try:
-                import urllib.request
-                self._update_status(f"Downloading {filename} (fallback)...")
-                QApplication.processEvents()
-                urllib.request.urlretrieve(url, dest)
-                size_kb = os.path.getsize(dest) / 1024
-                QMessageBox.information(parent_dlg, "Download Complete",
-                    f"Downloaded {filename} ({size_kb:.0f}KB)\n\nRestart for changes.")
-            except Exception as e2:
-                QMessageBox.critical(parent_dlg, "Download Error",
-                    f"Failed: {e2}\n\nDownload manually from:\n{url}")
-
-    def _settings_download_all_lang_packs(self, parent_dlg) -> None:
-        import urllib.request
-
-        LANGS = ['de', 'es', 'es-mx', 'fr', 'it', 'ja', 'ko', 'pl', 'pt-br', 'ru', 'tr', 'zh', 'zh-tw']
-        GITHUB_BASE = "https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/main"
-
-        locale_dir = os.path.join(self._app_dir(), 'locale')
-        os.makedirs(locale_dir, exist_ok=True)
-
-        reply = QMessageBox.question(parent_dlg, "Download All Language Packs",
-            f"Download {len(LANGS)} language packs from GitHub?\n\n"
-            "Languages: " + ", ".join(LANGS) + "\n\n"
-            "This downloads both UI translations (locale/) and name packs.\n"
-            "Existing files will be overwritten with latest versions.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply != QMessageBox.Yes:
-            return
-
-        downloaded = 0
-        errors = 0
-        files_to_download = []
-
-        for lang in LANGS:
-            files_to_download.append((
-                f"{GITHUB_BASE}/language/names_{lang}.json",
-                os.path.join(locale_dir, f"names_{lang}.json"),
-                f"names_{lang}.json"
-            ))
-        for lang in LANGS:
-            files_to_download.append((
-                f"{GITHUB_BASE}/locale/{lang}.json",
-                os.path.join(locale_dir, f"{lang}.json"),
-                f"{lang}.json"
-            ))
-
-        for url, dest, fname in files_to_download:
-            self._update_status(f"Downloading {fname}...")
-            QApplication.processEvents()
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                if data and len(data) > 50:
-                    with open(dest, 'wb') as f:
-                        f.write(data)
-                    downloaded += 1
-            except Exception:
-                errors += 1
-
-        self._update_status(f"Downloaded {downloaded} language files ({errors} not available)")
-        QMessageBox.information(parent_dlg, "Download Complete",
-            f"Downloaded {downloaded} language files.\n"
-            f"{errors} files not available on GitHub yet (UI translations pending).\n\n"
-            f"Restart the editor to apply.\n"
-            f"Select your language in Settings after restart.")
-
     def _settings_browse_path(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select Save Folder")
         if path:
@@ -3572,11 +3836,6 @@ class MainWindow(QMainWindow):
         about_act.triggered.connect(self._show_about)
         help_menu.addAction(about_act)
 
-        update_menu = menu_bar.addMenu("Update")
-        check_update_act = QAction(f"Check for Updates  (current: v{APP_VERSION})", self)
-        check_update_act.triggered.connect(self._check_for_update)
-        update_menu.addAction(check_update_act)
-
         view_menu = menu_bar.addMenu("View")
         self._global_icons_action = QAction("Show Icons", self)
         self._global_icons_action.setCheckable(True)
@@ -3589,6 +3848,10 @@ class MainWindow(QMainWindow):
         self._compact_action.setCheckable(True)
         self._compact_action.setChecked(self._config.get("compact_mode", False))
         self._compact_action.triggered.connect(self._toggle_compact_mode)
+        appearance_action = QAction("Appearance & Colors...", self)
+        appearance_action.triggered.connect(self._open_appearance)
+        view_menu.addAction(appearance_action)
+        view_menu.addSeparator()
         view_menu.addAction(self._compact_action)
 
         scale_menu = view_menu.addMenu("UI Scale")
@@ -3623,25 +3886,6 @@ class MainWindow(QMainWindow):
         ]:
             act = QAction(guide_name, self)
             act.triggered.connect(lambda checked, k=guide_key: self._show_guide(k))
-            guides_menu.addAction(act)
-
-        guides_menu.addSeparator()
-
-        _video_guides = [
-            ("VIDEO: Drop Rate & Loot Table Editor + Packs Guide",
-             "https://www.youtube.com/watch?v=-yZ3EtZGFf4&t=3s"),
-            ("VIDEO: How to Change In-Game Drop Rate & Loot Table",
-             "https://www.youtube.com/watch?v=oMUQ1w0DZqk&t=5s"),
-            ("VIDEO: How to Modify Base Stats on Any Armor & Weapon",
-             "https://www.youtube.com/watch?v=Fxc3Wn2dImk"),
-            ("VIDEO: Item Editor — Mod Any Item",
-             "https://www.youtube.com/watch?v=nDOP6OKI1_E"),
-            ("VIDEO: How to Dye Any Color Without Unlocking",
-             "https://www.youtube.com/watch?v=W7S3YWWYspw"),
-        ]
-        for title, url in _video_guides:
-            act = QAction(title, self)
-            act.triggered.connect(lambda checked, u=url: __import__('webbrowser').open(u))
             guides_menu.addAction(act)
 
         dev_menu = menu_bar.addMenu("Dev")
@@ -3725,6 +3969,128 @@ class MainWindow(QMainWindow):
         self._save_config()
         self._apply_ui_settings()
 
+    def _apply_theme_palette(self, mode: str, custom_colors=None) -> str:
+        global _TAB_SELECTED_BG, _TAB_SELECTED_COLOR, _TAB_SELECTED_BORDER
+        key = resolve_theme_key(mode)
+        definition = get_theme_definition(key, custom_colors)
+        COLORS.clear()
+        COLORS.update(definition["colors"])
+        _TAB_SELECTED_BG, _unused_tab_text, _TAB_SELECTED_BORDER = definition["tab"]
+        _TAB_SELECTED_COLOR = contrast_text(_TAB_SELECTED_BG)
+        return key
+
+    @staticmethod
+    def _replace_theme_tokens(stylesheet: str, old_colors: dict, new_colors: dict) -> str:
+        """Retint a widget-level stylesheet without losing its layout/semantic rules."""
+        if not stylesheet:
+            return stylesheet
+        result = stylesheet
+        roles = (
+            "bg", "panel", "header", "input_bg", "selected", "border",
+            "accent", "success", "warning", "error", "text_dim", "text",
+            "panel_text", "primary_text", "accent_text", "selection_text",
+        )
+        placeholders = []
+        for index, role in enumerate(roles):
+            old_value = old_colors.get(role)
+            new_value = new_colors.get(role)
+            if not old_value or not new_value:
+                continue
+            marker = f"__CD_THEME_{index}__"
+            updated = re.sub(re.escape(str(old_value)), marker, result, flags=re.IGNORECASE)
+            if updated != result:
+                placeholders.append((marker, str(new_value)))
+                result = updated
+        for marker, new_value in placeholders:
+            result = result.replace(marker, new_value)
+        return result
+
+    @staticmethod
+    def _force_contrast_for_background(stylesheet: str, background: str, text_color: str) -> str:
+        if not stylesheet or not re.search(
+            rf"background(?:-color)?\s*:\s*{re.escape(background)}",
+            stylesheet, flags=re.IGNORECASE,
+        ):
+            return stylesheet
+        color_rule = re.compile(r"(?<![-\w])color\s*:\s*#[0-9a-fA-F]{6}", re.IGNORECASE)
+        if color_rule.search(stylesheet):
+            return color_rule.sub(f"color: {text_color}", stylesheet)
+        return stylesheet
+
+    def _retint_inline_widget_styles(self, old_colors: dict) -> None:
+        """Update styles baked into the 200+ specialized editor widgets."""
+        new_colors = dict(COLORS)
+        appearance_dialogs = self.findChildren(AppearanceDialog)
+        for widget in [self, *self.findChildren(QWidget)]:
+            if any(dialog is widget or dialog.isAncestorOf(widget) for dialog in appearance_dialogs):
+                continue
+            stylesheet = widget.styleSheet()
+            if not stylesheet:
+                continue
+            updated = self._replace_theme_tokens(stylesheet, old_colors, new_colors)
+            if isinstance(widget, QPushButton):
+                updated = self._force_contrast_for_background(
+                    updated, new_colors["accent"], new_colors["accent_text"])
+                updated = self._force_contrast_for_background(
+                    updated, new_colors["header"], new_colors["primary_text"])
+            elif isinstance(widget, QDockWidget):
+                updated = self._force_contrast_for_background(
+                    updated, new_colors["accent"], new_colors["accent_text"])
+            if updated != stylesheet:
+                widget.setStyleSheet(updated)
+
+    def _refresh_tab_readability_styles(self) -> None:
+        """Refresh the two tab-content panels called out by the UI audit."""
+        if hasattr(self, "_inv_swap_warn"):
+            self._inv_swap_warn.setStyleSheet(
+                f"color: {COLORS.get('panel_text', COLORS['text'])}; background-color: {COLORS['panel']}; "
+                f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
+                f"padding: 6px; font-size: 10px;"
+            )
+        if hasattr(self, "_equipment_howto_label"):
+            self._equipment_howto_label.setStyleSheet(
+                f"color: {COLORS.get('panel_text', COLORS['text'])}; background-color: {COLORS['panel']}; "
+                f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
+                f"padding: 8px; font-size: 11px;"
+            )
+
+    def _preview_theme(self, mode: str, custom_colors=None) -> None:
+        old_colors = dict(COLORS)
+        self._apply_theme_palette(mode, custom_colors)
+        self._retint_inline_widget_styles(old_colors)
+        self._refresh_tab_readability_styles()
+        self._apply_ui_settings()
+
+    def _set_theme(self, mode: str, custom_colors=None) -> None:
+        old_colors = dict(COLORS)
+        key = self._apply_theme_palette(mode, custom_colors)
+        self._retint_inline_widget_styles(old_colors)
+        self._refresh_tab_readability_styles()
+        self._config["theme"] = key
+        if custom_colors is not None:
+            self._config["custom_theme_colors"] = normalize_custom_colors(custom_colors)
+        self._save_config()
+        self._apply_ui_settings()
+
+    def _open_appearance(self) -> None:
+        original = resolve_theme_key(self._config.get("theme", "dark"))
+        dialog = AppearanceDialog(
+            original, self._config.get("custom_theme_colors", {}),
+            self._preview_theme, self,
+            startup_splash_title=self._config.get(
+                "startup_splash_title", DEFAULT_STARTUP_SPLASH_TITLE
+            ),
+            save_load_popup_title=self._config.get(
+                "loading_popup_branding", DEFAULT_POPUP_BRANDING
+            ),
+        )
+        if dialog.exec() == QDialog.Accepted:
+            self._config["startup_splash_title"] = dialog.startup_splash_title
+            self._config["loading_popup_branding"] = dialog.save_load_popup_title
+            self._set_theme(dialog.selected_theme, dialog.custom_colors)
+            name = "Custom Colors" if dialog.selected_theme == "custom" else THEME_PRESETS[dialog.selected_theme]["name"]
+            self._update_status(f"Appearance: {name}")
+
     def _toggle_compact_mode(self, checked: bool) -> None:
         self._config["compact_mode"] = checked
         self._save_config()
@@ -3771,7 +4137,7 @@ QMainWindow, QWidget {{
 }}
 QMenuBar {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     border-bottom: 1px solid {COLORS['border']};
     padding: {s(2)}px;
 }}
@@ -3785,6 +4151,7 @@ QMenu {{
 }}
 QMenu::item:selected {{
     background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
 }}
 QTabWidget::pane {{
     border: 1px solid {COLORS['border']};
@@ -3792,7 +4159,7 @@ QTabWidget::pane {{
 }}
 QTabBar::tab {{
     background-color: {COLORS['panel']};
-    color: {COLORS['text']};
+    color: {COLORS.get('panel_text', COLORS['text'])};
     padding: {s(pad_tab_v)}px {s(pad_tab_h)}px;
     margin-right: {s(2)}px;
     border-top-left-radius: {s(4)}px;
@@ -3808,13 +4175,18 @@ QTabBar::tab:selected {{
 }}
 QTabBar::tab:hover {{
     background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
 }}
-QTableWidget {{
+QTabBar::tab:disabled {{
+    background-color: {COLORS['panel']};
+    color: {COLORS.get('panel_text', COLORS['text'])};
+}}
+QTableWidget, QTableView {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     gridline-color: {COLORS['border']};
     selection-background-color: {COLORS['selected']};
-    selection-color: white;
+    selection-color: {COLORS.get('selection_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
     font-family: Consolas, monospace;
     font-size: {s(font_table)}px;
@@ -3824,14 +4196,14 @@ QTableWidget::item {{
 }}
 QHeaderView::section {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     padding: {s(pad_header_v)}px {s(pad_header_h)}px;
     border: 1px solid {COLORS['border']};
     font-weight: bold;
 }}
 QPushButton {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
     padding: {s(pad_btn_v)}px {s(pad_btn_h)}px;
     border-radius: {s(3)}px;
@@ -3839,26 +4211,34 @@ QPushButton {{
 }}
 QPushButton:hover {{
     background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
     border-color: {COLORS['accent']};
 }}
 QPushButton:pressed {{
     background-color: {COLORS['accent']};
+    color: {COLORS.get('accent_text', '#111111')};
 }}
 QPushButton#accentBtn {{
     background-color: {COLORS['accent']};
-    color: white;
+    color: {COLORS.get('accent_text', '#111111')};
 }}
 QPushButton#accentBtn:hover {{
-    background-color: #e8b85e;
+    background-color: {COLORS['selected']};
+    color: {COLORS.get('selection_text', COLORS['text'])};
 }}
-QLineEdit, QSpinBox, QComboBox {{
+QPushButton:disabled {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text_dim']};
+    border-color: {COLORS['border']};
+}}
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {{
     background-color: {COLORS['input_bg']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
     padding: {s(pad_input)}px {s(pad_input + 3)}px;
     border-radius: {s(3)}px;
 }}
-QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus {{
     border-color: {COLORS['accent']};
 }}
 QComboBox::drop-down {{
@@ -3870,6 +4250,7 @@ QComboBox QAbstractItemView {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     selection-background-color: {COLORS['selected']};
+    selection-color: {COLORS.get('selection_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
 }}
 QGroupBox {{
@@ -3887,19 +4268,47 @@ QGroupBox::title {{
 }}
 QStatusBar {{
     background-color: {COLORS['header']};
-    color: {COLORS['text']};
+    color: {COLORS.get('primary_text', COLORS['text'])};
     border-top: 1px solid {COLORS['border']};
 }}
-QListWidget {{
+QListWidget, QListView, QTreeWidget, QTreeView {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
     selection-background-color: {COLORS['selected']};
+    selection-color: {COLORS.get('selection_text', COLORS['text'])};
 }}
-QTextEdit {{
+QTextEdit, QTextBrowser {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
+}}
+QDockWidget {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text']};
+    border: 1px solid {COLORS['border']};
+}}
+QDockWidget::title {{
+    background-color: {COLORS['accent']};
+    color: {COLORS.get('accent_text', '#111111')};
+    border-bottom: 1px solid {COLORS['border']};
+    padding: {s(4)}px;
+}}
+QProgressBar {{
+    background-color: {COLORS['input_bg']};
+    color: {COLORS['text']};
+    border: 1px solid {COLORS['border']};
+    border-radius: {s(4)}px;
+    text-align: center;
+}}
+QProgressBar::chunk {{
+    background-color: {COLORS['accent']};
+    border-radius: {s(3)}px;
+}}
+QToolTip {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text']};
+    border: 1px solid {COLORS['accent']};
 }}
 QScrollBar:vertical {{
     background-color: {COLORS['bg']};
@@ -4068,92 +4477,6 @@ QCheckBox::indicator {{
             self._rebuild_view_tab_list()
 
 
-    def _check_for_update(self) -> None:
-        self._update_status("Checking for updates...")
-        QApplication.processEvents()
-
-        available, remote_ver, url = check_for_update()
-
-        if not available:
-            if remote_ver:
-                QMessageBox.information(
-                    self, "No Update Available",
-                    f"You are on the latest version.\n\n"
-                    f"Current: v{APP_VERSION}\nRemote: v{remote_ver}",
-                )
-            else:
-                QMessageBox.warning(
-                    self, "Update Check Failed",
-                    "Could not reach the update server.\n"
-                    "Check your internet connection.",
-                )
-            self._update_status("Update check complete.")
-            return
-
-        if sys.platform != 'win32':
-            from PySide6.QtGui import QDesktopServices
-            from PySide6.QtCore import QUrl
-            reply = QMessageBox.information(
-                self, "Update Available",
-                f"A new version is available!\n\n"
-                f"Current: v{APP_VERSION}\n"
-                f"New: v{remote_ver}\n\n"
-                f"Auto-update is only available on Windows.\n"
-                f"Please download the Linux build manually from GitHub Releases.",
-                QMessageBox.Open | QMessageBox.Cancel,
-                QMessageBox.Open,
-            )
-            if reply == QMessageBox.Open:
-                QDesktopServices.openUrl(QUrl("https://github.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR/releases"))
-            self._update_status("Update check complete.")
-            return
-
-        reply = QMessageBox.question(
-            self, "Update Available",
-            f"A new version is available!\n\n"
-            f"Current: v{APP_VERSION}\n"
-            f"New: v{remote_ver}\n\n"
-            f"Download and install now?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes,
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        self._update_status(f"Downloading v{remote_ver}...")
-        QApplication.processEvents()
-
-        def on_progress(downloaded, total):
-            if total > 0:
-                pct = downloaded * 100 // total
-                self._update_status(f"Downloading v{remote_ver}... {pct}%  ({downloaded // 1024}KB)")
-            else:
-                self._update_status(f"Downloading v{remote_ver}... {downloaded // 1024}KB")
-            QApplication.processEvents()
-
-        update_path = download_update(url, progress_callback=on_progress)
-
-        if not update_path:
-            QMessageBox.critical(
-                self, "Download Failed",
-                "Failed to download the update. Try again later.",
-            )
-            self._update_status("Update download failed.")
-            return
-
-        self._update_status(f"Update downloaded. Restarting...")
-        QApplication.processEvents()
-
-        QMessageBox.information(
-            self, "Update Ready",
-            f"v{remote_ver} downloaded successfully.\n\n"
-            "The editor will now close and update.\n\n"
-            "Please reopen CrimsonSaveEditor.exe after it closes.",
-        )
-
-        apply_update_and_restart(update_path)
-
-
     def _build_inventory_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -4194,8 +4517,10 @@ QCheckBox::indicator {{
         top.addWidget(self._inv_group)
         self._inv_group.setVisible(False)
 
-        self._show_icons_btn = QPushButton("Hide Icons" if self._config.get("show_icons", False) else "Show Icons")
-        self._show_icons_btn.setToolTip("Download and display item icons (requires internet first time)")
+        self._show_icons_btn = QPushButton("Hide Local Icons" if self._config.get("show_icons", False) else "Show Local Icons")
+        self._show_icons_btn.setToolTip(
+            "Display icons from the optional icons_local pack beside the editor executable"
+        )
         self._show_icons_btn.clicked.connect(self._toggle_icons)
         top.addWidget(self._show_icons_btn)
         self._icons_enabled = self._config.get("show_icons", False)
@@ -4297,9 +4622,10 @@ QCheckBox::indicator {{
             "- ALWAYS back up your save before swapping. The editor creates backups automatically if you accept the prompt."
         )
         swap_warn.setWordWrap(True)
+        self._inv_swap_warn = swap_warn
         swap_warn.setStyleSheet(
-            f"color: {COLORS['warning']}; background-color: #2a2200; "
-            f"border: 1px solid {COLORS['warning']}; border-radius: 4px; "
+            f"color: {COLORS.get('panel_text', COLORS['text'])}; background-color: {COLORS['panel']}; "
+            f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
             f"padding: 6px; font-size: 10px;"
         )
         layout.addWidget(swap_warn)
@@ -4415,8 +4741,9 @@ QCheckBox::indicator {{
             "Tip: Swap works best within the same type (sword → sword, helm → helm)."
         )
         howto_label.setWordWrap(True)
+        self._equipment_howto_label = howto_label
         howto_label.setStyleSheet(
-            f"color: {COLORS['accent']}; background-color: rgba(79,195,247,0.08); "
+            f"color: {COLORS.get('panel_text', COLORS['text'])}; background-color: {COLORS['panel']}; "
             f"border: 1px solid {COLORS['accent']}; border-radius: 4px; "
             f"padding: 8px; font-size: 11px;"
         )
@@ -4591,6 +4918,7 @@ QCheckBox::indicator {{
         11: 1,
         12: 1,
     }
+    _SOCKET_UI_CAPACITY = 5
 
     @staticmethod
     def _item_bitmask_field_present(bitmask_bytes: bytes, field_idx: int) -> bool:
@@ -4644,9 +4972,14 @@ QCheckBox::indicator {{
         return offset
 
     def _read_socket_gems(self, blob: bytearray, item: 'SaveItem') -> list:
-        bitmask = self._read_item_bitmask(blob, item)
-        sock_list_rel = self._compute_socket_list_offset(bitmask)
-        sock_list_abs = item.offset + sock_list_rel
+        # PARC enrichment records absolute offsets by schema field name. Use
+        # that before the legacy bit-index calculation: game 1.14 inserted
+        # _averagePrice at index 5, shifting every socket-related bit.
+        sock_list_abs = item.field_offsets.get("_socketSaveDataList")
+        if not isinstance(sock_list_abs, int) or sock_list_abs <= 0:
+            bitmask = self._read_item_bitmask(blob, item)
+            sock_list_rel = self._compute_socket_list_offset(bitmask)
+            sock_list_abs = item.offset + sock_list_rel
 
         if sock_list_abs + 18 > len(blob):
             return []
@@ -4721,6 +5054,18 @@ QCheckBox::indicator {{
         return results
 
     def _read_max_valid_sockets(self, blob: bytearray, item: 'SaveItem') -> tuple:
+        max_off = item.field_offsets.get("_maxSocketCount")
+        valid_off = item.field_offsets.get("_validSocketCount")
+        if isinstance(max_off, int) and 0 <= max_off < len(blob):
+            max_s = blob[max_off]
+            valid_s = (
+                blob[valid_off]
+                if isinstance(valid_off, int) and 0 <= valid_off < len(blob)
+                else 0
+            )
+            return max_s, valid_s
+
+        # Compatibility fallback for pre-1.14 saves that were not enriched.
         bitmask = self._read_item_bitmask(blob, item)
         offset = 0
         for field_idx in range(11):
@@ -4745,15 +5090,6 @@ QCheckBox::indicator {{
         new_count = self._sock_unlock_spin.value()
         max_s, valid_s = self._read_max_valid_sockets(blob, item)
 
-        design_limit = self._get_socket_design_limit(item.item_key)
-        if design_limit > 0 and new_count > design_limit:
-            QMessageBox.warning(
-                self, "Sockets",
-                f"Cannot unlock {new_count} slots: this item's design limit is {design_limit}.\n\n"
-                f"Filling more than {design_limit} slots crashes the game on save load."
-            )
-            return
-
         socket_data = self._read_socket_gems(blob, item)
         if new_count > 0 and max_s == 0 and len(socket_data) == 0:
             reply = QMessageBox.warning(
@@ -4769,30 +5105,50 @@ QCheckBox::indicator {{
                 return
 
         offset = 0
-        field_offsets = {}
+        legacy_field_offsets = {}
         for field_idx in range(13):
             if self._item_bitmask_field_present(bitmask, field_idx):
-                field_offsets[field_idx] = offset
+                legacy_field_offsets[field_idx] = offset
                 offset += self._ITEM_FIELD_SIZES[field_idx]
 
         changes = []
 
-        if 7 in field_offsets:
-            end_off = item.offset + field_offsets[7]
+        exact_max_off = item.field_offsets.get("_maxSocketCount")
+        exact_valid_off = item.field_offsets.get("_validSocketCount")
+        exact_end_off = item.field_offsets.get("_endurance")
+        max_off = exact_max_off if isinstance(exact_max_off, int) else (
+            item.offset + legacy_field_offsets[11] if 11 in legacy_field_offsets else None
+        )
+        valid_off = exact_valid_off if isinstance(exact_valid_off, int) else (
+            item.offset + legacy_field_offsets[12] if 12 in legacy_field_offsets else None
+        )
+
+        # Older saves mirrored socket count in endurance's high byte. Only
+        # preserve that behavior when named offsets agree with the legacy
+        # layout; in 1.14 the high byte is real durability and must not change.
+        legacy_max_off = (
+            item.offset + legacy_field_offsets[11] if 11 in legacy_field_offsets else None
+        )
+        legacy_layout = max_off is not None and max_off == legacy_max_off
+        end_off = None
+        if legacy_layout:
+            end_off = exact_end_off if isinstance(exact_end_off, int) else (
+                item.offset + legacy_field_offsets[7] if 7 in legacy_field_offsets else None
+            )
+
+        if isinstance(end_off, int) and end_off + 2 <= len(blob):
             old_end = struct.unpack_from("<H", blob, end_off)[0]
             end_low = old_end & 0xFF
             new_end = (new_count << 8) | end_low
             struct.pack_into("<H", blob, end_off, new_end)
             changes.append(f"_endurance: {old_end} (0x{old_end:04X}) → {new_end} (0x{new_end:04X})")
 
-        if 11 in field_offsets:
-            max_off = item.offset + field_offsets[11]
+        if isinstance(max_off, int) and 0 <= max_off < len(blob):
             old_max = blob[max_off]
             blob[max_off] = new_count
             changes.append(f"_maxSocketCount: {old_max} → {new_count}")
 
-        if 12 in field_offsets:
-            valid_off = item.offset + field_offsets[12]
+        if isinstance(valid_off, int) and 0 <= valid_off < len(blob):
             old_valid = blob[valid_off]
             blob[valid_off] = new_count
             changes.append(f"_validSocketCount: {old_valid} → {new_count}")
@@ -4857,7 +5213,7 @@ QCheckBox::indicator {{
         self._sock_layout.addWidget(self._sock_locked_hint)
 
         self._sock_rows = []
-        for i in range(6):
+        for i in range(self._SOCKET_UI_CAPACITY):
             row = QHBoxLayout()
             row.setSpacing(6)
 
@@ -4907,13 +5263,13 @@ QCheckBox::indicator {{
         self._sock_unlock_spin = QSpinBox()
         self._sock_unlock_spin.setRange(0, 5)
         self._sock_unlock_spin.setValue(0)
-        self._sock_unlock_spin.setToolTip("Set the number of unlocked socket slots (capped at this item's design limit)")
+        self._sock_unlock_spin.setToolTip("Set the number of unlocked socket slots, up to five")
         unlock_layout.addWidget(self._sock_unlock_spin)
         unlock_btn = QPushButton("Unlock Sockets")
         unlock_btn.setObjectName("accentBtn")
         unlock_btn.setToolTip(
-            "Sets maxSocketCount, validSocketCount, and the socket bits in enchantLevel.\n"
-            "Capped at the item's design limit to avoid crash-on-load saves."
+            "Sets maxSocketCount and validSocketCount, up to five.\n"
+            "An empty/missing socket record still needs a gem installed in-game before it can be swapped here."
         )
         unlock_btn.clicked.connect(self._apply_socket_unlock)
         unlock_layout.addWidget(unlock_btn)
@@ -4974,11 +5330,33 @@ QCheckBox::indicator {{
 
         show_merc = hasattr(self, '_sock_show_merc') and self._sock_show_merc.isChecked()
         filter_socketable = bool(self._socket_design_limits)
+        # EquipmentSaveData contains display/cache snapshots of equipped gear.
+        # The game applies socket effects from the corresponding inventory
+        # record, which can have a different itemNo. Hide a cache snapshot when
+        # an authoritative Inventory item with the same key and enchant exists.
+        inventory_socket_identities = {
+            (item.item_key, item.enchant_level)
+            for item in self._items
+            if item.has_enchant and item.source == "Inventory"
+        }
         equip = [
             i for i in self._items
             if i.has_enchant
             and (show_merc or i.source not in ("Mercenary",))
-            and (not filter_socketable or self._get_socket_design_limit(i.item_key) > 0)
+            and not (
+                i.source == "Equipment"
+                and (i.item_key, i.enchant_level) in inventory_socket_identities
+            )
+            and (
+                not filter_socketable
+                or self._get_socket_design_limit(i.item_key) > 0
+                or any(
+                    field_name in getattr(i, "field_offsets", {})
+                    for field_name in (
+                        "_maxSocketCount", "_validSocketCount", "_socketSaveDataList",
+                    )
+                )
+            )
         ]
         for it in equip:
             if not self._save_data:
@@ -4987,7 +5365,11 @@ QCheckBox::indicator {{
             max_s, valid_s = self._read_max_valid_sockets(blob, it)
             name = self._name_db.get_name(it.item_key)
             enc = f"+{it.enchant_level}" if it.has_enchant else ""
-            text = f"{name} {enc}  (no={it.item_no}, sockets={valid_s}/{max_s})"
+            source = "Equipment-only" if it.source == "Equipment" else it.source
+            text = (
+                f"{name} {enc}  [{source}, slot={it.slot_no}, no={it.item_no}, "
+                f"sockets={valid_s}/{max_s}]"
+            )
             self._sock_item_combo.addItem(text, id(it))
 
         self._sock_item_combo.blockSignals(False)
@@ -5022,15 +5404,19 @@ QCheckBox::indicator {{
         blob = self._save_data.decompressed_blob
         max_s, valid_s = self._read_max_valid_sockets(blob, item)
         design_limit = self._get_socket_design_limit(item.item_key)
+        socket_data = self._read_socket_gems(blob, item)
+        has_socket_fields = any(
+            field_name in getattr(item, "field_offsets", {})
+            for field_name in ("_maxSocketCount", "_validSocketCount", "_socketSaveDataList")
+        )
 
         name = self._name_db.get_name(item.item_key)
         bitmask = self._read_item_bitmask(blob, item)
 
         end_raw = item.endurance
         end_low = end_raw & 0xFF
-        end_high = (end_raw >> 8) & 0xFF
 
-        if design_limit == 0:
+        if design_limit == 0 and not has_socket_fields and not socket_data:
             self._sock_info.setText(
                 f"{name} +{item.enchant_level}  |  "
                 f"This item does not support abyss gears."
@@ -5042,23 +5428,25 @@ QCheckBox::indicator {{
             self._sock_unlock_group.setVisible(False)
             return
 
-        socket_data = self._read_socket_gems(blob, item)
         filled = sum(1 for sd in socket_data if sd.get('has_gem'))
+        display_capacity = self._SOCKET_UI_CAPACITY
+        original_limit_text = str(design_limit) if design_limit > 0 else "unknown"
 
         self._sock_info.setText(
             f"{name} +{item.enchant_level}  |  "
-            f"Sockets: {filled} filled · {valid_s} unlocked · {design_limit} max for this item ({max_s} structural)  |  "
-            f"Endurance raw=0x{end_raw:04X} (endurance={end_low}, sockets={end_high})  |  "
+            f"Sockets: {filled} filled · {valid_s} unlocked · {max_s} structural · "
+            f"{display_capacity} editor slots (original item limit: {original_limit_text})  |  "
+            f"Endurance raw=0x{end_raw:04X} (durability={end_low})  |  "
             f"Offset=0x{item.offset:06X}"
         )
         self._sock_info.setStyleSheet(f"color: {COLORS['accent']}; padding: 4px; font-weight: bold;")
 
-        locked_count = max(0, design_limit - valid_s)
+        locked_count = max(0, display_capacity - min(valid_s, display_capacity))
         if locked_count > 0:
             slot_word = "slot" if locked_count == 1 else "slots"
             self._sock_locked_hint.setText(
                 f"{locked_count} {slot_word} locked. Use the 'Unlock Socket Slots' panel "
-                f"below the slot rows to enable up to {design_limit} slots without visiting the Witch."
+                f"below the slot rows to enable up to {display_capacity} slots without visiting the Witch."
             )
             self._sock_locked_hint.setVisible(True)
         else:
@@ -5066,16 +5454,12 @@ QCheckBox::indicator {{
 
         self._sock_unlock_group.setVisible(True)
         self._sock_unlock_spin.blockSignals(True)
-        self._sock_unlock_spin.setRange(0, design_limit)
-        self._sock_unlock_spin.setValue(min(max_s, design_limit))
+        self._sock_unlock_spin.setRange(0, display_capacity)
+        self._sock_unlock_spin.setValue(min(max(max_s, valid_s), display_capacity))
         self._sock_unlock_spin.blockSignals(False)
 
-        for i in range(6):
+        for i in range(display_capacity):
             row = self._sock_rows[i]
-            if i >= design_limit:
-                row["container"].setVisible(False)
-                continue
-
             row["container"].setVisible(True)
             self._populate_gem_combo(row["combo"], row["filter"].currentText())
 
@@ -5089,18 +5473,23 @@ QCheckBox::indicator {{
 
             combo = row["combo"]
             unlocked = i < valid_s
+            record_exists = i < len(socket_data)
+            editable = unlocked and record_exists and has_gem
 
-            combo.setEnabled(unlocked)
-            row["filter"].setEnabled(unlocked)
-            row["search"].setEnabled(unlocked)
+            combo.setEnabled(editable)
+            row["filter"].setEnabled(editable)
+            row["search"].setEnabled(editable)
 
-            if unlocked:
+            if editable:
                 row["label"].setText(f"Slot {i+1}:")
-                row["label"].setStyleSheet(
-                    "font-weight: bold;" if has_gem
-                    else "font-weight: bold; color: gray;"
-                )
+                row["label"].setStyleSheet("font-weight: bold;")
                 row["label"].setToolTip("")
+            elif unlocked:
+                row["label"].setText(f"Slot {i+1} (empty):")
+                row["label"].setStyleSheet("font-weight: bold; color: gray;")
+                row["label"].setToolTip(
+                    "No installed Abyss Gear record — install a gem in-game first, then reload this save."
+                )
             else:
                 row["label"].setText(f"Slot {i+1} (locked):")
                 row["label"].setStyleSheet("font-weight: bold; color: gray;")
@@ -5140,18 +5529,11 @@ QCheckBox::indicator {{
 
         item = self._sock_current_item
         blob = self._save_data.decompressed_blob
-        max_s, _ = self._read_max_valid_sockets(blob, item)
-        design_limit = self._get_socket_design_limit(item.item_key)
         socket_data = self._read_socket_gems(blob, item)
 
-        # Only iterate slots the user can actually see and edit. The combo
-        # widgets are reused across item selections, so rows beyond the
-        # current item's design_limit (which are hidden) still hold whatever
-        # gem keys were left over from a previously-selected higher-slot
-        # item. Iterating range(max_s) — the structural array width, always
-        # 5 — would scoop up that stale data and misclassify it as fills,
-        # tripping the design-limit guard for swaps on 1- or 2-slot items.
-        edit_limit = min(max_s, design_limit) if design_limit > 0 else 0
+        # The editor always presents five rows. Only records that actually
+        # exist in the save can be changed; unavailable rows remain disabled.
+        edit_limit = min(self._SOCKET_UI_CAPACITY, len(socket_data))
         new_gems = []
         for i in range(edit_limit):
             key = self._sock_rows[i]["combo"].currentData() if i < len(self._sock_rows) else 0
@@ -5178,17 +5560,19 @@ QCheckBox::indicator {{
             return
 
         bitmask_pre = self._read_item_bitmask(blob, item)
-        sock_abs_pre = item.offset + self._compute_socket_list_offset(bitmask_pre)
+        sock_abs_pre = item.field_offsets.get("_socketSaveDataList")
+        if not isinstance(sock_abs_pre, int):
+            sock_abs_pre = item.offset + self._compute_socket_list_offset(bitmask_pre)
 
-        # Validate against design limit
+        # The vanilla item limit is informational: modded items may have more
+        # live records than their original definition (for example, 5/3).
         existing_filled = sum(1 for sd in socket_data if sd['has_gem'])
         new_filled = existing_filled + len(fills) - len(clears)
-        if new_filled > design_limit:
+        if new_filled > self._SOCKET_UI_CAPACITY:
             QMessageBox.warning(
                 self, "Sockets",
-                f"Cannot fill {len(fills)} slot(s): would exceed the design limit of "
-                f"{design_limit} for this item (currently {existing_filled} filled).\n\n"
-                f"The game will crash if more than {design_limit} slots are filled."
+                f"Cannot fill {len(fills)} slot(s): this would exceed the editor's "
+                f"five-slot capacity (currently {existing_filled} filled)."
             )
             return
 
@@ -5257,18 +5641,21 @@ QCheckBox::indicator {{
 
         item = self._sock_current_item
         blob = self._save_data.decompressed_blob
-        bitmask = self._read_item_bitmask(blob, item)
+        max_s_off = item.field_offsets.get("_maxSocketCount")
+        valid_s_off = item.field_offsets.get("_validSocketCount")
 
-        offset = 0
-        for field_idx in range(11):
-            if self._item_bitmask_field_present(bitmask, field_idx):
-                offset += self._ITEM_FIELD_SIZES[field_idx]
-        max_s_off = item.offset + offset if self._item_bitmask_field_present(bitmask, 11) else None
-        valid_s_off = None
-        if self._item_bitmask_field_present(bitmask, 11):
-            offset += 1
-        if self._item_bitmask_field_present(bitmask, 12):
-            valid_s_off = item.offset + offset
+        if not isinstance(max_s_off, int):
+            bitmask = self._read_item_bitmask(blob, item)
+            offset = 0
+            for field_idx in range(11):
+                if self._item_bitmask_field_present(bitmask, field_idx):
+                    offset += self._ITEM_FIELD_SIZES[field_idx]
+            max_s_off = item.offset + offset if self._item_bitmask_field_present(bitmask, 11) else None
+            valid_s_off = None
+            if self._item_bitmask_field_present(bitmask, 11):
+                offset += 1
+            if self._item_bitmask_field_present(bitmask, 12):
+                valid_s_off = item.offset + offset
 
         if max_s_off is None:
             QMessageBox.warning(self, "Max Sockets", "This item has no maxSocketCount field.")
@@ -5276,7 +5663,7 @@ QCheckBox::indicator {{
 
         reply = QMessageBox.question(
             self, "Max Sockets",
-            f"Set socket count to 6 for {self._name_db.get_name(item.item_key)}?\n\n"
+            f"Set socket count to 5 for {self._name_db.get_name(item.item_key)}?\n\n"
             "WARNING: The game may not support more sockets than the item originally had. "
             "This could cause issues. Back up first.",
             QMessageBox.Yes | QMessageBox.No,
@@ -5286,16 +5673,16 @@ QCheckBox::indicator {{
 
         patches = []
         old_max = bytes([blob[max_s_off]])
-        blob[max_s_off] = 6
-        patches.append((max_s_off, old_max, bytes([6])))
+        blob[max_s_off] = self._SOCKET_UI_CAPACITY
+        patches.append((max_s_off, old_max, bytes([self._SOCKET_UI_CAPACITY])))
 
         if valid_s_off is not None:
             old_valid = bytes([blob[valid_s_off]])
-            blob[valid_s_off] = 6
-            patches.append((valid_s_off, old_valid, bytes([6])))
+            blob[valid_s_off] = self._SOCKET_UI_CAPACITY
+            patches.append((valid_s_off, old_valid, bytes([self._SOCKET_UI_CAPACITY])))
 
         self._undo_stack.append(UndoEntry(
-            description=f"Max sockets (6) for {self._name_db.get_name(item.item_key)}",
+            description=f"Max sockets (5) for {self._name_db.get_name(item.item_key)}",
             patches=patches,
         ))
         self._dirty = True
@@ -5440,41 +5827,13 @@ QCheckBox::indicator {{
         packs_help_row.addWidget(self._make_help_btn("packs"))
         layout.addLayout(packs_help_row)
 
-        community = QGroupBox("Community Packs (from GitHub)")
-        c_layout = QVBoxLayout(community)
-
-        c_top = QHBoxLayout()
-        refresh_btn = QPushButton("Refresh from GitHub")
-        refresh_btn.clicked.connect(self._fetch_community_packs)
-        c_top.addWidget(refresh_btn)
-        c_top.addStretch()
-        self._packs_status = QLabel("Click Refresh to browse community packs")
-        self._packs_status.setStyleSheet(f"color: {COLORS['text_dim']};")
-        c_top.addWidget(self._packs_status)
-        c_layout.addLayout(c_top)
-
-        self._community_table = QTableWidget()
-        self._community_table.setColumnCount(5)
-        self._community_table.setHorizontalHeaderLabels(["Name", "Author", "Items", "Description", "File"])
-        self._community_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._community_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._community_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Interactive)
-        self._community_table.setColumnWidth(3, 200)
-        self._community_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._community_table.verticalHeader().setDefaultSectionSize(24)
-        c_layout.addWidget(self._community_table)
-
-        c_btn = QHBoxLayout()
-        dl_btn = QPushButton("Download Selected Pack")
-        dl_btn.setObjectName("accentBtn")
-        dl_btn.clicked.connect(self._download_community_pack)
-        c_btn.addWidget(dl_btn)
-        preview_btn = QPushButton("Preview Contents")
-        preview_btn.clicked.connect(self._preview_community_pack)
-        c_btn.addWidget(preview_btn)
-        c_btn.addStretch()
-        c_layout.addLayout(c_btn)
-        layout.addWidget(community)
+        local_note = QLabel(
+            "Local packs only: copy optional pack JSON files into the packs folder next to the editor.\n"
+            "No pack index, refresh, or download service is included in this build."
+        )
+        local_note.setWordWrap(True)
+        local_note.setStyleSheet(f"color: {COLORS['text_dim']}; padding: 4px;")
+        layout.addWidget(local_note)
 
         local = QGroupBox("My Packs (local)")
         l_layout = QVBoxLayout(local)
@@ -5539,10 +5898,10 @@ QCheckBox::indicator {{
         layout.addWidget(self._make_scope_label("readonly"))
 
         purpose = QLabel(
-            "Help us map every item in Crimson Desert! This tool collects real item templates "
-            "from player saves to build a complete database of all items, equipment, and their binary structures. "
-            "The more saves we scan, the more items the editor can support. "
-            "Click 'Sync with Community' to contribute your discovered items."
+            "Local template tools collect real item structures from your saves. "
+            "Import an optional master_templates JSON file, scan your saves, and export "
+            "new discoveries to a JSON file if you want to share them manually. "
+            "This editor never connects to a server."
         )
         purpose.setWordWrap(True)
         purpose.setStyleSheet(
@@ -5555,7 +5914,7 @@ QCheckBox::indicator {{
         help_row.addWidget(self._make_help_btn("community"))
         layout.addLayout(help_row)
 
-        status_group = QGroupBox("Community Item Template Database")
+        status_group = QGroupBox("Local Item Template Database")
         sg = QVBoxLayout(status_group)
 
         self._community_status = QLabel("Loading template database...")
@@ -5571,22 +5930,16 @@ QCheckBox::indicator {{
         sg.addWidget(self._community_progress)
 
         btn_row = QHBoxLayout()
-        sync_btn = QPushButton("Sync with Community")
-        sync_btn.setObjectName("accentBtn")
-        sync_btn.setToolTip("Download latest DB, scan your saves, upload new templates")
-        sync_btn.clicked.connect(self._community_sync)
-        btn_row.addWidget(sync_btn)
+        import_btn = QPushButton("Import Master JSON")
+        import_btn.setToolTip("Install a master_templates JSON file already on this computer")
+        import_btn.clicked.connect(self._community_import_master)
+        btn_row.addWidget(import_btn)
 
-        dl_btn = QPushButton("Download Latest DB")
-        dl_btn.setToolTip("Download the latest master template database from GitHub")
-        dl_btn.clicked.connect(self._community_download)
-        btn_row.addWidget(dl_btn)
-
-        upload_btn = QPushButton("Upload New Templates")
-        upload_btn.setObjectName("accentBtn")
-        upload_btn.setToolTip("Upload templates you have that the master DB doesn't (no rescan needed)")
-        upload_btn.clicked.connect(self._community_upload)
-        btn_row.addWidget(upload_btn)
+        export_btn = QPushButton("Export New Templates")
+        export_btn.setObjectName("accentBtn")
+        export_btn.setToolTip("Write locally discovered templates to a JSON file for manual sharing")
+        export_btn.clicked.connect(self._community_export)
+        btn_row.addWidget(export_btn)
 
         scan_loaded_btn = QPushButton("Scan Loaded Save")
         scan_loaded_btn.setToolTip("Scan the currently loaded save for item templates (fast)")
@@ -5664,7 +6017,7 @@ QCheckBox::indicator {{
                 f"Master DB: {status['master_count']} templates  |  "
                 f"Coverage: {status['coverage_pct']}% of {status['total_game_items']} game items  |  "
                 f"Local: {status['local_count']} templates  |  "
-                f"New to contribute: {status['new_count']}"
+                f"Not in master: {status['new_count']}"
             )
             self._update_coverage_table()
         except Exception as e:
@@ -5702,80 +6055,49 @@ QCheckBox::indicator {{
         except Exception:
             pass
 
-    def _community_sync(self) -> None:
-        self._community_status.setText("Downloading master DB...")
-        QApplication.processEvents()
+    def _community_import_master(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Local Master Template Database",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
         try:
-            from template_sync import download_master, find_new_templates, upload_contribution, _LOCAL_MASTER
-            from item_template_db import load_db
-            import json
-
-            master = download_master()
-            master_count = len(master.get('templates', {}))
-            self._community_status.setText(f"Master DB: {master_count} templates. Checking local...")
-            QApplication.processEvents()
-
-            db = load_db()
-            new = find_new_templates(db, master)
-
-            if new:
-                self._community_status.setText(f"Uploading {len(new)} new templates...")
-                QApplication.processEvents()
-                ok, msg = upload_contribution(new)
-                if ok:
-                    master_templates = master.get('templates', {})
-                    master_templates.update(new)
-                    master['templates'] = master_templates
-                    master['total_items'] = len(master_templates)
-                    with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-                        json.dump(master, f, separators=(',', ':'))
-                self._community_status.setText(msg)
-            else:
-                self._community_status.setText(
-                    f"Up to date! Master: {master_count} templates, nothing new to contribute."
-                )
-        except Exception as e:
-            self._community_status.setText(f"Sync failed: {e}")
-        self._update_community_status()
-
-    def _community_download(self) -> None:
-        self._community_status.setText("Downloading...")
-        QApplication.processEvents()
-        try:
-            from template_sync import download_master
-            master = download_master()
-            count = len(master.get('templates', {}))
-            self._community_status.setText(f"Downloaded master DB: {count} templates")
-        except Exception as e:
-            self._community_status.setText(f"Download failed: {e}")
-        self._update_community_status()
-
-    def _community_upload(self) -> None:
-        self._community_status.setText("Checking for new templates to upload...")
-        QApplication.processEvents()
-        try:
-            from template_sync import load_local_master, find_new_templates, upload_contribution
-            from item_template_db import load_db
-            db = load_db()
-            master = load_local_master()
-            new = find_new_templates(db, master)
-            if not new:
-                self._community_status.setText("Nothing new to upload — local DB matches master.")
-                return
-            ok, msg = upload_contribution(new)
+            from template_sync import import_master
+            ok, message = import_master(path)
             if ok:
-                master_templates = master.get('templates', {})
-                master_templates.update(new)
-                master['templates'] = master_templates
-                master['total_items'] = len(master_templates)
-                import json
-                from template_sync import _LOCAL_MASTER
-                with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-                    json.dump(master, f, separators=(',', ':'))
-            self._community_status.setText(msg)
-        except Exception as e:
-            self._community_status.setText(f"Upload failed: {e}")
+                from item_template_db import _reload_db
+                _reload_db()
+            self._community_status.setText(message)
+        except Exception as exc:
+            self._community_status.setText(f"Import failed: {exc}")
         self._update_community_status()
+
+    def _community_export(self) -> None:
+        try:
+            from template_sync import export_contribution, find_new_templates, load_local_master
+            from item_template_db import load_db
+            new_templates = find_new_templates(load_db(), load_local_master())
+        except Exception as exc:
+            self._community_status.setText(f"Could not prepare export: {exc}")
+            return
+        if not new_templates:
+            self._community_status.setText("No local templates are missing from the master database.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export New Item Templates",
+            "item_template_contribution.json",
+            "JSON Files (*.json)",
+        )
+        if not path:
+            return
+        ok, message = export_contribution(new_templates, path)
+        self._community_status.setText(message)
+        if not ok:
+            QMessageBox.warning(self, "Template export", message)
 
     def _community_scan_loaded(self) -> None:
         if not self._save_data:
@@ -5805,7 +6127,7 @@ QCheckBox::indicator {{
             new_to_share = find_new_templates(db, master)
             self._community_status.setText(
                 f"Loaded save: {len(templates)} items found, {new_count} new to local DB. "
-                f"{len(new_to_share)} ready to contribute."
+                f"{len(new_to_share)} are not in the local master."
             )
         except Exception as e:
             self._community_status.setText(f"Scan failed: {e}")
@@ -5833,7 +6155,7 @@ QCheckBox::indicator {{
             master = load_local_master()
             new = find_new_templates(local, master)
             self._community_status.setText(
-                f"Scanned: {len(local)} templates found. {len(new)} new to contribute."
+                f"Scanned: {len(local)} templates found. {len(new)} are not in the local master."
             )
         except Exception as e:
             self._community_status.setText(f"Scan failed: {e}")
@@ -5948,69 +6270,6 @@ QCheckBox::indicator {{
             f"{len(all_targets) - len(used_keys)} unmapped targets remaining in range."
         )
         self._update_community_status()
-
-    def _fetch_community_packs(self) -> None:
-        self._packs_status.setText("Fetching...")
-        QApplication.processEvents()
-        ok, msg = self._pack_mgr.fetch_remote_index()
-        self._packs_status.setText(msg)
-
-        table = self._community_table
-        entries = self._pack_mgr.get_remote_index()
-        table.setRowCount(len(entries))
-        for row, e in enumerate(entries):
-            table.setItem(row, 0, QTableWidgetItem(e.name))
-            table.setItem(row, 1, QTableWidgetItem(e.author))
-            table.setItem(row, 2, QTableWidgetItem(str(e.item_count)))
-            table.setItem(row, 3, QTableWidgetItem(e.description))
-            table.setItem(row, 4, QTableWidgetItem(e.filename))
-
-    def _download_community_pack(self) -> None:
-        rows = set(idx.row() for idx in self._community_table.selectedIndexes())
-        if not rows:
-            QMessageBox.information(self, "Download", "Select a pack from the list first.")
-            return
-        row = min(rows)
-        fname_w = self._community_table.item(row, 4)
-        if not fname_w:
-            return
-        filename = fname_w.text()
-
-        self._packs_status.setText(f"Downloading {filename}...")
-        QApplication.processEvents()
-        pack, msg = self._pack_mgr.download_pack(filename)
-        self._packs_status.setText(msg)
-
-        if pack:
-            self._refresh_local_packs()
-            QMessageBox.information(self, "Downloaded", msg)
-
-    def _preview_community_pack(self) -> None:
-        rows = set(idx.row() for idx in self._community_table.selectedIndexes())
-        if not rows:
-            return
-        row = min(rows)
-        fname_w = self._community_table.item(row, 4)
-        name_w = self._community_table.item(row, 0)
-        if not fname_w:
-            return
-
-        pack, msg = self._pack_mgr.download_pack(fname_w.text())
-        if not pack:
-            QMessageBox.warning(self, "Preview", msg)
-            return
-
-        items_text = "\n".join(
-            f"  {it.name or f'Key:{it.item_key}'} x{it.count}"
-            + (f" +{it.enchant}" if it.enchant >= 0 else "")
-            for it in pack.items
-        )
-        QMessageBox.information(
-            self, f"Pack: {pack.name}",
-            f"Author: {pack.author}\n"
-            f"Description: {pack.description}\n"
-            f"Items ({len(pack.items)}):\n{items_text}"
-        )
 
     def _refresh_local_packs(self) -> None:
         packs = self._pack_mgr.scan_local()
@@ -6158,15 +6417,17 @@ QCheckBox::indicator {{
         for pack_item, donor in dlg.mappings:
             patches = smart_item_swap(self._save_data.decompressed_blob, donor, pack_item.item_key)
             old_stack = apply_stack_edit(self._save_data.decompressed_blob, donor, pack_item.count)
+            stack_off = donor.field_offsets["_stackCount"]
             patches.append((
-                donor.offset + 18, old_stack,
-                self._save_data.decompressed_blob[donor.offset + 18:donor.offset + 26]
+                stack_off, old_stack,
+                self._save_data.decompressed_blob[stack_off:stack_off + 8]
             ))
             if pack_item.enchant >= 0 and donor.has_enchant:
                 old_enc = apply_enchant_edit(self._save_data.decompressed_blob, donor, pack_item.enchant)
+                enchant_off = donor.field_offsets["_enchantLevel"]
                 patches.append((
-                    donor.offset + 26, old_enc,
-                    self._save_data.decompressed_blob[donor.offset + 26:donor.offset + 28]
+                    enchant_off, old_enc,
+                    self._save_data.decompressed_blob[enchant_off:enchant_off + 2]
                 ))
             all_patches.extend(patches)
             applied += 1
@@ -6285,12 +6546,15 @@ QCheckBox::indicator {{
         self._db_category.currentTextChanged.connect(self._filter_database)
         top.addWidget(self._db_category)
 
-        sync_btn = QPushButton("Sync from GitHub")
-        sync_btn.clicked.connect(self._sync_github)
-        top.addWidget(sync_btn)
+        sync_local_btn = QPushButton("Sync Items Local")
+        sync_local_btn.setToolTip("Read item keys from the locally installed Crimson Desert client. No internet is used.")
+        sync_local_btn.clicked.connect(self._sync_items_local)
+        top.addWidget(sync_local_btn)
 
-        self._db_show_icons_btn = QPushButton("Hide Icons" if self._icons_enabled else "Show Icons")
-        self._db_show_icons_btn.setToolTip("Download and display all item icons from GitHub.\nFirst time requires internet. Icons cached locally.")
+        self._db_show_icons_btn = QPushButton("Hide Local Icons" if self._icons_enabled else "Show Local Icons")
+        self._db_show_icons_btn.setToolTip(
+            "Display icons from the optional icons_local folder beside the editor."
+        )
         self._db_show_icons_btn.clicked.connect(self._toggle_icons)
         top.addWidget(self._db_show_icons_btn)
 
@@ -6354,6 +6618,7 @@ QCheckBox::indicator {{
 
     def _build_repurchase_tab(self) -> None:
         tab = QWidget()
+        self._repurchase_tab = tab
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
@@ -6514,28 +6779,9 @@ QCheckBox::indicator {{
             self._save_dye_slot_db(db)
 
     def _dye_sync_slot_db(self) -> None:
-        import urllib.request, json as _json
-        url = (
-            "https://raw.githubusercontent.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-            "/main/dye_slot_counts.json"
+        self._dye_status.setText(
+            "Online dye database sync is not included; local auto-learning remains available."
         )
-        self._dye_status.setText("Syncing dye slot database...")
-        QApplication.processEvents()
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-            remote = _json.loads(urllib.request.urlopen(req, timeout=10).read())
-        except Exception as e:
-            self._dye_status.setText(f"Sync failed: {e}")
-            return
-
-        local = self._load_dye_slot_db()
-        added = 0
-        for k, v in remote.items():
-            if k not in local:
-                local[k] = v
-                added += 1
-        self._save_dye_slot_db(local)
-        self._dye_status.setText(f"Synced: {added} new items added ({len(local)} total known)")
 
     DYE_COLOR_GROUPS = {
         0xC88211F5: "Herenon",
@@ -8677,6 +8923,21 @@ QCheckBox::indicator {{
                      it.item_key, it.name, it.source, it.offset)
         self._filter_repurchase()
 
+    def _on_save_subtab_changed(self, _index: int) -> None:
+        """Build expensive vendor details only when the user opens that tab."""
+        if not self._save_data or getattr(self, "_repurchase_loaded", False):
+            return
+        repurchase_tab = getattr(self, "_repurchase_tab", None)
+        if repurchase_tab is None or self._save_tabs.currentWidget() is not repurchase_tab:
+            return
+        self._update_status("Loading vendor repurchase details...")
+        QApplication.processEvents()
+        self._populate_repurchase()
+        self._enrich_vendor_names()
+        self._populate_inventory()
+        self._repurchase_loaded = True
+        self._update_status(f"Vendor repurchase: {len(self._repurch_items)} items loaded")
+
     def _filter_repurchase(self) -> None:
         table = self._repurch_table
         table.setSortingEnabled(False)
@@ -8759,7 +9020,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_stack_edit(self._save_data.decompressed_blob, item, new_stack)
-            edits.append((item.offset + 18, old, self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]))
+            stack_off = item.field_offsets["_stackCount"]
+            edits.append((stack_off, old, self._save_data.decompressed_blob[stack_off:stack_off + 8]))
         if edits:
             self._undo_stack.append(UndoEntry(
                 description=f"Repurchase: set stack to {new_stack} for {len(edits)} items",
@@ -8981,10 +9243,11 @@ QCheckBox::indicator {{
                 old_stack_bytes = apply_stack_edit(
                     self._save_data.decompressed_blob, item, new_stack_limit
                 )
+                stack_off = item.field_offsets["_stackCount"]
                 patches.append((
-                    item.offset + 18,
+                    stack_off,
                     old_stack_bytes,
-                    self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]
+                    self._save_data.decompressed_blob[stack_off:stack_off + 8]
                 ))
             method_used = "Key swap (fallback)"
 
@@ -10547,24 +10810,23 @@ QCheckBox::indicator {{
             state_sz = entry.get('state_size', 4)
             mask_hex = entry.get('mask_hex', '')
 
-            kind_label = "Mission" if is_mission else "Quest"
             if has_ct:
-                type_str = kind_label
+                type_str = "OK"
                 type_color = COLORS['success']
-                tip = f"{kind_label} | Has _completedTime | State: {state_sz}B | Mask: {mask_hex}"
+                tip = f"{'Mission' if is_mission else 'Quest'} | Has _completedTime | State: {state_sz}B | Mask: {mask_hex}"
             elif needs_expand and is_mission:
-                type_str = f"{kind_label} · PARC"
+                type_str = "PARC"
                 type_color = COLORS['warning']
                 tip = (f"Mission | No _completedTime — needs PARC expansion to complete\n"
                        f"State: {state_sz}B | Mask: {mask_hex}\n"
                        f"Mark Completed will auto-insert timestamp fields")
             elif needs_expand:
-                type_str = f"{kind_label} · PARC"
+                type_str = "PARC"
                 type_color = COLORS['warning']
                 tip = (f"Quest | No _completedTime — may need PARC expansion\n"
                        f"State: {state_sz}B | Mask: {mask_hex}")
             else:
-                type_str = kind_label
+                type_str = "OK"
                 type_color = COLORS['text']
                 tip = f"{'Mission' if is_mission else 'Quest'} | State: {state_sz}B | Mask: {mask_hex}"
 
@@ -11092,7 +11354,7 @@ QCheckBox::indicator {{
 
         try:
             import sys as _sys
-            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
+            _sys.path.insert(0, 'Communitydump/desktopeditor')
             import save_parser as _sp
 
             self._qe_status.setText("Resetting encounters...")
@@ -11166,7 +11428,7 @@ QCheckBox::indicator {{
             return
 
         import sys as _sys
-        'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
+        _sys.path.insert(0, 'Communitydump/desktopeditor')
         import save_parser as _sp
         from quest_deep_parser import parse_quest_deep
 
@@ -11263,7 +11525,7 @@ QCheckBox::indicator {{
 
         try:
             import sys as _sys
-            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
+            _sys.path.insert(0, 'Communitydump/desktopeditor')
             import save_parser as _sp
             _result = _sp.build_result_from_raw(bytes(raw), {'input_kind': 'raw_blob'})
 
@@ -12917,13 +13179,6 @@ QCheckBox::indicator {{
         unlock_abyss_btn.clicked.connect(self._unlock_all_abyss_gates)
         abyss_btn_row.addWidget(unlock_abyss_btn)
 
-        dl_know_btn = QPushButton("Download Knowledge Packs")
-        dl_know_btn.setToolTip(
-            "Download knowledge packs from GitHub.\n"
-            "Required for Unlock Abyss Gates if packs are missing.")
-        dl_know_btn.clicked.connect(self._download_knowledge_packs)
-        abyss_btn_row.addWidget(dl_know_btn)
-
         refog_btn = QPushButton("Re-Fog Map")
         refog_btn.setToolTip("Cover the entire map in fog again.")
         refog_btn.clicked.connect(self._debug_refog_map)
@@ -13062,74 +13317,6 @@ QCheckBox::indicator {{
         except Exception as e:
             import traceback; traceback.print_exc()
             self._waypoint_count.setText(f"Error: {e}")
-
-    _KNOWLEDGE_PACK_REPO = "NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-    _KNOWLEDGE_PACK_DIR = "knowledge_packs"
-    _KNOWLEDGE_PACK_URL = (
-        "https://api.github.com/repos/NattKh/CRIMSON-DESERT-SAVE-EDITOR"
-        "/contents/knowledge_packs"
-    )
-
-    def _get_knowledge_packs_dir(self) -> str:
-        if getattr(sys, 'frozen', False):
-            base = os.path.dirname(os.path.abspath(sys.executable))
-        else:
-            base = os.path.dirname(__file__)
-        d = os.path.join(base, 'knowledge_packs')
-        os.makedirs(d, exist_ok=True)
-        return d
-
-    def _download_knowledge_packs(self) -> None:
-        import urllib.request, urllib.parse, json as _json
-
-        self._update_status("Fetching knowledge pack list from GitHub...")
-        QApplication.processEvents()
-
-        try:
-            req = urllib.request.Request(
-                self._KNOWLEDGE_PACK_URL,
-                headers={"User-Agent": "CrimsonSaveEditor", "Accept": "application/vnd.github.v3+json"},
-            )
-            resp = urllib.request.urlopen(req, timeout=15)
-            listing = _json.loads(resp.read())
-        except Exception as e:
-            QMessageBox.critical(self, "Download Failed",
-                f"Could not fetch pack list from GitHub:\n{e}")
-            self._update_status("Download failed.")
-            return
-
-        packs = [f for f in listing if f['name'].endswith('.json')]
-        if not packs:
-            QMessageBox.information(self, "Knowledge Packs", "No knowledge packs found on GitHub.")
-            return
-
-        dest_dir = self._get_knowledge_packs_dir()
-        downloaded = 0
-        skipped = 0
-        for pack in packs:
-            local_path = os.path.join(dest_dir, pack['name'])
-            if os.path.isfile(local_path):
-                skipped += 1
-                continue
-            self._update_status(f"Downloading {pack['name']}...")
-            QApplication.processEvents()
-            try:
-                dl_url = pack['download_url']
-                req = urllib.request.Request(dl_url, headers={"User-Agent": "CrimsonSaveEditor"})
-                data = urllib.request.urlopen(req, timeout=30).read()
-                with open(local_path, 'wb') as fp:
-                    fp.write(data)
-                downloaded += 1
-            except Exception as e:
-                QMessageBox.warning(self, "Download Error",
-                    f"Failed to download {pack['name']}:\n{e}")
-
-        msg = f"Downloaded {downloaded} pack(s)"
-        if skipped:
-            msg += f", {skipped} already present"
-        msg += f"\nSaved to: {dest_dir}"
-        self._update_status(msg)
-        QMessageBox.information(self, "Knowledge Packs Downloaded", msg)
 
     def _unlock_all_abyss_gates(self) -> None:
         if not self._save_data:
@@ -13629,31 +13816,6 @@ QCheckBox::indicator {{
         self._tabs.addTab(tab, "Teleport")
 
 
-    def _know_parse_entries(self):
-        """Yield (key, level, level_offset) for every knowledge entry."""
-        result = self._get_parse_result()
-        if not result:
-            return
-        import struct as _st
-        blob = self._save_data.decompressed_blob
-        for obj in result['objects']:
-            if obj.class_name != 'KnowledgeSaveData':
-                continue
-            for f in obj.fields:
-                if f.name != '_list' or not f.list_elements:
-                    continue
-                for elem in f.list_elements:
-                    key = level = level_offset = None
-                    for cf in (elem.child_fields or []):
-                        if cf.name == '_key' and cf.present:
-                            key = _st.unpack_from('<I', blob, cf.start_offset)[0]
-                        elif cf.name == '_level' and cf.present:
-                            level_offset = cf.start_offset
-                            level = _st.unpack_from('<I', blob, cf.start_offset)[0]
-                    if key is not None and level is not None:
-                        yield key, level, level_offset
-            return
-
     def _know_scan(self) -> None:
         if not self._save_data:
             QMessageBox.warning(self, "Knowledge", "Load a save file first.")
@@ -13671,13 +13833,19 @@ QCheckBox::indicator {{
             from save_parser import build_result_from_raw, parse_schema, parse_toc
             import struct as _st
 
-            # The 4-byte-stride pattern walk missed keys at unaligned
-            # offsets and counted level-0 leftovers as learned; the cached
-            # parse tree is exact and carries the level.
+            blob = bytes(self._save_data.decompressed_blob)
+            schema = parse_schema(blob)
+            toc = parse_toc(blob, schema['schema_end'], [t.name for t in schema['types']])
+
             self._know_learned_keys = set()
-            for key, level, _off in self._know_parse_entries():
-                if level >= 1:
-                    self._know_learned_keys.add(key)
+            for e in toc['entries']:
+                if e.class_name == 'KnowledgeSaveData':
+                    block = blob[e.data_offset:e.data_offset + e.data_size]
+                    for off in range(0, len(block) - 3, 4):
+                        v = _st.unpack_from('<I', block, off)[0]
+                        if 1000000 <= v <= 1999999:
+                            self._know_learned_keys.add(v)
+                    break
 
             know_path = os.path.join(
                 getattr(sys, '_MEIPASS', os.path.dirname(__file__)),
@@ -13833,20 +14001,24 @@ QCheckBox::indicator {{
 
         try:
             import struct as _st
-            blob = self._save_data.decompressed_blob
+            entry, raw = self._find_parc_block("KnowledgeSaveData")
+            if not entry or not raw:
+                QMessageBox.warning(self, "Knowledge", "KnowledgeSaveData block not found.")
+                return
+
             target_keys = set(to_unlearn)
+            abs_base = entry.data_offset
+            blob = self._save_data.decompressed_blob
             patches = []
             unlearned = 0
-            # Patch the level field through the parse tree - the raw byte
-            # scan misread unaligned records and could overrun the block
-            # tail (it unpacked eight bytes at i+8 while iterating to
-            # len-14).
-            for key, level, level_offset in self._know_parse_entries():
-                if key in target_keys and level >= 1 and level_offset is not None:
-                    old_bytes = bytes(blob[level_offset:level_offset + 4])
+
+            for i, key, level, ts in _iter_knowledge_records(raw):
+                if key in target_keys and 1 <= level <= 5 and ts > 1000000:
+                    abs_off = abs_base + i + 4
+                    old_bytes = bytes(blob[abs_off:abs_off + 4])
                     new_bytes = _st.pack("<I", 0)
-                    blob[level_offset:level_offset + 4] = new_bytes
-                    patches.append((level_offset, old_bytes, new_bytes))
+                    blob[abs_off:abs_off + 4] = new_bytes
+                    patches.append((abs_off, old_bytes, new_bytes))
                     target_keys.discard(key)
                     unlearned += 1
 
@@ -14293,7 +14465,6 @@ QCheckBox::indicator {{
                     f"{msg} | {learned_count}/{len(self._know_all_entries)} learned"
                 )
 
-                self._know_filter()
                 QMessageBox.information(self, "Knowledge Injected",
                     f"{msg}\n\nSave (Ctrl+S) for changes to take effect.")
             else:
@@ -14358,7 +14529,7 @@ QCheckBox::indicator {{
         layout.addWidget(friend_group)
 
         load_btn = QPushButton("Load Player Data")
-        load_btn.setStyleSheet(f"background-color: {COLORS['accent']}; color: white; font-weight: bold; padding: 6px;")
+        load_btn.setStyleSheet(f"background-color: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')}; font-weight: bold; padding: 6px;")
         load_btn.clicked.connect(self._player_load)
         layout.addWidget(load_btn)
 
@@ -14624,12 +14795,7 @@ QCheckBox::indicator {{
                 abs_off = entry_k.data_offset
                 total = 0
                 maxed = 0
-                for i in range(len(raw_k) - 16):
-                    key = struct.unpack_from("<I", raw_k, i)[0]
-                    level = struct.unpack_from("<I", raw_k, i + 4)[0]
-                    if i + 16 > len(raw_k):
-                        break
-                    ts = struct.unpack_from("<Q", raw_k, i + 8)[0]
+                for i, key, level, ts in _iter_knowledge_records(raw_k):
                     if key > 0 and 1 <= level <= 5 and ts > 1000000:
                         total += 1
                         if level == 5:
@@ -14724,10 +14890,7 @@ QCheckBox::indicator {{
             QMessageBox.warning(self, "Debug", "KnowledgeSaveData block not found in save.")
             return
         matches = []
-        for i in range(len(raw) - 15):
-            key = struct.unpack_from("<I", raw, i)[0]
-            level = struct.unpack_from("<I", raw, i + 4)[0]
-            ts = struct.unpack_from("<Q", raw, i + 8)[0]
+        for i, key, level, ts in _iter_knowledge_records(raw):
             if key > 0 and 1 <= level <= 5 and ts > 1000000:
                 matches.append((i, level))
         if not matches:
@@ -15158,7 +15321,7 @@ QCheckBox::indicator {{
 
         try:
             import sys as _sys
-            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
+            _sys.path.insert(0, 'Communitydump/desktopeditor')
             from save_parser import build_result_from_raw
             raw = bytes(self._save_data.decompressed_blob)
             result = build_result_from_raw(raw, {'input_kind': 'raw_blob'})
@@ -15279,7 +15442,7 @@ QCheckBox::indicator {{
         self._bond_table.setRowCount(0)
         try:
             import sys as _sys
-            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
+            _sys.path.insert(0, 'Communitydump/desktopeditor')
             from save_parser import build_result_from_raw
             raw = bytes(self._save_data.decompressed_blob)
             result = build_result_from_raw(raw, {'input_kind': 'raw_blob'})
@@ -15348,7 +15511,7 @@ QCheckBox::indicator {{
         self._sublevel_table.setRowCount(0)
         try:
             import sys as _sys
-            'Communitydump/desktopeditor' in _sys.path or _sys.path.insert(0, 'Communitydump/desktopeditor')
+            _sys.path.insert(0, 'Communitydump/desktopeditor')
             from save_parser import build_result_from_raw
             raw = bytes(self._save_data.decompressed_blob)
             result = build_result_from_raw(raw, {'input_kind': 'raw_blob'})
@@ -15603,6 +15766,11 @@ QCheckBox::indicator {{
         path_row = QHBoxLayout()
         path_row.addWidget(QLabel("Game Install Path:"))
 
+        detect_btn = QPushButton("Auto-Detect Game Path")
+        detect_btn.setMinimumWidth(180)
+        detect_btn.clicked.connect(self._paz_auto_detect_path)
+        path_row.addWidget(detect_btn)
+
         self._paz_game_path = QLineEdit()
         self._paz_game_path.setPlaceholderText("Auto-detect or browse...")
         path_row.addWidget(self._paz_game_path, 1)
@@ -15610,11 +15778,6 @@ QCheckBox::indicator {{
         browse_btn = QPushButton("Browse...")
         browse_btn.clicked.connect(self._paz_browse_game_path)
         path_row.addWidget(browse_btn)
-
-        detect_btn = QPushButton("Auto-Detect Game Path")
-        detect_btn.setMinimumWidth(180)
-        detect_btn.clicked.connect(self._paz_auto_detect_path)
-        path_row.addWidget(detect_btn)
 
         layout.addLayout(path_row)
 
@@ -18046,9 +18209,9 @@ QCheckBox::indicator {{
 
         persistent_sel_style = (
             "QListWidget::item:selected:!active { "
-            f"background-color: {COLORS['accent']}; color: black; }} "
+            f"background-color: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')}; }} "
             "QListWidget::item:selected:active { "
-            f"background-color: {COLORS['accent']}; color: black; }}"
+            f"background-color: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')}; }}"
         )
         tgt_list.setStyleSheet(persistent_sel_style)
         src_list.setStyleSheet(persistent_sel_style)
@@ -18989,7 +19152,7 @@ QCheckBox::indicator {{
         hide_path_btn.setCheckable(True)
         hide_path_btn.setToolTip("Hide/Show game path bar")
         hide_path_btn.setStyleSheet(
-            f"QPushButton {{ background: {COLORS['accent']}; color: white; "
+            f"QPushButton {{ background: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')}; "
             f"font-weight: bold; border-radius: 12px; font-size: 12px; }}"
             f"QPushButton:checked {{ background: #4CAF50; }}")
         hide_path_btn.clicked.connect(
@@ -19885,15 +20048,6 @@ QCheckBox::indicator {{
         )
         import_community_btn.clicked.connect(self._buff_import_community_json)
         bottom_bar.addWidget(import_community_btn)
-
-        sync_names_btn = QPushButton("Sync Buff Names")
-        sync_names_btn.setToolTip(
-            "Download latest community-verified buff/stat/passive names from GitHub.\n"
-            "Updates display names in this tab. Contribute corrections via PR:\n"
-            "github.com/NattKh/CrimsonDesertCommunityItemMapping/buff_names_community.json"
-        )
-        sync_names_btn.clicked.connect(self._buff_sync_community_names)
-        bottom_bar.addWidget(sync_names_btn)
 
         save_cfg_btn = QPushButton("Save Config")
         save_cfg_btn.setToolTip(
@@ -25304,21 +25458,20 @@ QCheckBox::indicator {{
             QMessageBox.critical(self, "Error", str(e))
 
     def _buff_sync_community_names(self) -> None:
-        BUFF_NAMES_URL = (
-            "https://raw.githubusercontent.com/"
-            "NattKh/CrimsonDesertCommunityItemMapping/main/buff_names_community.json"
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Buff Names",
+            self._app_dir(),
+            "JSON Files (*.json)",
         )
-        self._buff_status_label.setText("Syncing buff names from GitHub...")
-        QApplication.processEvents()
-
+        if not path:
+            return
         try:
-            from urllib.request import urlopen, Request
-            req = Request(BUFF_NAMES_URL, headers={"User-Agent": "CrimsonSaveEditor/3.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+            with open(path, "r", encoding="utf-8") as source_file:
+                data = json.load(source_file)
         except Exception as e:
-            self._buff_status_label.setText(f"Sync failed: {e}")
-            QMessageBox.warning(self, "Sync Failed", f"Could not download buff names:\n{e}")
+            self._buff_status_label.setText(f"Import failed: {e}")
+            QMessageBox.warning(self, "Import Failed", f"Could not read buff names:\n{e}")
             return
 
         updated_buffs = 0
@@ -25426,9 +25579,7 @@ QCheckBox::indicator {{
                 f"  Buffs updated:    {updated_buffs} / {buffs_count}\n"
                 f"  Passives updated: {updated_passives} / {passives_count}\n\n"
                 f"Changes reflect in the stats table, Add Buff/Passive dropdowns,\n"
-                f"and description search immediately.\n\n"
-                f"Contribute corrections:\n"
-                f"github.com/NattKh/CrimsonDesertCommunityItemMapping")
+                f"and description search immediately.")
         else:
             QMessageBox.information(self, "Already Up to Date",
                 "All names match the latest community database.")
@@ -26445,25 +26596,6 @@ QCheckBox::indicator {{
             with open(path, "w", encoding="utf-8") as f:
                 f.write(self._set_mgr.export_set_json(es))
             self._set_status.setText(f"Exported '{es.name}' to {os.path.basename(path)}")
-
-    def _set_refresh_github(self) -> None:
-        self._set_status.setText("Fetching community sets...")
-        QApplication.processEvents()
-        ok, msg = self._set_mgr.fetch_remote_index()
-        if not ok:
-            self._set_status.setText(msg)
-            return
-        remote = self._set_mgr.get_remote_index()
-        downloaded = 0
-        for entry in remote:
-            local_path = os.path.join(self._set_mgr.local_dir, entry.filename)
-            if not os.path.isfile(local_path):
-                es, dl_msg = self._set_mgr.download_set(entry.filename)
-                if es:
-                    downloaded += 1
-        self._set_refresh_local()
-        self._set_status.setText(f"{msg} Downloaded {downloaded} new sets.")
-
 
     def _build_gamedata_tab(self) -> None:
         tab = QWidget()
@@ -28033,7 +28165,7 @@ QCheckBox::indicator {{
         help_btn.setFixedSize(24, 24)
         help_btn.setStyleSheet(
             f"font-weight: bold; font-size: 12px; border-radius: 12px; "
-            f"background-color: {COLORS['accent']}; color: white;")
+            f"background-color: {COLORS['accent']}; color: {COLORS.get('accent_text', '#111111')};")
         help_btn.clicked.connect(self._spawn_show_help)
         header.addWidget(help_btn)
 
@@ -31186,25 +31318,6 @@ QCheckBox::indicator {{
         self._status.addWidget(self._status_parc_label, 1)
         self._status.addPermanentWidget(self._status_action_label)
 
-        discord_btn = QPushButton()
-        discord_btn.setToolTip("Join the Crimson Desert Modding Discord")
-        discord_btn.setCursor(Qt.PointingHandCursor)
-        discord_btn.setFlat(True)
-        discord_btn.setFixedSize(26, 26)
-        try:
-            _dc_path = os.path.join(
-                getattr(sys, '_MEIPASS', os.path.dirname(__file__)), "icons", "discord.png"
-            )
-            if os.path.isfile(_dc_path):
-                discord_btn.setIcon(QIcon(_dc_path))
-                discord_btn.setIconSize(QSize(20, 20))
-        except Exception:
-            discord_btn.setText("DC")
-        discord_btn.clicked.connect(lambda: __import__('PySide6.QtGui', fromlist=['QDesktopServices']).QDesktopServices.openUrl(
-            __import__('PySide6.QtCore', fromlist=['QUrl']).QUrl("https://discord.gg/6wxX5xPS")
-        ))
-        self._status.addPermanentWidget(discord_btn)
-
     def _update_status(self, action: str = "") -> None:
         if self._loaded_path:
             name = os.path.basename(self._loaded_path)
@@ -31285,6 +31398,11 @@ QCheckBox::indicator {{
             self._load_save(saves[idx]["path"])
 
     def _load_save(self, path: str) -> None:
+        self._start_save_load(path)
+        return
+
+        # Kept below only as a readable record of the pre-v4 synchronous
+        # loader.  The asynchronous loader above replaces this path.
         from PySide6.QtWidgets import QProgressDialog
         progress = QProgressDialog("Loading save file...", None, 0, 5, self)
         progress.setWindowTitle("Loading")
@@ -31375,6 +31493,15 @@ QCheckBox::indicator {{
 
     def _do_save(self, path: str) -> None:
         try:
+            if self._save_data.is_raw_stream:
+                raise NativeBackendError(
+                    "Validated SAVE output requires an original .save container. "
+                    "Raw streams are inspection-only in this safety build."
+                )
+            if not self._loaded_path or not os.path.isfile(self._loaded_path):
+                raise NativeBackendError(
+                    "The original loaded save is unavailable. Reopen it before writing."
+                )
             reply = QMessageBox.question(
                 self, "Backup Save?",
                 "Create a backup of your current save before writing changes?\n\n"
@@ -31389,10 +31516,12 @@ QCheckBox::indicator {{
                 if backup_path:
                     self._update_status(f"Backup created: {os.path.basename(backup_path)}")
 
-            write_save_file(
-                path,
+            self._update_status("C++ backend is validating the edited save...")
+            QApplication.processEvents()
+            report = native_backend.write_validated_save(
+                self._loaded_path,
                 bytes(self._save_data.decompressed_blob),
-                self._save_data.raw_header if self._save_data.raw_header else None,
+                path,
             )
             self._loaded_path = path
             self._dirty = False
@@ -31403,67 +31532,27 @@ QCheckBox::indicator {{
             self._config["last_slot"] = friendly
             self._save_config()
 
-            self._update_status(f"Saved: {friendly} ({slot_dir})")
+            fingerprint = report.get("schema_fingerprint", "unknown")
+            self._native_validation = report
+            self._update_status(
+                f"C++ validated save: {friendly} ({slot_dir}) | schema {fingerprint}"
+            )
             self._refresh_backups()
             self._refresh_sidebar()
-            QMessageBox.warning(
-                self, "Save",
-                f"Save file written successfully.\n{path}\n\n"
-                "WARNING: It is recommended to save again in game after loading\n"
-                "the changes to have a new clean save to work with, before\n"
-                "applying another change."
+            QMessageBox.information(
+                self, "Validated Save",
+                "The C++ backend validated, wrote, and reopened the save successfully.\n"
+                f"{path}\n\nSchema: {fingerprint}\n"
+                f"Objects: {report.get('object_count', 'unknown')}\n"
+                "The destination was not replaced until validation completed."
             )
         except Exception as e:
+            log.exception("Validated save write failed for %s", path)
             QMessageBox.critical(
                 self, "Save Error",
                 f"Failed to save:\n\n{e}\n\n{traceback.format_exc()}"
             )
 
-
-    def _fix_duplicate_item_nos(self) -> None:
-        if not self._items or not self._save_data:
-            return
-
-        from collections import Counter
-        no_counts = Counter(it.item_no for it in self._items)
-        duplicated_nos = {no for no, count in no_counts.items() if count > 1}
-
-        if not duplicated_nos:
-            return
-
-        max_no = get_max_itemno(self._items)
-        next_no = max_no + 1
-        fixed = 0
-
-        for dup_no in duplicated_nos:
-            sharing = [it for it in self._items if it.item_no == dup_no]
-            for item in sharing[1:]:
-                apply_itemno_edit(
-                    self._save_data.decompressed_blob, item, next_no
-                )
-                next_no += 1
-                fixed += 1
-
-        if fixed > 0:
-            self._dirty = True
-            self._update_status(
-                f"Fixed {fixed} duplicate ItemNo(s) across "
-                f"{len(duplicated_nos)} group(s) — each item now has a unique ID."
-            )
-
-    def _get_parse_result(self):
-        """Full parse of the current save, cached until the blob is replaced."""
-        if not self._save_data:
-            return None
-        cached = self._parse_cache.get(self._save_data)
-        if cached is not None:
-            return cached
-        from save_parser import build_result_from_raw
-        result = build_result_from_raw(
-            bytes(self._save_data.decompressed_blob), {'input_kind': 'raw_blob'}
-        )
-        self._parse_cache.store(self._save_data, result)
-        return result
 
     def _scan_and_populate(self) -> None:
         if not self._save_data:
@@ -31471,19 +31560,11 @@ QCheckBox::indicator {{
 
         self._quest_entries = []
         self._mission_entries = []
-        try:
-            parse_result = self._get_parse_result()
-        except Exception:
-            parse_result = None
-        self._items = scan_items_smart(
-            self._save_data.decompressed_blob, parse_result
-        )
+        self._items = scan_items(self._save_data.decompressed_blob)
 
         for item in self._items:
             item.name = self._name_db.get_name(item.item_key)
             item.category = self._name_db.get_category(item.item_key)
-
-        self._fix_duplicate_item_nos()
 
         self._status_parc_label.setText("Loading... (PARC enriching in background)")
         self._status_parc_label.setStyleSheet(f"color: {COLORS['warning']}; padding: 0 8px;")
@@ -31521,8 +31602,9 @@ QCheckBox::indicator {{
         self._populate_equipment()
         self._populate_repurchase()
         self._populate_socket_items()
-        self._populate_repurchase()
-        self._populate_faction_tab()
+        self._faction_loaded_blob_id = None
+        if hasattr(self, "_faction_count"):
+            self._faction_count.setText("Open this tab to load faction data.")
         self._refresh_backups()
         self._inv_count_label.setText(str(len(self._items)))
 
@@ -31677,7 +31759,7 @@ QCheckBox::indicator {{
         self._config["show_icons"] = self._icons_enabled
         self._save_config()
 
-        btn_text = "Hide Icons" if self._icons_enabled else "Show Icons"
+        btn_text = "Hide Local Icons" if self._icons_enabled else "Show Local Icons"
         row_h = max(ICON_SIZE + 2, 24) if self._icons_enabled else 24
 
         self._show_icons_btn.setText(btn_text)
@@ -31686,17 +31768,13 @@ QCheckBox::indicator {{
         if hasattr(self, '_global_icons_btn'):
             self._global_icons_btn.setText(btn_text)
 
-        if self._icons_enabled and self._icon_cache.coverage < 100:
-            reply = QMessageBox.question(
-                self, "Download Icons",
-                f"Only {self._icon_cache.coverage} icons cached locally.\n"
-                f"Download all 6,000+ item icons + mount portraits from GitHub?\n\n"
-                f"This requires internet (first time only, ~70 MB).\n"
-                f"Already downloaded icons will be skipped.",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
+        if self._icons_enabled and self._icon_cache.coverage == 0:
+            QMessageBox.information(
+                self, "Local icon pack not found",
+                "No local icons were found. Place the optional icons_local folder next to "
+                "the editor executable, then restart or toggle Local Icons again.\n\n"
+                "This editor never downloads icons.",
             )
-            if reply == QMessageBox.Yes:
-                self._bulk_download_icons()
 
         for tbl in [self._inv_table, self._equip_table, self._repurch_table, self._db_table, self._swap_list, self._merc_table]:
             tbl.setColumnWidth(0, (ICON_SIZE + 16) if self._icons_enabled else 0)
@@ -31707,31 +31785,6 @@ QCheckBox::indicator {{
         self._populate_repurchase()
         self._filter_database()
         self._merc_refresh()
-
-    def _bulk_download_icons(self) -> None:
-        self._update_status("Downloading icons from GitHub...")
-        QApplication.processEvents()
-
-        def _progress(folder, downloaded, skipped, errors, total):
-            self._update_status(
-                f"Icons [{folder}]: {downloaded} downloaded, {skipped} cached, "
-                f"{errors} failed ({total} total)")
-            QApplication.processEvents()
-
-        import threading
-        def _do_download():
-            stats = self._icon_cache.bulk_download_all(progress_callback=_progress)
-            from PySide6.QtCore import QMetaObject, Qt as _Qt
-            self._update_status(
-                f"Icons: {stats['downloaded']} downloaded, {stats['skipped']} cached, "
-                f"{stats['errors']} failed")
-
-        thread = threading.Thread(target=_do_download, daemon=True)
-        thread.start()
-        self._populate_swap_list(
-            self._swap_search.text().strip() if hasattr(self, '_swap_search') else "",
-            self._swap_category.currentText() if hasattr(self, '_swap_category') else "All",
-        )
 
     def _on_icon_loaded(self, item_key: int, pixmap) -> None:
         self._icon_ready.emit(item_key)
@@ -32157,7 +32210,8 @@ QCheckBox::indicator {{
             old_bytes = apply_stack_edit(
                 self._save_data.decompressed_blob, item, new_stack
             )
-            edits.append((item.offset + 18, old_bytes, self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]))
+            stack_off = item.field_offsets["_stackCount"]
+            edits.append((stack_off, old_bytes, self._save_data.decompressed_blob[stack_off:stack_off + 8]))
 
         if edits:
             undo = UndoEntry(
@@ -32209,11 +32263,13 @@ QCheckBox::indicator {{
             self._save_data.decompressed_blob, item, new_no
         )
 
+        stack_off = item.field_offsets["_stackCount"]
+        item_no_off = item.field_offsets["_itemNo"]
         patches = [
-            (item.offset + 18, old_stack_bytes,
-             self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]),
-            (item.offset + 4, old_no_bytes,
-             self._save_data.decompressed_blob[item.offset + 4:item.offset + 12]),
+            (stack_off, old_stack_bytes,
+             self._save_data.decompressed_blob[stack_off:stack_off + 8]),
+            (item_no_off, old_no_bytes,
+             self._save_data.decompressed_blob[item_no_off:item_no_off + 8]),
         ]
 
         self._undo_stack.append(UndoEntry(
@@ -32276,7 +32332,8 @@ QCheckBox::indicator {{
         edits = []
         for item in equipped:
             old = apply_stack_edit(blob, item, count)
-            edits.append((item.offset + 18, old, blob[item.offset + 18:item.offset + 26]))
+            stack_off = item.field_offsets["_stackCount"]
+            edits.append((stack_off, old, blob[stack_off:stack_off + 8]))
 
         self._undo_stack.append(UndoEntry(
             description=f"Duplicate all equipment: stack={count} on {len(equipped)} items",
@@ -32320,12 +32377,20 @@ QCheckBox::indicator {{
                 skipped += 1
                 continue
             blob = self._save_data.decompressed_blob
-            old_key = bytes(blob[item.offset + 12:item.offset + 16])
-            old_stack = bytes(blob[item.offset + 18:item.offset + 26])
-            struct.pack_into("<I", blob, item.offset + 12, 0)
-            edits.append((item.offset + 12, old_key, bytes(blob[item.offset + 12:item.offset + 16])))
-            struct.pack_into("<q", blob, item.offset + 18, 0)
-            edits.append((item.offset + 18, old_stack, bytes(blob[item.offset + 18:item.offset + 26])))
+            if not item.parc_parsed:
+                skipped += 1
+                continue
+            key_off = item.field_offsets.get("_itemKey")
+            stack_off = item.field_offsets.get("_stackCount")
+            if key_off is None or stack_off is None:
+                skipped += 1
+                continue
+            old_key = bytes(blob[key_off:key_off + 4])
+            old_stack = bytes(blob[stack_off:stack_off + 8])
+            struct.pack_into("<I", blob, key_off, 0)
+            edits.append((key_off, old_key, bytes(blob[key_off:key_off + 4])))
+            struct.pack_into("<q", blob, stack_off, 0)
+            edits.append((stack_off, old_stack, bytes(blob[stack_off:stack_off + 8])))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -32373,10 +32438,11 @@ QCheckBox::indicator {{
         old_stack_bytes = apply_stack_edit(
             self._save_data.decompressed_blob, donor_item, target_count
         )
+        stack_off = donor_item.field_offsets["_stackCount"]
         patches.append((
-            donor_item.offset + 18,
+            stack_off,
             old_stack_bytes,
-            self._save_data.decompressed_blob[donor_item.offset + 18:donor_item.offset + 26]
+            self._save_data.decompressed_blob[stack_off:stack_off + 8]
         ))
 
         self._undo_stack.append(UndoEntry(
@@ -32467,10 +32533,11 @@ QCheckBox::indicator {{
             old_stack_bytes = apply_stack_edit(
                 self._save_data.decompressed_blob, donor_item, target_count
             )
+            stack_off = donor_item.field_offsets["_stackCount"]
             patches.append((
-                donor_item.offset + 18,
+                stack_off,
                 old_stack_bytes,
-                self._save_data.decompressed_blob[donor_item.offset + 18:donor_item.offset + 26]
+                self._save_data.decompressed_blob[stack_off:stack_off + 8]
             ))
             donor_name = self._name_db.get_name(donor_item.item_key)
             self._undo_stack.append(UndoEntry(
@@ -32532,7 +32599,8 @@ QCheckBox::indicator {{
             if not item.has_enchant:
                 continue
             old = apply_enchant_edit(self._save_data.decompressed_blob, item, new_val)
-            edits.append((item.offset + 26, old, self._save_data.decompressed_blob[item.offset + 26:item.offset + 28]))
+            field_off = item.field_offsets["_enchantLevel"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 2]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -32566,7 +32634,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_endurance_edit(self._save_data.decompressed_blob, item, new_val)
-            edits.append((item.offset + 30, old, self._save_data.decompressed_blob[item.offset + 30:item.offset + 32]))
+            field_off = item.field_offsets["_endurance"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 2]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -32599,7 +32668,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_sharpness_edit(self._save_data.decompressed_blob, item, new_val)
-            edits.append((item.offset + 32, old, self._save_data.decompressed_blob[item.offset + 32:item.offset + 34]))
+            field_off = item.field_offsets["_sharpness"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 2]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -32622,7 +32692,8 @@ QCheckBox::indicator {{
         edits = []
         for item in selected:
             old = apply_stack_edit(self._save_data.decompressed_blob, item, new_stack)
-            edits.append((item.offset + 18, old, self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]))
+            field_off = item.field_offsets["_stackCount"]
+            edits.append((field_off, old, self._save_data.decompressed_blob[field_off:field_off + 8]))
 
         if edits:
             self._undo_stack.append(UndoEntry(
@@ -32752,9 +32823,10 @@ QCheckBox::indicator {{
 
         if consume_one:
             old_stack = apply_stack_edit(self._save_data.decompressed_blob, item, 1)
+            stack_off = item.field_offsets["_stackCount"]
             all_patches.append((
-                item.offset + 18, old_stack,
-                self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]
+                stack_off, old_stack,
+                self._save_data.decompressed_blob[stack_off:stack_off + 8]
             ))
 
         patches = smart_item_swap(self._save_data.decompressed_blob, item, new_key)
@@ -32997,10 +33069,11 @@ QCheckBox::indicator {{
                 old_stack_bytes = apply_stack_edit(
                     self._save_data.decompressed_blob, item, new_stack_limit
                 )
+                stack_off = item.field_offsets["_stackCount"]
                 patches.append((
-                    item.offset + 18,
+                    stack_off,
                     old_stack_bytes,
-                    self._save_data.decompressed_blob[item.offset + 18:item.offset + 26]
+                    self._save_data.decompressed_blob[stack_off:stack_off + 8]
                 ))
 
             field_patches = 0
@@ -33331,11 +33404,17 @@ QCheckBox::indicator {{
             f"Saved {len(items)} items to:\n{path}\n\n"
             f"This pack will appear in the DropSets tab Pack dropdown.")
 
-    def _sync_github(self) -> None:
-        self._update_status("Syncing from GitHub...")
+    def _sync_items_local(self) -> None:
+        game_path = self._config.get("game_install_path", "")
+        if not game_path or not os.path.isdir(game_path):
+            QMessageBox.warning(
+                self, "Sync Items Local",
+                "Set the game installation path first, then run the local item scan.",
+            )
+            return
+        self._update_status("Reading local game item data...")
         QApplication.processEvents()
-
-        ok, msg = self._name_db.sync_from_github()
+        ok, message = self._name_db.sync_from_local_game(game_path)
         if ok:
             self._populate_database()
             self._populate_swap_list(self._swap_search.text().strip())
@@ -33344,69 +33423,8 @@ QCheckBox::indicator {{
                 item.category = self._name_db.get_category(item.item_key)
             self._populate_inventory()
             self._populate_equipment()
-        self._update_status(msg)
-        QMessageBox.information(self, "GitHub Sync", msg)
-
-    def _sync_all_icons(self) -> None:
-        import json as _json
-        from urllib.request import urlopen, Request
-
-        keys = set()
-        for item in self._name_db._items.values():
-            keys.add(item.item_key)
-        for item in self._items:
-            keys.add(item.item_key)
-
-        local_dir = self._icon_cache._local_dir
-        already = sum(1 for k in keys if os.path.isfile(os.path.join(local_dir, f"{k}.webp")))
-        needed = len(keys) - already
-
-        if needed == 0:
-            QMessageBox.information(self, "Sync Icons", f"All {already} icons already downloaded.")
-            return
-
-        reply = QMessageBox.question(
-            self, "Sync All Icons",
-            f"Download {needed} icons from GitHub?\n"
-            f"({already} already cached, {len(keys)} total)\n\n"
-            f"This requires internet and may take a few minutes.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        self._update_status(f"Downloading {needed} icons...")
-        QApplication.processEvents()
-
-        from icon_cache import _GITHUB_ICON_BASE
-        downloaded = 0
-        errors = 0
-        for i, key in enumerate(sorted(keys)):
-            local_path = os.path.join(local_dir, f"{key}.webp")
-            if os.path.isfile(local_path):
-                continue
-            try:
-                url = f"{_GITHUB_ICON_BASE}/{key}.webp"
-                req = Request(url, headers={"User-Agent": "CrimsonSaveEditor"})
-                with urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                if data and len(data) > 100:
-                    with open(local_path, 'wb') as f:
-                        f.write(data)
-                    downloaded += 1
-                else:
-                    errors += 1
-            except Exception:
-                errors += 1
-
-            if (downloaded + errors) % 100 == 0:
-                self._update_status(f"Icons: {downloaded} downloaded, {errors} failed, {needed - downloaded - errors} remaining...")
-                QApplication.processEvents()
-
-        msg = f"Downloaded {downloaded} icons, {errors} not available on GitHub.\nTotal cached: {already + downloaded}"
-        self._update_status(msg)
-        QMessageBox.information(self, "Sync Complete", msg)
-
+        self._update_status(message)
+        QMessageBox.information(self, "Sync Items Local", message)
 
     def _get_backup_dir(self) -> str:
         if not self._loaded_path:
@@ -34198,7 +34216,7 @@ QCheckBox::indicator {{
         def _scale_px(m):
             orig = int(m.group(1))
             return f"font-size: {max(8, int(orig * scale))}px"
-        scaled_ss = re.sub(r'font-size:\s*(\d+)px', _scale_px, DARK_STYLESHEET)
+        scaled_ss = re.sub(r'font-size:\s*(\d+)px', _scale_px, self.styleSheet() or DARK_STYLESHEET)
         self.setStyleSheet(scaled_ss)
         self._config["font_scale"] = scale
         self._save_config()
@@ -34382,11 +34400,11 @@ QCheckBox::indicator {{
         ),
         "packs": (
             "Item Packs",
-            "Download and apply curated item collections from the community.\n\n"
+            "Import and apply item-pack JSON files stored on this computer.\n\n"
             "HOW TO USE:\n"
-            "1. Click 'Refresh from GitHub' to see available community packs\n"
-            "2. Select a pack and click 'Download Selected Pack'\n"
-            "3. Downloaded packs appear in 'My Packs' section\n"
+            "1. Copy optional pack JSON files into the local packs folder\n"
+            "2. Select the pack under 'My Packs'\n"
+            "3. Import or apply it locally\n"
             "4. Load your save file\n"
             "5. Select a pack and click 'Apply Pack to Save'\n"
             "6. A dialog maps each pack item to a donor from your inventory\n"
@@ -34398,20 +34416,12 @@ QCheckBox::indicator {{
             "Use 'Export for Sharing' to save as JSON for others."
         ),
         "community": (
-            "Community Mapping",
-            "Help map every item in Crimson Desert!\n\n"
-            "This tool collects real item templates from player saves to build a\n"
-            "complete database of all items and their binary structures.\n"
-            "The more saves we scan, the more items the editor can support.\n\n"
-            "HOW TO CONTRIBUTE:\n"
-            "1. Click 'Sync with Community' (does everything in one click):\n"
-            "   - Downloads the latest master database\n"
-            "   - Scans your loaded save for new item templates\n"
-            "   - Uploads any new discoveries to the community\n\n"
-            "OR step by step:\n"
-            "1. Click 'Download Latest DB' to get the newest master\n"
+            "Local Template Mapping",
+            "Collect real item templates from saves without connecting to a server.\n\n"
+            "HOW TO USE:\n"
+            "1. Optionally import a master_templates JSON file\n"
             "2. Click 'Scan Loaded Save' or 'Scan All Saves'\n"
-            "3. Click 'Upload New Templates' to share your findings\n\n"
+            "3. Export new templates to a JSON file for manual sharing\n\n"
             "The coverage table shows mapping progress by item category.\n"
             "Green = 90%+, Yellow = 50%+, Red = under 50%."
         ),
@@ -34833,8 +34843,22 @@ QCheckBox::indicator {{
             self._update_community_status()
         elif hasattr(self, '_waypoint_tab_widget') and widget is self._waypoint_tab_widget:
             self._populate_waypoints()
+        elif hasattr(self, '_faction_tab_widget') and widget is self._faction_tab_widget:
+            self._load_faction_tab_if_needed()
         elif hasattr(self, '_swap_tab_widget') and widget is self._swap_tab_widget:
             self._on_tab_changed_swap()
+
+    def _load_faction_tab_if_needed(self) -> None:
+        if not self._save_data:
+            return
+        blob_id = id(self._save_data.decompressed_blob)
+        if getattr(self, "_faction_loaded_blob_id", None) == blob_id:
+            return
+        if hasattr(self, "_faction_count"):
+            self._faction_count.setText("Loading faction data...")
+        QApplication.processEvents()
+        self._populate_faction_tab()
+        self._faction_loaded_blob_id = blob_id
 
     def _on_tab_changed(self, index: int) -> None:
         pass

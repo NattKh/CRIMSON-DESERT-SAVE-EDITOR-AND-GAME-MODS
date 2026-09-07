@@ -8,6 +8,10 @@ from models import SaveItem
 
 log = logging.getLogger(__name__)
 
+# Item numbers are monotonically assigned save-instance IDs, not six-digit
+# item keys. Long-running saves crossed 1,000,000 in the 1.14-era format.
+_MAX_ITEM_NO = 9_999_999_999
+
 _ITEM_FIELDS = [
     (0, "_saveVersion", 4),
     (1, "_itemNo", 8),
@@ -143,7 +147,7 @@ def _scan_range(data: bytes | bytearray, items: List[SaveItem],
             continue
 
         item_no = struct.unpack_from("<q", data, off + 4)[0]
-        if item_no < 1 or item_no > 999999:
+        if item_no < 1 or item_no > _MAX_ITEM_NO:
             continue
 
         item_key = struct.unpack_from("<I", data, off + 12)[0]
@@ -286,13 +290,39 @@ def _classify_items(data: bytes | bytearray, items: List[SaveItem]) -> None:
                 break
 
 
+def _require_parc_field_offset(
+    data: bytearray,
+    item: SaveItem,
+    field_name: str,
+    field_size: int,
+) -> int:
+    """Return a schema-resolved field offset or refuse an unsafe legacy edit."""
+    if not item.parc_parsed or not item.field_offsets:
+        raise ValueError(
+            f"Safe edit unavailable: {field_name} was not resolved from this save's schema."
+        )
+    offset = item.field_offsets.get(field_name)
+    if offset is None or offset < 0 or offset + field_size > len(data):
+        raise ValueError(
+            f"Safe edit unavailable: {field_name} is absent or outside this item record."
+        )
+    record_start = item.field_offsets.get("_record_start", 0)
+    record_end = item.field_offsets.get("_record_end", len(data))
+    if record_start and offset < record_start:
+        raise ValueError(f"Unsafe {field_name} offset precedes the parsed item record.")
+    if record_end and offset + field_size > record_end:
+        raise ValueError(f"Unsafe {field_name} offset extends beyond the parsed item record.")
+    return int(offset)
+
+
 def apply_stack_edit(
     data: bytearray,
     item: SaveItem,
     new_stack: int,
 ) -> bytes:
-    old = data[item.offset + 18:item.offset + 26]
-    struct.pack_into("<q", data, item.offset + 18, new_stack)
+    offset = _require_parc_field_offset(data, item, "_stackCount", 8)
+    old = data[offset:offset + 8]
+    struct.pack_into("<q", data, offset, new_stack)
     item.stack_count = new_stack
     return bytes(old)
 
@@ -302,8 +332,9 @@ def apply_itemno_edit(
     item: SaveItem,
     new_itemno: int,
 ) -> bytes:
-    old = data[item.offset + 4:item.offset + 12]
-    struct.pack_into("<q", data, item.offset + 4, new_itemno)
+    offset = _require_parc_field_offset(data, item, "_itemNo", 8)
+    old = data[offset:offset + 8]
+    struct.pack_into("<q", data, offset, new_itemno)
     item.item_no = new_itemno
     return bytes(old)
 
@@ -319,8 +350,9 @@ def apply_enchant_edit(
     item: SaveItem,
     new_enchant: int,
 ) -> bytes:
-    old = data[item.offset + 26:item.offset + 28]
-    struct.pack_into("<H", data, item.offset + 26, new_enchant)
+    offset = _require_parc_field_offset(data, item, "_enchantLevel", 2)
+    old = data[offset:offset + 2]
+    struct.pack_into("<H", data, offset, new_enchant)
     item.enchant_level = new_enchant
     item.has_enchant = new_enchant != 0xFFFF
     return bytes(old)
@@ -331,8 +363,9 @@ def apply_endurance_edit(
     item: SaveItem,
     new_endurance: int,
 ) -> bytes:
-    old = data[item.offset + 30:item.offset + 32]
-    struct.pack_into("<H", data, item.offset + 30, new_endurance)
+    offset = _require_parc_field_offset(data, item, "_endurance", 2)
+    old = data[offset:offset + 2]
+    struct.pack_into("<H", data, offset, new_endurance)
     item.endurance = new_endurance
     return bytes(old)
 
@@ -342,8 +375,9 @@ def apply_sharpness_edit(
     item: SaveItem,
     new_sharpness: int,
 ) -> bytes:
-    old = data[item.offset + 32:item.offset + 34]
-    struct.pack_into("<H", data, item.offset + 32, new_sharpness)
+    offset = _require_parc_field_offset(data, item, "_sharpness", 2)
+    old = data[offset:offset + 2]
+    struct.pack_into("<H", data, offset, new_sharpness)
     item.sharpness = new_sharpness
     return bytes(old)
 
@@ -438,7 +472,7 @@ _ITEM_FIELD_NAMES = [
 
 def _try_import_parc():
     try:
-        from crimson.save_editor import parc_serializer as parc_serializer
+        import parc_serializer
         return parc_serializer, None
     except ImportError as e:
         return None, f"parc_serializer not available: {e}"
@@ -627,8 +661,8 @@ def _parse_item_payload(
         field_offsets: Dict[str, int] = {}
         values: Dict[str, any] = {}
 
-        for i in range(min(13, len(item_td.fields))):
-            fdef = item_td.fields[i]
+        first_dynamic_index = None
+        for i, fdef in enumerate(item_td.fields):
             present = _field_present_check(mask_bytes, i)
             if not present:
                 continue
@@ -648,8 +682,13 @@ def _parse_item_payload(
                     values[fdef.name] = struct.unpack_from("<Q", blob, pos)[0]
                 pos += ms
             else:
+                # The 1.14 schema inserted _averagePrice before enchantment,
+                # moving socket fields one bit to the right.  Track fields by
+                # schema name and stop at the first variable-size value; its
+                # current position is still the exact field start we need.
                 field_offsets[fdef.name] = pos
-                return None
+                first_dynamic_index = i
+                break
 
         record_end = None
         max_scan = min(len(blob) - 4, abs_payload + 4096)
@@ -665,38 +704,27 @@ def _parse_item_payload(
         field_offsets["_record_end"] = record_end
         trailing_pos = record_end - 4
 
-        back_pos = trailing_pos
-
-        back_fields = [
-            (21, "_isNewMark", 1, (0, 2)),
-            (20, "_characterConversionData", 0, (5,)),
-            (19, "_timeWhenPushItem", 8, (0,)),
-            (18, "_chargedUseableCount", 8, (0,)),
-            (17, "_currentGimmickState", 4, (0,)),
-            (16, "_transferredItemKey", 4, (0,)),
-        ]
-
-        back_ok = True
-        for fidx, fname, fsize, valid_mks in back_fields:
-            if fidx >= len(item_td.fields):
-                continue
-            fdef = item_td.fields[fidx]
-            present = _field_present_check(mask_bytes, fidx)
-            if not present:
-                continue
-
-            if fdef.meta_kind in (4, 5, 6, 7):
-                back_ok = False
-                break
-
-            if fsize <= 0:
-                back_ok = False
-                break
-
-            back_pos -= fsize
-            field_offsets[fname] = back_pos
-
-            if fdef.meta_kind in (0, 2) and fsize > 0:
+        # Preserve the proven reverse-offset logic for the old schema.  The
+        # 1.14 record adds inline marker bytes around trailing fields, so only
+        # front fields through the socket list are considered exact there.
+        if not any(f.name == "_averagePrice" for f in item_td.fields):
+            back_pos = trailing_pos
+            back_fields = [
+                (21, "_isNewMark", 1),
+                (20, "_characterConversionData", 0),
+                (19, "_timeWhenPushItem", 8),
+                (18, "_chargedUseableCount", 8),
+                (17, "_currentGimmickState", 4),
+                (16, "_transferredItemKey", 4),
+            ]
+            for fidx, fname, fsize in back_fields:
+                if fidx >= len(item_td.fields) or not _field_present_check(mask_bytes, fidx):
+                    continue
+                fdef = item_td.fields[fidx]
+                if fdef.meta_kind in (4, 5, 6, 7) or fsize <= 0:
+                    break
+                back_pos -= fsize
+                field_offsets[fname] = back_pos
                 if fsize == 1:
                     values[fname] = blob[back_pos]
                 elif fsize == 2:
@@ -718,7 +746,7 @@ def _parse_item_payload(
         endurance = values.get("_endurance", 0)
         sharpness = values.get("_sharpness", 0)
 
-        if item_no < 1 or item_no > 999999:
+        if item_no < 1 or item_no > _MAX_ITEM_NO:
             return None
         if item_key < 1 or item_key > 0x7FFFFFFF:
             return None
@@ -902,7 +930,7 @@ BAG_KEY_NAMES = {
 }
 
 
-def _extract_bag_ranges(data: bytes | bytearray) -> List[Tuple[int, int, str]]:
+def _extract_bag_ranges_legacy(data: bytes | bytearray) -> List[Tuple[int, int, str]]:
     bag_ranges: List[Tuple[int, int, str]] = []
     try:
         _ensure = 'Communitydump/desktopeditor'
@@ -939,230 +967,54 @@ def _extract_bag_ranges(data: bytes | bytearray) -> List[Tuple[int, int, str]]:
     return bag_ranges
 
 
-def _item_from_child_fields(raw: bytes, child_fields, source: str, bag: str = ""):
-    start = None
-    offsets = {}
-    values = {}
-    for cf in child_fields:
-        if not cf.present:
-            continue
-        if start is None:
-            start = cf.start_offset
-        offsets[cf.name] = cf.start_offset
-        size = cf.end_offset - cf.start_offset
-        try:
-            if size == 1:
-                values[cf.name] = raw[cf.start_offset]
-            elif size == 2:
-                values[cf.name] = struct.unpack_from('<H', raw, cf.start_offset)[0]
-            elif size == 4:
-                values[cf.name] = struct.unpack_from('<I', raw, cf.start_offset)[0]
-            elif size == 8:
-                values[cf.name] = struct.unpack_from('<q', raw, cf.start_offset)[0]
-        except struct.error:
-            continue
-    if start is None or '_itemKey' not in values:
-        return None
-    # The editors write by fixed delta (_itemKey at +12, _stackCount at +18).
-    # Mercenary _equipItemList uses a different schema; surfacing those would
-    # let an edit land on the wrong bytes, so only emit editable records.
-    if offsets['_itemKey'] != start + 12:
-        return None
-    end = max(cf.end_offset for cf in child_fields if cf.present)
-    enchant = values.get('_enchantLevel', 0)
-    return SaveItem(
-        offset=start,
-        item_no=values.get('_itemNo', 0),
-        item_key=values.get('_itemKey', 0),
-        slot_no=values.get('_slotNo', 0),
-        stack_count=values.get('_stackCount', 0),
-        enchant_level=enchant,
-        endurance=values.get('_endurance', 0),
-        sharpness=values.get('_sharpness', 0),
-        has_enchant=enchant > 0,
-        is_equipment=(source == "Equipment"),
-        source=source,
-        bag=bag,
-        block_size=end - start,
-        field_offsets=offsets,
-        parc_parsed=True,
-    )
+def _extract_bag_ranges(data: bytes | bytearray) -> List[Tuple[int, int, str]]:
+    """Return inventory bag byte ranges without rebuilding the full save tree.
 
-
-# Owners that hold item records in nested per-entry lists. "Sold to Vendor"
-# matches the source name the Vendor tab filters on.
-_NESTED_ITEM_OWNERS = {
-    'MercenaryClanSaveData': ('_mercenaryDataList', 'Mercenary'),
-    'StoreSaveData': ('_storeDataList', 'Sold to Vendor'),
-}
-
-
-def scan_items_from_parse(
-    data: bytes | bytearray,
-    result,
-) -> Tuple[List[SaveItem], List[Tuple[int, int]]]:
-    """Extract items by walking the parsed save tree.
-
-    Every inventory container (`InventorySaveData._inventorylist[*]._itemList`)
-    and equipped piece (`EquipmentSaveData._list[*]._item`) is emitted with
-    exact per-field offsets. Records keep the classic fixed deltas (_itemNo at
-    +4, _itemKey at +12, _slotNo at +16, _stackCount at +18) so record-relative
-    editing code keeps working. Returns (items, covered_byte_spans).
+    The legacy implementation above uses ``save_parser.build_result_from_raw``.
+    That produces a complete object/field model and takes several seconds on a
+    normal save, even though this caller only needs eleven small ranges.  The
+    PARC serializer already has a targeted InventorySaveData walker used by the
+    item insertion code, so reuse it here and retain the old parser as a
+    compatibility fallback for unexpected save layouts.
     """
-    raw = bytes(data)
-    items: List[SaveItem] = []
-    spans: List[Tuple[int, int]] = []
-    for obj in result['objects']:
-        if obj.class_name == 'InventorySaveData':
-            for f in obj.fields:
-                if f.name != '_inventorylist' or not f.list_elements:
-                    continue
-                for bag_elem in f.list_elements:
-                    if not bag_elem.child_fields:
-                        continue
-                    inv_key = -1
-                    for cf in bag_elem.child_fields:
-                        if cf.name == '_inventoryKey' and cf.present:
-                            try:
-                                inv_key = int(cf.value_repr or -1)
-                            except (ValueError, TypeError):
-                                inv_key = -1
-                    bag_name = (
-                        BAG_KEY_NAMES.get(inv_key, f"Bag_{inv_key}")
-                        if inv_key >= 0 else ""
-                    )
-                    for cf in bag_elem.child_fields:
-                        if cf.name == '_itemList' and cf.list_elements:
-                            spans.append((
-                                cf.list_elements[0].start_offset,
-                                cf.list_elements[-1].end_offset,
-                            ))
-                            for elem in cf.list_elements:
-                                if not elem.child_fields:
-                                    continue
-                                item = _item_from_child_fields(
-                                    raw, elem.child_fields, "Inventory", bag_name
-                                )
-                                if item:
-                                    items.append(item)
-        elif obj.class_name == 'EquipmentSaveData':
-            for f in obj.fields:
-                if f.name == '_list' and f.list_elements:
-                    spans.append((
-                        f.list_elements[0].start_offset,
-                        f.list_elements[-1].end_offset,
-                    ))
-                    for elem in f.list_elements:
-                        for cf in elem.child_fields or []:
-                            if cf.name == '_item' and cf.child_fields:
-                                item = _item_from_child_fields(
-                                    raw, cf.child_fields, "Equipment"
-                                )
-                                if item:
-                                    items.append(item)
-        elif obj.class_name in _NESTED_ITEM_OWNERS:
-            owner_list, source = _NESTED_ITEM_OWNERS[obj.class_name]
-            for f in obj.fields:
-                if f.name != owner_list or not f.list_elements:
-                    continue
-                for owner in f.list_elements:
-                    for cf in owner.child_fields or []:
-                        if not cf.list_elements or not cf.list_elements[0].child_fields:
-                            continue
-                        if not any(
-                            c.name == '_itemKey'
-                            for c in cf.list_elements[0].child_fields
-                        ):
-                            continue
-                        spans.append((
-                            cf.list_elements[0].start_offset,
-                            cf.list_elements[-1].end_offset,
-                        ))
-                        for elem in cf.list_elements:
-                            if not elem.child_fields:
-                                continue
-                            item = _item_from_child_fields(
-                                raw, elem.child_fields, source
-                            )
-                            if item:
-                                items.append(item)
-    return items, spans
-
-
-def scan_items_smart(data: bytes | bytearray, result=None) -> List[SaveItem]:
-    """Best-available item extraction: parse tree first, pattern scan to fill.
-
-    The pattern scanner recognizes records by byte signature and misses most
-    nested container items (32-77% coverage depending on save generation).
-    Inventory, equipment, mercenary, and vendor items all come from the tree;
-    legacy hits are kept only for sources the tree did not produce, and on any
-    parse failure the legacy result is returned unchanged.
-    """
-    legacy = scan_items(data)
-    if result is None:
-        try:
-            _ensure = 'Communitydump/desktopeditor'
-            if _ensure not in __import__('sys').path:
-                __import__('sys').path.insert(0, _ensure)
-            from save_parser import build_result_from_raw
-            result = build_result_from_raw(bytes(data), {'input_kind': 'raw_blob'})
-        except Exception:
-            return legacy
     try:
-        parsed, spans = scan_items_from_parse(data, result)
+        import parc_serializer
+
+        parc_blob = parc_serializer.parse_parc_blob(bytes(data))
+        inventory_index = parc_serializer.find_inventory_toc_index(parc_blob)
+        if inventory_index is not None:
+            categories = parc_serializer._find_inventory_categories(
+                parc_blob, inventory_index
+            )
+            bag_ranges: List[Tuple[int, int, str]] = []
+            for category in categories:
+                inv_key = int(category.get("inventory_key", -1))
+                item_start = int(category.get("item_list_abs", -1))
+                item_end = int(category.get("items_end_abs", -1))
+                if inv_key >= 0 and item_start > 0 and item_end > item_start:
+                    bag_name = BAG_KEY_NAMES.get(inv_key, f"Bag_{inv_key}")
+                    bag_ranges.append((item_start, item_end, bag_name))
+            if bag_ranges:
+                return bag_ranges
     except Exception:
-        return legacy
-    if not parsed:
-        return legacy
+        pass
 
-    def _covered(offset: int) -> bool:
-        return any(start <= offset < end for start, end in spans)
-
-    # The parse tree is authoritative for the sources it actually produced;
-    # keeping legacy hits for those only re-adds pattern-scan false positives.
-    parsed_sources = {item.source for item in parsed}
-    merged = parsed + [
-        item for item in legacy
-        if not _covered(item.offset) and item.source not in parsed_sources
-    ]
-    merged.sort(key=lambda item: item.offset)
-    return merged
+    return _extract_bag_ranges_legacy(data)
 
 
 def enrich_items_with_parc(
     data: bytes | bytearray,
     items: List[SaveItem],
-    progress_cb=None,
 ) -> Tuple[int, str]:
-    TOTAL_STEPS = 4
-
-    def _report(step: int) -> None:
-        if progress_cb:
-            progress_cb(step, TOTAL_STEPS)
-
-    # scan_items_smart already gives every item its exact field offsets and
-    # bag from the parse tree; re-deriving them here would run a second full
-    # parse (seconds) on whatever thread called us.
-    if items and all(item.parc_parsed and item.field_offsets for item in items):
-        _report(TOTAL_STEPS)
-        return len(items), (
-            f"PARC mode: {len(items)}/{len(items)} items enriched with exact "
-            "field offsets"
-        )
-
     parc_items, status = scan_items_parc(data)
-    _report(1)
     if not parc_items:
-        _report(TOTAL_STEPS)
         return 0, status
 
     parc_by_no: Dict[int, SaveItem] = {}
     for pi in parc_items:
         parc_by_no[pi.item_no] = pi
-    _report(2)
 
     bag_ranges = _extract_bag_ranges(data)
-    _report(3)
 
     enriched = 0
     for item in items:
@@ -1170,6 +1022,15 @@ def enrich_items_with_parc(
         if pi is not None and pi.field_offsets:
             item.field_offsets = pi.field_offsets
             item.parc_parsed = True
+            # The sentinel scanner uses the pre-1.14 fixed prefix and can
+            # mistake sharpness/max-socket bytes for endurance.  Once the
+            # schema parser has exact named fields, keep the displayed and
+            # edited values in sync with those offsets too.
+            item.enchant_level = pi.enchant_level
+            item.endurance = pi.endurance
+            item.sharpness = pi.sharpness
+            item.has_enchant = pi.has_enchant
+            item.is_equipment = pi.is_equipment
             enriched += 1
 
         for bstart, bend, bname in bag_ranges:
@@ -1177,7 +1038,6 @@ def enrich_items_with_parc(
                 item.bag = bname
                 break
 
-    _report(TOTAL_STEPS)
     return enriched, f"PARC mode: {enriched}/{len(items)} items enriched with exact field offsets"
 
 

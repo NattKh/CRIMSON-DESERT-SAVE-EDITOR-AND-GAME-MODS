@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import os
 import struct
+import tempfile
 from typing import Tuple
 
 import lz4.block
@@ -244,6 +245,29 @@ def write_save_file(
     header[NONCE_OFFSET:NONCE_OFFSET + 16] = nonce
     header[HMAC_OFFSET:HMAC_OFFSET + 32] = hmac_digest
 
-    with open(path, "wb") as f:
-        f.write(bytes(header))
-        f.write(encrypted)
+    destination = os.path.abspath(path)
+    directory = os.path.dirname(destination) or os.curdir
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{os.path.basename(destination)}.",
+            suffix=".tmp",
+            dir=directory,
+            delete=False,
+        ) as f:
+            temp_path = f.name
+            f.write(bytes(header))
+            f.write(encrypted)
+            f.flush()
+            os.fsync(f.fileno())
+
+        reloaded = load_save_file(temp_path)
+        if bytes(reloaded.decompressed_blob) != bytes(edited_blob):
+            raise ValueError("Temporary save validation mismatch")
+
+        os.replace(temp_path, destination)
+        temp_path = None
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)

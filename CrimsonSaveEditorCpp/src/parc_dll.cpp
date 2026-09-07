@@ -340,6 +340,7 @@ EXPORT int parc_write_validated_save(
     char** out_json,
     uint32_t* out_size
 ) {
+    if (!out_json || !out_size) return -2;
     try {
         if (!source_save_path || !*source_save_path) {
             throw std::runtime_error("Source save path is empty");
@@ -371,23 +372,21 @@ EXPORT int parc_write_validated_save(
         }
 
         std::vector<uint8_t> edited_blob(blob_data, blob_data + blob_size);
-        SaveWriter::WriteSaveFile(output_save_path, edited_blob, source.original_header);
+        std::string report;
+        SaveWriter::WriteSaveFile(output_save_path, edited_blob, source.original_header,
+            [&](const std::string& candidate) {
+                auto written = SaveParserCpp::ParseFile(candidate);
+                auto validation = ValidateParsed(written, true);
+                if (!validation.ok) {
+                    throw std::runtime_error("Written save failed post-write validation");
+                }
+                if (written.raw_blob != edited_blob) {
+                    throw std::runtime_error("Written save payload does not match the validated edited data");
+                }
+                report = ValidationJson(written, validation, "write_validated_save");
+            });
 
-        auto written = SaveParserCpp::ParseFile(output_save_path);
-        auto written_validation = ValidateParsed(written, true);
-        if (!written_validation.ok) {
-            DeleteFileA(output_save_path);
-            throw std::runtime_error("Written save failed post-write validation");
-        }
-        if (written.raw_blob != edited_blob) {
-            DeleteFileA(output_save_path);
-            throw std::runtime_error("Written save payload does not match the validated edited data");
-        }
-
-        return ReturnJson(
-            ValidationJson(written, written_validation, "write_validated_save"),
-            out_json, out_size, 0
-        );
+        return ReturnJson(report, out_json, out_size, 0);
     } catch (const std::exception& error) {
         return ReturnError(error, out_json, out_size);
     }

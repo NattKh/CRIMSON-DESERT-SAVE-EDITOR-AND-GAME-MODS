@@ -11,6 +11,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(BUILD_GUI "Build Qt GUI editor" OFF)
+include(CTest)
 
 if(BUILD_GUI)
     set(CMAKE_AUTOMOC ON)
@@ -85,6 +86,16 @@ add_library(save_writer STATIC
 )
 target_include_directories(save_writer PUBLIC src)
 target_link_libraries(save_writer PUBLIC bcrypt lz4_lib)
+
+if(BUILD_TESTING)
+    add_executable(save_write_transaction_tests tests/save_write_transaction_tests.cpp)
+    target_link_libraries(save_write_transaction_tests PRIVATE save_writer)
+    foreach(kind IN ITEMS raw save validation long_name)
+        add_test(NAME save_write_transaction_${kind}
+            COMMAND save_write_transaction_tests ${kind}
+                "${CMAKE_CURRENT_BINARY_DIR}/write-transaction-${kind}")
+    endforeach()
+endif()
 
 # parc_dump â€” CLI save tree dumper
 add_executable(parc_dump src/parc_dump.cpp)

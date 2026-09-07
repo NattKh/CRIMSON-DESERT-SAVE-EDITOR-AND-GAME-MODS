@@ -7,9 +7,11 @@
 #endif
 #include <windows.h>
 #include <bcrypt.h>
+#include <io.h>
 #else
 #include "portable_hmac_sha256.h"
 #include <random>
+#include <unistd.h>
 #endif
 #include "save_writer.h"
 #include <lz4.h>
@@ -18,6 +20,9 @@
 #include <stdexcept>
 #include <cstring>
 #include <algorithm>
+#include <cerrno>
+#include <cstdio>
+#include <filesystem>
 
 namespace SaveWriter {
 
@@ -197,9 +202,82 @@ static constexpr uint32_t PAYLOAD_OFF = 0x16;
 static constexpr uint32_t NONCE_OFF = 0x1A;
 static constexpr uint32_t HMAC_OFF = 0x2A;
 
+namespace {
+
+class PendingOutput {
+public:
+    explicit PendingOutput(const std::string& path) : destination_(path) {
+        for (unsigned attempt = 0; attempt < 32; ++attempt) {
+            std::string suffix;
+            for (auto byte : RandomBytes(12)) {
+                constexpr char hex[] = "0123456789abcdef";
+                suffix += hex[byte >> 4];
+                suffix += hex[byte & 15];
+            }
+            candidate_ = destination_.parent_path() / (".cse-" + suffix + ".tmp");
+#ifdef _WIN32
+            const auto error = _wfopen_s(&file_, candidate_.c_str(), L"wbx");
+#else
+            file_ = std::fopen(candidate_.c_str(), "wbx");
+            const auto error = file_ ? 0 : errno;
+#endif
+            if (file_) return;
+            if (error != EEXIST) throw std::runtime_error("Cannot create save candidate: " + path);
+        }
+        throw std::runtime_error("Unable to allocate a unique save candidate: " + path);
+    }
+
+    PendingOutput(const PendingOutput&) = delete;
+    PendingOutput& operator=(const PendingOutput&) = delete;
+
+    ~PendingOutput() {
+        if (file_) std::fclose(file_);
+        if (!installed_) {
+            std::error_code ignored;
+            std::filesystem::remove(candidate_, ignored);
+        }
+    }
+
+    void Write(const std::vector<uint8_t>& bytes) {
+        if (!bytes.empty() && std::fwrite(bytes.data(), 1, bytes.size(), file_) != bytes.size())
+            throw std::runtime_error("Failed to write save candidate");
+    }
+
+    void Commit(const std::function<void(const std::string&)>& validate = {}) {
+        if (std::fflush(file_) != 0) throw std::runtime_error("Failed to flush save candidate");
+#ifdef _WIN32
+        if (_commit(_fileno(file_)) != 0) throw std::runtime_error("Failed to sync save candidate");
+#else
+        if (::fsync(fileno(file_)) != 0) throw std::runtime_error("Failed to sync save candidate");
+#endif
+        auto* closing = file_;
+        file_ = nullptr;
+        if (std::fclose(closing) != 0) throw std::runtime_error("Failed to close save candidate");
+        if (validate) validate(candidate_.string());
+#ifdef _WIN32
+        if (!MoveFileExW(candidate_.c_str(), destination_.c_str(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+            throw std::runtime_error("Failed to replace save destination (Windows error " +
+                std::to_string(GetLastError()) + ")");
+#else
+        std::filesystem::rename(candidate_, destination_);
+#endif
+        installed_ = true;
+    }
+
+private:
+    std::filesystem::path destination_;
+    std::filesystem::path candidate_;
+    std::FILE* file_ = nullptr;
+    bool installed_ = false;
+};
+
+} // namespace
+
 void WriteSaveFile(const std::string& path,
                    const std::vector<uint8_t>& raw_blob,
-                   const std::vector<uint8_t>& original_header) {
+                   const std::vector<uint8_t>& original_header,
+                   const std::function<void(const std::string&)>& validate_candidate) {
     uint16_t version = 2;
     if (original_header.size() >= 6) {
         memcpy(&version, original_header.data() + VERSION_OFF, 2);
@@ -227,16 +305,16 @@ void WriteSaveFile(const std::string& path,
     memcpy(header.data() + NONCE_OFF, nonce.data(), 16);
     memcpy(header.data() + HMAC_OFF, hmac_digest.data(), 32);
 
-    std::ofstream out(path, std::ios::binary);
-    if (!out) throw std::runtime_error("Cannot open output file: " + path);
-    out.write(reinterpret_cast<const char*>(header.data()), header.size());
-    out.write(reinterpret_cast<const char*>(encrypted.data()), encrypted.size());
+    PendingOutput out(path);
+    out.Write(header);
+    out.Write(encrypted);
+    out.Commit(validate_candidate);
 }
 
 void WriteRawFile(const std::string& path, const std::vector<uint8_t>& raw_blob) {
-    std::ofstream out(path, std::ios::binary);
-    if (!out) throw std::runtime_error("Cannot open output file: " + path);
-    out.write(reinterpret_cast<const char*>(raw_blob.data()), raw_blob.size());
+    PendingOutput out(path);
+    out.Write(raw_blob);
+    out.Commit();
 }
 
 } // namespace SaveWriter

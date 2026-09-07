@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <functional>
 
 namespace SaveWriter {
 
@@ -16,7 +17,8 @@ std::vector<uint8_t> RandomBytes(size_t count);
 
 void WriteSaveFile(const std::string& path,
                    const std::vector<uint8_t>& raw_blob,
-                   const std::vector<uint8_t>& original_header);
+                   const std::vector<uint8_t>& original_header,
+                   const std::function<void(const std::string&)>& validate_candidate = {});
 
 void WriteRawFile(const std::string& path,
                   const std::vector<uint8_t>& raw_blob);

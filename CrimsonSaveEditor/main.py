@@ -7,6 +7,7 @@ import platform
 import sys
 import threading
 import traceback
+import ctypes
 
 
 def _application_dir() -> str:
@@ -31,6 +32,22 @@ def _open_log_stream() -> tuple[str, object]:
 
 
 LOG_PATH, _LOG_STREAM = _open_log_stream()
+
+
+def _apply_windows_dark_titlebar(window) -> None:
+    """Match the native Windows title bar to the editor's dark UI."""
+    if sys.platform != "win32":
+        return
+    try:
+        enabled = ctypes.c_int(1)
+        hwnd = ctypes.c_void_p(int(window.winId()))
+        # 20 is supported by current Windows 10/11; 19 covers older builds.
+        dwmapi = ctypes.windll.dwmapi
+        result = dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(enabled), ctypes.sizeof(enabled))
+        if result != 0:
+            dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(enabled), ctypes.sizeof(enabled))
+    except Exception:
+        pass
 
 # PyInstaller windowed applications normally have no console streams. Redirect
 # both Python streams and, where Windows permits it, file descriptors 1 and 2 so
@@ -144,7 +161,19 @@ def main() -> int:
     from gui import MainWindow
 
     update_startup_status("Building main window...", 25)
-    window = MainWindow()
+    try:
+        window = MainWindow()
+    except Exception:
+        # Windowed builds have no console. Keep a concrete diagnostic beside
+        # the executable instead of leaving users on a loading screen.
+        try:
+            base_dir = os.path.dirname(os.path.abspath(sys.executable))
+            with open(os.path.join(base_dir, "startup-error.log"), "w", encoding="utf-8") as log_file:
+                log_file.write(traceback.format_exc())
+        except OSError:
+            pass
+        raise
+    _apply_windows_dark_titlebar(window)
     update_startup_status("Ready", 100)
     window.show()
     QApplication.processEvents()

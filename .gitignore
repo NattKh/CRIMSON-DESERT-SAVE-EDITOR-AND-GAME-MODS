@@ -7,6 +7,13 @@ CrimsonGameMods/testing/
 CrimsonSaveEditor/build/
 CrimsonSaveEditor/dist/
 CrimsonSaveEditor/__pycache__/
+CrimsonSaveEditor/local_saves/
+CrimsonSaveEditor/test-saves/
+CrimsonSaveEditor/character_client_names.json
+CrimsonSaveEditor/item_scan_report.json
+CrimsonSaveEditor/build-*/
+CrimsonSaveEditor/dist-*/
+*.save
 CrimsonGameMods/__pycache__/
 .venv/
 .venv_linux/

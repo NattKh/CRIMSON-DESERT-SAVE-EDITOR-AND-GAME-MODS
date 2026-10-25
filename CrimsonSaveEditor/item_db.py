@@ -234,7 +234,12 @@ class ItemNameDB:
 
 def _guess_item_category(internal_name: str) -> str:
     name = internal_name.lower()
-    if any(token in name for token in ("weapon", "armor", "shield", "helmet", "glove", "boot", "ring", "earring", "necklace")):
+    if any(token in name for token in (
+        "weapon", "armor", "shield", "helmet", "helm", "glove", "gauntlet",
+        "boot", "greave", "sabaton", "ring", "earring", "necklace", "amulet",
+        "bracelet", "cloak", "robe", "dagger", "sword", "blade", "axe",
+        "spear", "mail", "plate_", "platearmor",
+    )):
         return "Equipment"
     if any(token in name for token in ("potion", "food", "elixir", "meal", "drink")):
         return "Consumable"

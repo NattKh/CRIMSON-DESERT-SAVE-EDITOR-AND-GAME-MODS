@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
-  "url": "https://github.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR-AND-GAME-MODS/releases/download/standalone-v1.0.7/CrimsonSaveEditorStandalone.exe",
-  "notes": "CrimsonSaveEditor v1.0.7 - mount system overhaul + item database update"
+  "version": "1.0.8",
+  "url": "https://github.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR-AND-GAME-MODS/releases/download/standalone-v1.0.8/CrimsonSaveEditorStandalone.exe",
+  "notes": "CrimsonSaveEditor v1.0.8 - UX redesign, save loading fixes, and dedicated companion workspaces"
 }

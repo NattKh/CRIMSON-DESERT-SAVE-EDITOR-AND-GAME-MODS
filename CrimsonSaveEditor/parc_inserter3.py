@@ -8,7 +8,8 @@ from typing import Optional, Tuple, List, Dict, Any, Callable
 log = logging.getLogger(__name__)
 
 _ITEM_SOCKET_FIELD_SIZES: Dict[int, int] = {
-    0: 4, 1: 8, 2: 4, 3: 2, 4: 8, 5: 2, 6: 2, 7: 2, 8: 2, 9: 8, 10: 8, 11: 1, 12: 1,
+    0: 4, 1: 8, 2: 4, 3: 2, 4: 8, 5: 8, 6: 2, 7: 8,
+    8: 2, 9: 2, 10: 8, 11: 8, 12: 1, 13: 1,
 }
 
 
@@ -723,6 +724,7 @@ def insert_items_batch(
     blob: bytearray,
     items: List[Tuple[int, int, int]],
     bag_key: int = 2,
+    strict_bag: bool = False,
 ) -> Tuple[bool, bytearray, str]:
     if not items:
         return False, blob, "No items to insert"
@@ -735,6 +737,7 @@ def insert_items_batch(
         ok, new_blob, msg = insert_item_to_inventory(
             current_blob, item_key=item_key, stack_count=stack_count,
             slot_no=slot_no, bag_key=bag_key, skip_verify=True,
+            strict_bag=strict_bag,
         )
         if not ok:
             if inserted == 0:
@@ -758,6 +761,7 @@ def insert_item_to_inventory(
     bag_key: int = -1,
     template_key: int = -1,
     skip_verify: bool = False,
+    strict_bag: bool = False,
 ) -> Tuple[bool, bytearray, str]:
     _ensure_desktop_path()
     from save_parser import build_result_from_raw as _brfr
@@ -788,7 +792,7 @@ def insert_item_to_inventory(
                 target_items = items_field
                 break
 
-    if not target_bag:
+    if not target_bag and not strict_bag:
         for bag in inv_list.list_elements:
             inv_key_field = _find_field(bag, '_inventoryKey')
             if inv_key_field and int(inv_key_field.value_repr or 0) == 2:
@@ -858,24 +862,40 @@ def insert_item_to_inventory(
     blob = bytearray(orig_blob)
     blob[insert_pos:insert_pos] = new_item
 
+    # ``start_offset`` is the beginning of the field wrapper.  Object-list
+    # headers can start a few bytes later inside that wrapper (the parser
+    # records this as ``header_offset=+N``).  Updating the wrapper bytes
+    # corrupts the parent InventorySaveData list, which is exactly what made
+    # multi-item pack insertion fail after its first item.
     list_start = target_items.start_offset
+    header_offset = 0
+    header_note = getattr(target_items, 'note', '') or ''
+    if header_note.startswith('header_offset=+'):
+        try:
+            header_offset = int(header_note.split('+', 1)[1])
+        except ValueError:
+            header_offset = 0
+    list_header_start = list_start + header_offset
     list_header_size = getattr(target_items, 'list_header_size', 18)
     prefix = target_items.list_prefix_u8 if hasattr(target_items, 'list_prefix_u8') else 0
-    old_count = len(target_items.list_elements)
+    old_count = getattr(target_items, 'list_count', len(target_items.list_elements))
     new_count = old_count + 1
 
     if prefix == 1:
-        struct.pack_into('>H', blob, list_start + 1, new_count)
+        struct.pack_into('>H', blob, list_header_start + 1, new_count)
     elif prefix == 0:
-        orig_byte1 = orig_blob[list_start + 1]
-        orig_byte2 = orig_blob[list_start + 2]
+        orig_byte1 = orig_blob[list_header_start + 1]
+        orig_byte2 = orig_blob[list_header_start + 2]
         if orig_byte1 == 0 and orig_byte2 == 0:
-            struct.pack_into('<I', blob, list_start + 4, new_count)
+            struct.pack_into('<I', blob, list_header_start + 4, new_count)
         else:
-            blob[list_start + 1] = new_count & 0xFF
-            blob[list_start + 2] = (new_count >> 8) & 0xFF
-            blob[list_start + 3] = (new_count >> 16) & 0xFF
-    log.info("List count: %d -> %d (prefix=%d at 0x%X)", old_count, new_count, prefix, list_start)
+            blob[list_header_start + 1] = new_count & 0xFF
+            blob[list_header_start + 2] = (new_count >> 8) & 0xFF
+            blob[list_header_start + 3] = (new_count >> 16) & 0xFF
+    log.info(
+        "List count: %d -> %d (prefix=%d at 0x%X, header +%d)",
+        old_count, new_count, prefix, list_header_start, header_offset,
+    )
 
     from parc_inserter2 import parse_and_collect
     _, offset_positions, trailing_sizes_tree = parse_and_collect(orig_blob)
@@ -964,6 +984,13 @@ def insert_item_to_inventory(
                     if vf.name != '_inventorylist' or not vf.list_elements:
                         continue
                     for vbag in vf.list_elements:
+                        verified_bag_key = None
+                        for vcf in (vbag.child_fields or []):
+                            if vcf.name == '_inventoryKey' and vcf.present:
+                                verified_bag_key = struct.unpack_from('<H', blob, vcf.start_offset)[0]
+                                break
+                        if verified_bag_key != bag_key:
+                            continue
                         for vcf in (vbag.child_fields or []):
                             if vcf.name != '_itemList' or not vcf.list_elements:
                                 continue
@@ -975,7 +1002,7 @@ def insert_item_to_inventory(
                                             found_item = True
             if not found_item:
                 return False, blob, (
-                    f"Tree verification: item {item_key} not found after insertion. "
+                    f"Tree verification: item {item_key} not found in storage key {bag_key} after insertion. "
                     f"Fixed {fixed_po} POs + {fixed_toc} TOC + {fixed_ts} trailing sizes."
                 )
         except Exception as e:
@@ -3010,7 +3037,7 @@ def _splice_socket_elements(
         )
 
     fp = _item_socket_field_present
-    sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(13) if fp(bitmask, i))
+    sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(14) if fp(bitmask, i))
     sock_abs = item.offset + sock_rel
 
     count = struct.unpack_from('<I', orig_blob, sock_abs + 1)[0]
@@ -3108,8 +3135,8 @@ def _splice_socket_elements(
             fixed_toc += 1
 
     valid_updated = False
-    if fp(bitmask, 12):
-        valid_sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(12) if fp(bitmask, i))
+    if fp(bitmask, 13):
+        valid_sock_rel = sum(_ITEM_SOCKET_FIELD_SIZES[i] for i in range(13) if fp(bitmask, i))
         valid_sock_abs = item.offset + valid_sock_rel
         old_valid = new_blob[valid_sock_abs]
         new_blob[valid_sock_abs] = valid_count_fn(old_valid, len(validated))

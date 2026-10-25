@@ -10,10 +10,10 @@ from PySide6.QtWidgets import (
 
 
 DARK_COLORS = {
-    "bg": "#1a1510", "panel": "#272018", "header": "#3d2e1a",
-    "accent": "#daa850", "text": "#f0e6d4", "text_dim": "#b0a088",
-    "selected": "#5c4320", "border": "#554430", "input_bg": "#1e1610",
-    "panel_text": "#f0e6d4", "primary_text": "#f0e6d4", "accent_text": "#111111", "selection_text": "#FFFFFF", "success": "#9cc470", "warning": "#f0b040", "error": "#d44f40",
+    "bg": "#0f1115", "panel": "#151a21", "header": "#1a2028",
+    "accent": "#e0654a", "text": "#e7eaf0", "text_dim": "#8b93a1",
+    "selected": "#232b36", "border": "#262d37", "input_bg": "#11151b",
+    "panel_text": "#e7eaf0", "primary_text": "#e7eaf0", "accent_text": "#0f1115", "selection_text": "#FFFFFF", "success": "#4cc38a", "warning": "#e0b054", "error": "#e05c5c",
 }
 LIGHT_COLORS = {
     "bg": "#f5f5f5", "panel": "#ffffff", "header": "#d8d8d8",

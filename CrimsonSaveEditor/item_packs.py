@@ -89,6 +89,9 @@ class PackManager:
         import sys
         if not local_dir:
             if getattr(sys, 'frozen', False):
+                # Packs are part of the editor installation: keep downloaded
+                # JSON files beside the executable so this editor instance
+                # can list and inject them into a save immediately.
                 local_dir = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "packs")
             else:
                 local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs")

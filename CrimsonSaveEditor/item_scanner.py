@@ -499,44 +499,116 @@ def scan_items_parc(data: bytes | bytearray) -> Tuple[List[SaveItem], str]:
     if item_type_idx is None:
         return [], "ItemSaveData type not found in schema"
 
-    try:
-        bp = parc_mod.BlockParser(parc_blob)
-    except Exception as e:
-        return [], f"BlockParser init failed: {e}"
-
-    items: List[SaveItem] = []
-    parse_errors = 0
-
+    # ItemSaveData locators can live inside deeply nested lists.  Parsing only
+    # the first level of a root block misses most inventory entries in newer
+    # saves, whose item ids are also above the old 999999 heuristic limit.
+    # Scan the known item-owning root blocks for valid PARC locators instead.
+    root_sources = {
+        "EquipmentSaveData": ("Equipment", 0),
+        "InventorySaveData": ("Inventory", 0),
+        "StoreSaveData": ("Sold to Vendor", 0),
+        "MercenaryClanSaveData": ("Mercenary", 1),
+        "FieldSaveData": ("World / NPC", 1),
+    }
+    root_ranges: List[Tuple[int, int, str, int]] = []
     for entry in parc_blob.toc_entries:
         td = parc_blob.type_by_index.get(entry.class_index)
-        if td is None:
-            continue
+        source = root_sources.get(td.name if td else "")
+        if source:
+            root_ranges.append((entry.data_offset, entry.data_offset + entry.data_size, *source))
 
-        if td.name not in (
-            "InventorySaveData", "EquipmentSaveData", "StoreSaveData",
-            "MercenaryClanSaveData", "InventoryItemContentsSaveData",
-            "GameEventSaveData", "FieldSaveData", "FriendlySaveData",
-        ):
-            continue
+    items: List[SaveItem] = []
+    seen_locators: set[int] = set()
+    for start, end, source, section in root_ranges:
+        start = max(0, start)
+        end = min(len(data), end)
+        for locator in range(start, end - 24):
+            if locator in seen_locators:
+                continue
+            mask_count = struct.unpack_from("<H", data, locator)[0]
+            if not 0 < mask_count <= 16:
+                continue
+            type_offset = locator + 2 + mask_count
+            if type_offset + 15 > end:
+                continue
+            if struct.unpack_from("<H", data, type_offset)[0] != item_type_idx:
+                continue
+            sentinel1, sentinel2, payload_offset = struct.unpack_from("<III", data, type_offset + 3)
+            if sentinel1 != 0xFFFFFFFF or sentinel2 != 0xFFFFFFFF:
+                continue
+            if payload_offset != type_offset + 15 or payload_offset + 4 > end:
+                continue
 
-        try:
-            parsed = bp.parse_root_block(entry.index)
-        except Exception:
-            parse_errors += 1
-            continue
-
-        found = _find_item_fields_in_parsed(data, parsed, td.name, item_type_idx, parc_blob)
-        items.extend(found)
+            item = _parse_item_payload(
+                data, data[locator + 2:locator + 2 + mask_count], payload_offset,
+                parc_blob.type_by_index[item_type_idx], locator, source, "",
+            )
+            if item is None:
+                continue
+            item.source = source
+            item.section = section
+            items.append(item)
+            seen_locators.add(locator)
 
     if not items:
-        return [], f"PARC parsed 0 items ({parse_errors} block errors)"
+        return [], "PARC parsed 0 valid items"
 
     _classify_items(data, items)
+    _classify_inventory_containers(data, items)
 
-    status = f"PARC mode: {len(items)} items, 22 fields tracked per item"
-    if parse_errors:
-        status += f" ({parse_errors} block parse errors)"
-    return items, status
+    return items, f"PARC mode: {len(items)} items, 22 fields tracked per item"
+
+
+def _classify_inventory_containers(data: bytes | bytearray, items: List[SaveItem]) -> None:
+    """Attach every inventory item to its real InventoryKey container.
+
+    InventorySaveData holds many independent item lists.  The older scanner
+    correctly identified their common root as ``Inventory`` but discarded the
+    list's ``_inventoryKey``.  That made unrelated places (character bag,
+    camp containers and special inventories) look like one large inventory.
+    Keep the game key in ``bag`` instead of guessing a friendly name; keys can
+    differ as Pearl Abyss adds or changes storage types.
+    """
+    try:
+        import save_parser
+
+        raw = bytes(data)
+        # Decode only InventorySaveData.  ``build_result_from_raw`` walks
+        # every world object and made ordinary save loading noticeably slow.
+        schema = save_parser.parse_schema(raw)
+        types = schema["types"]
+        type_by_index = {type_def.index: type_def for type_def in types}
+        toc = save_parser.parse_toc(raw, schema["schema_end"], [type_def.name for type_def in types])
+        entry = next((entry for entry in toc["entries"] if entry.class_name == "InventorySaveData"), None)
+        type_def = type_by_index.get(entry.class_index) if entry else None
+        if not entry or not type_def:
+            return
+        block_start = entry.data_offset
+        block_end = min(len(raw), entry.data_offset + entry.data_size)
+        mask_count = struct.unpack_from("<H", raw, block_start)[0]
+        expected_count = max(1, (len(type_def.fields) + 7) // 8)
+        if not 0 < mask_count <= 16:
+            mask_count = expected_count
+        header_end = block_start + 2 + mask_count + 4
+        fields, _undecoded = save_parser._decode_fields_in_region(
+            raw, type_def, raw[block_start + 2:block_start + 2 + mask_count],
+            header_end, block_end, type_by_index,
+        )
+        lists_field = next((field for field in fields if field.name == "_inventorylist"), None)
+        for container in lists_field.list_elements or [] if lists_field else []:
+            key_field = next((field for field in container.child_fields if field.name == "_inventoryKey"), None)
+            item_list = next((field for field in container.child_fields if field.name == "_itemList"), None)
+            if not (key_field and key_field.present and item_list and item_list.present):
+                continue
+            key = struct.unpack_from("<H", raw, key_field.start_offset)[0]
+            label = f"Storage key {key}"
+            for item in items:
+                if item.source == "Inventory" and item_list.start_offset <= item.offset < item_list.end_offset:
+                    item.bag = label
+    except Exception:
+        # Storage labels are presentation metadata.  A scanner must still
+        # return usable items if a future save schema changes this structure.
+        log.debug("Could not classify InventorySaveData containers", exc_info=True)
 
 
 def _find_item_fields_in_parsed(

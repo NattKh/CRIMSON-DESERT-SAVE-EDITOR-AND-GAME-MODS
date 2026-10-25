@@ -2880,6 +2880,8 @@ class MainWindow(QMainWindow):
         self._parc_status: str = ""
         self._config: dict = self._load_config()
         self._character_catalog, self._confirmed_pet_keys, self._confirmed_mount_keys = self._load_companion_catalogs()
+        self._client_character_names: dict = {}
+        self._load_client_character_names()
 
         saved_lang = self._config.get("language", "en")
         set_language(saved_lang)
@@ -2959,6 +2961,20 @@ class MainWindow(QMainWindow):
             except (OSError, ValueError, TypeError):
                 continue
         return catalog, pet_keys, mount_keys
+
+    def _load_client_character_names(self) -> None:
+        """Load current character names from the installed client (cached)."""
+        try:
+            from client_characters import load_character_names
+            game_path = self._config.get("game_install_path", "")
+            if not game_path or not os.path.isdir(game_path):
+                try:
+                    game_path = PazPatchManager.find_game_path() or ""
+                except Exception:
+                    game_path = ""
+            self._client_character_names = load_character_names(game_path)
+        except Exception:
+            self._client_character_names = {}
 
     def _load_config(self) -> dict:
         path = self._get_config_path()
@@ -8270,23 +8286,19 @@ QSplitter::handle {{
         refresh_btn.clicked.connect(self._merc_refresh)
         btn_row1.addWidget(refresh_btn)
 
-        btn_row1.addWidget(QLabel("Add"))
         self._merc_add_combo = QComboBox()
         for char_key, (name, _template) in self.CHARACTER_TEMPLATES.items():
             self._merc_add_combo.addItem(name, char_key)
         self._merc_add_combo.setFixedWidth(110)
-        btn_row1.addWidget(self._merc_add_combo)
         add_merc_btn = QPushButton("Add to save")
         add_merc_btn.setToolTip("Add the selected supported companion template to the loaded save.")
         add_merc_btn.clicked.connect(lambda: self._unlock_character(self._merc_add_combo.currentData()))
-        btn_row1.addWidget(add_merc_btn)
 
         self._merc_mounts_only = QCheckBox("Show mounts only")
         self._merc_mounts_only.setToolTip(
             "Show only rideable mounts. This does not modify the save file.")
         self._merc_mounts_only.toggled.connect(self._apply_merc_filter)
         self._merc_mounts_only.setVisible(False)
-        btn_row1.addWidget(self._merc_mounts_only)
 
         rename_btn = QPushButton("Rename")
         rename_btn.setToolTip("Set a custom name for the selected mercenary/pet")
@@ -8298,48 +8310,59 @@ QSplitter::handle {{
         remove_btn.clicked.connect(self._delete_selected_mercenary)
         btn_row1.addWidget(remove_btn)
 
-
         clear_name_btn = QPushButton("Clear name")
         clear_name_btn.setToolTip("Remove the custom name from the selected mercenary")
         clear_name_btn.clicked.connect(self._merc_clear_name)
         btn_row1.addWidget(clear_name_btn)
-
-        btn_row1.addWidget(QLabel("Health"))
-        self._merc_hp_spin = QSpinBox()
-        self._merc_hp_spin.setRange(0, 9_999_999)
-        self._merc_hp_spin.setFixedWidth(88)
-        btn_row1.addWidget(self._merc_hp_spin)
-        btn_row1.addWidget(QLabel("Vigor"))
-        self._merc_mp_spin = QSpinBox()
-        self._merc_mp_spin.setRange(0, 9_999_999)
-        self._merc_mp_spin.setFixedWidth(88)
-        btn_row1.addWidget(self._merc_mp_spin)
-        stat_btn = QPushButton("Apply stats")
-        stat_btn.setObjectName("accentBtn")
-        stat_btn.clicked.connect(self._apply_selected_merc_stats)
-        btn_row1.addWidget(stat_btn)
-        details_btn = QPushButton("More stats")
-        details_btn.clicked.connect(self._open_selected_merc_stats)
-        btn_row1.addWidget(details_btn)
-
-        label_all_btn = QPushButton("Label All (M_<no>)")
-        label_all_btn.setToolTip(
-            "Name every mercenary with M_<merc_no> so you can identify them in-game.\n"
-            "Then rename the ones you want and clear the rest.")
-        label_all_btn.clicked.connect(self._merc_label_all)
-        btn_row1.addWidget(label_all_btn)
-
-        clear_all_btn = QPushButton("Reset All to Default")
-        clear_all_btn.setToolTip("Clear all custom names — restores default game names for every mercenary")
-        clear_all_btn.clicked.connect(self._merc_clear_all_names)
-        btn_row1.addWidget(clear_all_btn)
 
         self._merc_advanced_toggle = QCheckBox("Advanced tools")
         self._merc_advanced_toggle.setToolTip("Show experimental unlocks, batch actions, and entitlement recovery")
         btn_row1.addWidget(self._merc_advanced_toggle)
 
         btn_row1.addStretch()
+
+        btn_row2 = QHBoxLayout()
+        btn_row2.addWidget(QLabel("Add"))
+        btn_row2.addWidget(self._merc_add_combo)
+        btn_row2.addWidget(add_merc_btn)
+        btn_row2.addWidget(self._merc_mounts_only)
+        btn_row2.addSpacing(12)
+        btn_row2.addWidget(QLabel("Health"))
+        self._merc_hp_spin = QSpinBox()
+        self._merc_hp_spin.setRange(0, 9_999_999)
+        self._merc_hp_spin.setFixedWidth(88)
+        btn_row2.addWidget(self._merc_hp_spin)
+        btn_row2.addWidget(QLabel("Vigor"))
+        self._merc_mp_spin = QSpinBox()
+        self._merc_mp_spin.setRange(0, 9_999_999)
+        self._merc_mp_spin.setFixedWidth(88)
+        btn_row2.addWidget(self._merc_mp_spin)
+        stat_btn = QPushButton("Apply stats")
+        stat_btn.setObjectName("accentBtn")
+        stat_btn.clicked.connect(self._apply_selected_merc_stats)
+        btn_row2.addWidget(stat_btn)
+        details_btn = QPushButton("More stats")
+        details_btn.clicked.connect(self._open_selected_merc_stats)
+        btn_row2.addWidget(details_btn)
+        btn_row2.addStretch()
+
+        btn_row3 = QHBoxLayout()
+        label_all_btn = QPushButton("Label All (M_<no>)")
+        label_all_btn.setToolTip(
+            "Name every mercenary with M_<merc_no> so you can identify them in-game.\n"
+            "Then rename the ones you want and clear the rest.")
+        label_all_btn.clicked.connect(self._merc_label_all)
+        btn_row3.addWidget(label_all_btn)
+
+        clear_all_btn = QPushButton("Reset All to Default")
+        clear_all_btn.setToolTip("Clear all custom names — restores default game names for every mercenary")
+        clear_all_btn.clicked.connect(self._merc_clear_all_names)
+        btn_row3.addWidget(clear_all_btn)
+        btn_row3.addStretch()
+
         layout.insertLayout(1, btn_row1)
+        layout.insertLayout(2, btn_row2)
+        layout.insertLayout(3, btn_row3)
 
         from PySide6.QtWidgets import QGroupBox, QGridLayout
 
@@ -8649,8 +8672,16 @@ QSplitter::handle {{
         self._tabs.addTab(tab, "Pets")
 
     def _is_pet_char_key(self, char_key: int) -> bool:
-        # Pets are listed only when their key is confirmed by pet_catalog.json.
-        return char_key in getattr(self, '_confirmed_pet_keys', set())
+        """Return whether a companion record belongs in the Pets workspace."""
+        if char_key in getattr(self, '_confirmed_pet_keys', set()):
+            return True
+        entry = getattr(self, '_character_catalog', {}).get(char_key, {}) or {}
+        if (entry.get('category') or '').lower() == 'pet':
+            return True
+        internal = self._character_internal_name(char_key).lower()
+        if internal.startswith(('animal_', 'pet_', 'companion_')):
+            return not self._is_mount_char_key(char_key)
+        return False
 
     def _populate_pets_table(self) -> None:
         if not hasattr(self, "_pet_table"):
@@ -9176,17 +9207,28 @@ QSplitter::handle {{
         1000407: "Dimensional Wyvern",
     }
 
+    def _character_internal_name(self, char_key: int) -> str:
+        internal = getattr(self, '_client_character_names', {}).get(char_key)
+        if internal:
+            return internal
+        entry = getattr(self, '_character_catalog', {}).get(char_key, {}) or {}
+        return entry.get('internal_name', '') or ''
+
     def _merc_identify_type(self, char_key: int) -> str:
         override = self.COMPANION_DISPLAY_OVERRIDES.get(char_key)
         if override:
             return override
         catalog_entry = getattr(self, '_character_catalog', {}).get(char_key)
-        if catalog_entry:
-            return catalog_entry.get('display_name') or catalog_entry.get('internal_name') or f"Character {char_key}"
+        if catalog_entry and catalog_entry.get('display_name'):
+            return catalog_entry['display_name']
+        internal = self._character_internal_name(char_key)
+        if internal:
+            from client_characters import prettify_internal_name
+            return prettify_internal_name(internal)
         name = self.CHAR_KEY_NAMES.get(char_key)
         if name:
             return name
-        return f"Unidentified character ({char_key})"
+        return f"Unknown character ({char_key})"
 
     def _character_display_name(self, char_key: int) -> str:
         return self._merc_identify_type(char_key)
@@ -9197,10 +9239,17 @@ QSplitter::handle {{
             return True
         if char_key in self.MOUNT_TEMPLATES:
             return True
+        entry = getattr(self, '_character_catalog', {}).get(char_key, {}) or {}
+        if (entry.get('category') or '').lower() == 'mount':
+            return True
+        internal = self._character_internal_name(char_key)
+        if internal:
+            from client_characters import classify_internal_name
+            return classify_internal_name(internal) == 'Mount'
         mount_words = (
             "horse", "dragon", "wyvern", "wolf", "bear", "deer", "warthog",
-            "ibex", "elephant", "camel", "iguana", "bird", "atag", "machine",
-            "warmachine", "ship", "balloon",
+            "ibex", "elephant", "camel", "atag", "machine", "warmachine",
+            "ship", "balloon",
         )
         name = self.CHAR_KEY_NAMES.get(char_key, "").lower()
         return any(word in name for word in mount_words)

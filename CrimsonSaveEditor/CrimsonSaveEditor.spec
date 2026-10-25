@@ -53,6 +53,7 @@ a = Analysis(
         'questinfo_parser',
         'item_template_db',
         'native_backend',
+        'client_characters',
         'app_version',
         'startup_splash',
         'theme_support',

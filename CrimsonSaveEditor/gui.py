@@ -3295,115 +3295,11 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self._tabs, 1)
         self.setCentralWidget(right_panel)
 
-        from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
-        pack_sidebar = QFrame()
-        pack_sidebar.setMinimumWidth(40)
-        pack_sidebar.setStyleSheet(f"background-color: {COLORS['panel']}; border-left: 1px solid {COLORS['border']};")
-        ps_layout = QVBoxLayout(pack_sidebar)
-        ps_layout.setContentsMargins(6, 6, 6, 6)
-        ps_layout.setSpacing(3)
-
-        ps_hdr_row = QHBoxLayout()
-        ps_hdr = QLabel("Pack Browser")
-        ps_hdr.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {COLORS['accent']}; padding: 2px 0;")
-        ps_hdr_row.addWidget(ps_hdr)
-        ps_hdr_row.addStretch()
-        self._ps_collapse_btn = QPushButton("\u25B6")
-        self._ps_collapse_btn.setFixedSize(22, 22)
-        self._ps_collapse_btn.setToolTip("Collapse Pack Browser")
-        self._ps_collapse_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {COLORS['accent']}; "
-            f"font-size: 12px; border: 1px solid {COLORS['border']}; border-radius: 3px; }}"
-            f"QPushButton:hover {{ background: {COLORS['selected']}; }}"
-        )
-        self._ps_collapse_btn.clicked.connect(self._toggle_pack_sidebar)
-        ps_hdr_row.addWidget(self._ps_collapse_btn)
-        ps_layout.addLayout(ps_hdr_row)
-
-        new_grp = QFrame()
-        new_grp.setStyleSheet(f"border: 1px solid {COLORS['border']}; border-radius: 3px; padding: 2px;")
-        new_lay = QVBoxLayout(new_grp)
-        new_lay.setContentsMargins(4, 4, 4, 4)
-        new_lay.setSpacing(2)
-
-        self._pack_name_input = QLineEdit()
-        self._pack_name_input.setPlaceholderText("Pack name...")
-        self._pack_name_input.setStyleSheet(f"border: 1px solid {COLORS['border']}; padding: 3px;")
-        new_lay.addWidget(self._pack_name_input)
-
-        type_row = QHBoxLayout()
-        self._pack_type_combo = QComboBox()
-        self._pack_type_combo.addItems(["Knowledge", "Quest"])
-        self._pack_type_combo.setFixedWidth(100)
-        type_row.addWidget(self._pack_type_combo)
-
-        ps_create_btn = QPushButton("Create")
-        ps_create_btn.setStyleSheet("font-weight: bold;")
-        ps_create_btn.clicked.connect(self._pack_browser_create)
-        type_row.addWidget(ps_create_btn)
-        new_lay.addLayout(type_row)
-        ps_layout.addWidget(new_grp)
-
-        self._pack_tree = QTreeWidget()
-        self._pack_tree.setHeaderHidden(True)
-        self._pack_tree.setIndentation(16)
-        self._pack_tree.setStyleSheet(
-            f"QTreeWidget {{ background: {COLORS['bg']}; color: {COLORS['text']}; border: 1px solid {COLORS['border']}; }}"
-            f"QTreeWidget::item:selected {{ background: {COLORS['selected']}; }}"
-            f"QTreeWidget::item:hover {{ background: {COLORS['header']}; }}"
-        )
-        self._pack_tree.itemDoubleClicked.connect(self._pack_browser_navigate)
-        ps_layout.addWidget(self._pack_tree, 1)
-
-        ps_know_btn = QPushButton("Knowledge Tab")
-        ps_know_btn.setToolTip("Jump to Knowledge tab")
-        ps_know_btn.clicked.connect(lambda: self._goto_subtab(self._world_tabs, self._knowledge_tab))
-        ps_layout.addWidget(ps_know_btn)
-
-        ps_quest_btn = QPushButton("Quest Editor")
-        ps_quest_btn.setToolTip("Jump to Quest Editor tab")
-        ps_quest_btn.clicked.connect(lambda: self._goto_subtab(self._world_tabs, self._quest_editor_tab))
-        ps_layout.addWidget(ps_quest_btn)
-
-        ps_inject_btn = QPushButton("Inject Selected Pack")
-        ps_inject_btn.clicked.connect(self._pack_browser_inject)
-        ps_layout.addWidget(ps_inject_btn)
-
-        ps_delete_btn = QPushButton("Delete Selected Pack")
-        ps_delete_btn.clicked.connect(self._pack_browser_delete)
-        ps_layout.addWidget(ps_delete_btn)
-
-        ps_refresh_btn = QPushButton("Refresh")
-        ps_refresh_btn.clicked.connect(self._pack_browser_refresh)
-        ps_layout.addWidget(ps_refresh_btn)
-
-        ps_open_btn = QPushButton("Open Folder")
-        ps_open_btn.setStyleSheet(f"font-size: 10px; color: {COLORS['text_dim']};")
-        ps_open_btn.clicked.connect(self._pack_browser_open_folder)
-        ps_layout.addWidget(ps_open_btn)
-
-        self._pack_sidebar = pack_sidebar
-        self._pack_dock = QDockWidget("Pack Browser", self)
-        self._pack_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self._pack_dock.setFeatures(
-            QDockWidget.DockWidgetMovable |
-            QDockWidget.DockWidgetFloatable |
-            QDockWidget.DockWidgetClosable
-        )
-        self._pack_dock.setStyleSheet(
-            f"QDockWidget::title {{ background: {COLORS['accent']}; padding: 4px; "
-            f"color: {COLORS.get('accent_text', '#111111')}; font-weight: bold; }}"
-            f"QDockWidget {{ border: 1px solid {COLORS['accent']}; }}")
-        self._pack_dock.setWidget(pack_sidebar)
-        self._pack_dock.visibilityChanged.connect(
-            lambda v: self.__dict__.update({'_ps_collapsed': not v})
-        )
-        self.addDockWidget(Qt.RightDockWidgetArea, self._pack_dock)
-
-        self.resizeDocks([self._save_dock, self._pack_dock], [260, 260], Qt.Horizontal)
-
+        # The right-hand Pack Browser dock is not part of this layout.
+        self._pack_dock = None
+        self._pack_tree = None
         self._sb_collapsed = False
-        self._ps_collapsed = False
+        self._ps_collapsed = True
         self._sb_saved_width = 260
         self._ps_saved_width = 260
 
@@ -4827,7 +4723,7 @@ QCheckBox::indicator {{
             if not self._sb_collapsed:
                 self._sb_saved_width = scaled_sidebar
                 docks.append(self._save_dock); widths.append(scaled_sidebar)
-            if not self._ps_collapsed:
+            if self._pack_dock is not None and not self._ps_collapsed:
                 self._ps_saved_width = scaled_sidebar
                 docks.append(self._pack_dock); widths.append(scaled_sidebar)
             if docks:
@@ -33356,9 +33252,14 @@ QCheckBox::indicator {{
         if 0 <= current_index < len(self._inv_subtab_filters):
             current_filter = self._inv_subtab_filters[current_index]
 
+        def _storage_sort_key(label) -> tuple:
+            text = str(label)
+            match = re.search(r"(\d+)\s*$", text)
+            return (int(match.group(1)) if match else 10**9, text.lower())
+
         storage_keys = sorted(
             {item.bag for item in self._items if item.source == "Inventory" and item.bag},
-            key=lambda label: int(label.rsplit(" ", 1)[-1]),
+            key=_storage_sort_key,
         )
         filters = [
             ("All saved items", None, None),
@@ -33594,7 +33495,8 @@ QCheckBox::indicator {{
         if filter_type != 'bag' or not isinstance(filter_value, str):
             return None
         try:
-            return int(filter_value.rsplit(' ', 1)[-1])
+            match = re.search(r"(\d+)\s*$", filter_value)
+            return int(match.group(1)) if match else None
         except (TypeError, ValueError):
             return None
 
@@ -33612,7 +33514,8 @@ QCheckBox::indicator {{
         if not accepted:
             return None, ""
         try:
-            return int(choice.rsplit(' ', 1)[-1]), choice
+            match = re.search(r"(\d+)\s*$", choice)
+            return (int(match.group(1)) if match else None), choice
         except ValueError:
             return None, ""
 
@@ -35907,7 +35810,7 @@ QCheckBox::indicator {{
             if not self._sb_collapsed:
                 self._sb_saved_width = scaled_sidebar
                 docks.append(self._save_dock); widths.append(scaled_sidebar)
-            if not self._ps_collapsed:
+            if self._pack_dock is not None and not self._ps_collapsed:
                 self._ps_saved_width = scaled_sidebar
                 docks.append(self._pack_dock); widths.append(scaled_sidebar)
             if docks:

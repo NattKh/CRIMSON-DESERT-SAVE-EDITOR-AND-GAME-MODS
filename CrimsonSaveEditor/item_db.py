@@ -2,17 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import datetime
 from typing import Dict, List, Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 
 from models import ItemInfo
-
-
-GITHUB_URL = (
-    "https://raw.githubusercontent.com/"
-    "NattKh/CrimsonDesertCommunityItemMapping/main/item_names.json"
-)
 
 import sys as _sys
 _exe_dir = os.path.dirname(os.path.abspath(_sys.executable)) if getattr(_sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
@@ -41,13 +34,6 @@ class ItemNameDB:
                 if self.items:
                     return path
 
-        save_path = os.path.join(_exe_dir, "item_names.json")
-        try:
-            ok, msg = self.sync_from_github(save_path)
-            if ok and self.items:
-                return save_path
-        except Exception:
-            pass
         return ""
 
     def load(self, path: str) -> None:
@@ -156,59 +142,104 @@ class ItemNameDB:
         results.sort(key=lambda x: x.item_key)
         return results
 
-    def sync_from_github(self, save_to: str = "") -> tuple[bool, str]:
+    def sync_from_local_game(self, game_path: str) -> tuple[bool, str]:
+        """Add/update item keys by reading the installed game's local archives."""
         try:
-            req = Request(GITHUB_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=10) as resp:
-                raw = resp.read()
-                data = json.loads(raw.decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return False, f"Download failed: {e}"
+            import crimson_rs
+            import struct
+            header = crimson_rs.extract_file(
+                game_path, "0008", "gamedata/binarystaticinfo__/bin",
+                "iteminfo.staticinfoheader",
+            )
+            body = crimson_rs.extract_file(
+                game_path, "0008", "gamedata/binarystaticinfo__/bin",
+                "iteminfo.staticinfobody",
+            )
+        except Exception as exc:
+            return False, f"Could not read local item data: {exc}"
 
-        remote_version = data.get("version", 0)
-        remote_items = data.get("items", [])
+        if len(header) < 2:
+            return False, "Local item-data header is invalid."
+        count = struct.unpack_from("<H", header, 0)[0]
+        if len(header) < 2 + count * 8:
+            return False, "Local item-data header is truncated."
 
-        if remote_version <= self.version and self.items:
-            return True, f"Already up to date (v{self.version})."
-
-        added = 0
-        updated = 0
-        for entry in remote_items:
-            key = entry.get("itemKey", 0)
-            if key <= 0:
-                continue
-            name = entry.get("name", "")
-            category = entry.get("category", "Misc")
-            internal = entry.get("internalName", "")
-            max_stack = entry.get("maxStack", 0)
-
-            if key not in self.items:
-                self.items[key] = ItemInfo(
-                    item_key=key,
-                    name=name,
+        previous = dict(self.items)
+        added = updated = parsed = 0
+        extracted_keys: set[int] = set()
+        for index in range(count):
+            key, offset = struct.unpack_from("<II", header, 2 + index * 8)
+            end = (struct.unpack_from("<I", header, 2 + (index + 1) * 8 + 4)[0]
+                   if index + 1 < count else len(body))
+            try:
+                record_key = struct.unpack_from("<I", body, offset)[0]
+                name_length = struct.unpack_from("<I", body, offset + 4)[0]
+                name_start = offset + 8
+                if not record_key or name_length > 512 or name_start + name_length > end:
+                    continue
+                internal = body[name_start:name_start + name_length].decode("ascii", "replace")
+                parsed += 1
+                extracted_keys.add(record_key)
+                existing = previous.get(record_key)
+                display = existing.name if existing and existing.name else internal.replace("_", " ")
+                self.items[record_key] = ItemInfo(
+                    item_key=record_key,
+                    name=display,
                     internal_name=internal,
-                    category=category,
-                    max_stack=max_stack,
+                    category=(existing.category if existing else _guess_item_category(internal)),
+                    max_stack=(existing.max_stack if existing else 0),
                 )
-                added += 1
-            else:
-                existing = self.items[key]
-                if name and (not existing.name or existing.name.startswith("Unknown")):
-                    existing.name = name
+                if existing:
                     updated += 1
-                if internal and not existing.internal_name:
-                    existing.internal_name = internal
-                if category != "Misc" and existing.category == "Misc":
-                    existing.category = category
-                if max_stack and not existing.max_stack:
-                    existing.max_stack = max_stack
+                else:
+                    added += 1
+            except (ValueError, struct.error):
+                continue
 
-        if remote_version > self.version:
-            self.version = remote_version
+        if not self.items:
+            return False, "No usable item records were found in the local game data."
+        self.version += 1
+        # A bundled one-file resource lives under PyInstaller's temporary
+        # _MEIPASS directory.  Always persist refreshes beside the executable
+        # so the current-client database survives the next launch.
+        self.loaded_path = os.path.join(_exe_dir, "item_names.json")
+        self.save()
+        report = {
+            "generatedUtc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "source": "installed_client",
+            "gamePath": os.path.abspath(game_path),
+            "archive": "0008",
+            "headerPath": "gamedata/binarystaticinfo__/bin/iteminfo.staticinfoheader",
+            "bodyPath": "gamedata/binarystaticinfo__/bin/iteminfo.staticinfobody",
+            "declaredRecords": count,
+            "parsedRecords": parsed,
+            "uniqueClientItemKeys": len(extracted_keys),
+            "databaseItems": len(self.items),
+            "added": added,
+            "refreshed": updated,
+            "preservedLocalOnlyKeys": len(set(previous) - extracted_keys),
+        }
+        report_path = os.path.join(os.path.dirname(self.loaded_path), "item_scan_report.json")
+        try:
+            with open(report_path, "w", encoding="utf-8") as report_file:
+                json.dump(report, report_file, indent=2, ensure_ascii=False)
+        except OSError:
+            report_path = ""
+        suffix = f" Report: {report_path}" if report_path else ""
+        return True, (
+            f"Local game scan complete: {len(extracted_keys)} current client items; "
+            f"{len(self.items)} total known ({added} added, {updated} refreshed)." + suffix
+        )
 
-        if not self.loaded_path and save_to:
-            self.loaded_path = save_to
-        if self.loaded_path:
-            self.save()
 
-        return True, f"Synced v{remote_version}: {added} new, {updated} updated."
+def _guess_item_category(internal_name: str) -> str:
+    name = internal_name.lower()
+    if any(token in name for token in ("weapon", "armor", "shield", "helmet", "glove", "boot", "ring", "earring", "necklace")):
+        return "Equipment"
+    if any(token in name for token in ("potion", "food", "elixir", "meal", "drink")):
+        return "Consumable"
+    if any(token in name for token in ("ore", "ingot", "leather", "timber", "material")):
+        return "Material"
+    if "quest" in name:
+        return "Quest"
+    return "Misc"

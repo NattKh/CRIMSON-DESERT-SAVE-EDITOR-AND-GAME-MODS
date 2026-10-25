@@ -3079,6 +3079,8 @@ class StackerTab(QWidget):
                 if isinstance(dcd, dict):
                     dcd.setdefault('inherit_summoner', 0)
                     dcd.setdefault('summon_tag_name_hash', [0, 0, 0, 0])
+                    dcd.setdefault('animation_root_bone_name', '')
+                    dcd.pop('unk_docking_108', None)
             merged_by_key = {it['key']: it for it in merged_items}
             unparsed = getattr(self, '_stacker_unparsed_raw', []) or []
             unparsed_map = {}
@@ -4197,7 +4199,8 @@ class StackerTab(QWidget):
             if _file.startswith("iteminfo"):
                 for _intent in _intents:
                     if _intent['field'] == 'docking_child_data' and _intent['op'] == 'set':
-                        _intent['new'].setdefault('unk_docking_108', 0)
+                        _intent['new'].setdefault('animation_root_bone_name', '')
+                        _intent['new'].pop('unk_docking_108', None)
             targets.append((_file, _intents))
 
         if not targets:

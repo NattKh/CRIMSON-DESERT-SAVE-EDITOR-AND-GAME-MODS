@@ -4,15 +4,7 @@ import json
 import os
 import time
 from typing import Dict, List, Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 from dataclasses import dataclass, field, asdict
-
-SETS_REPO = "NattKh/CrimsonDesertCommunityItemMapping"
-SETS_BRANCH = "main"
-SETS_DIR = "sets"
-SETS_INDEX_URL = f"https://raw.githubusercontent.com/{SETS_REPO}/{SETS_BRANCH}/{SETS_DIR}/index.json"
-SETS_BASE_URL = f"https://raw.githubusercontent.com/{SETS_REPO}/{SETS_BRANCH}/{SETS_DIR}/"
 
 
 @dataclass
@@ -125,7 +117,6 @@ class SetManager:
         self.local_dir = local_dir
         os.makedirs(self.local_dir, exist_ok=True)
 
-        self._remote_index: List[SetIndexEntry] = []
         self._local_sets: List[EquipmentSet] = []
 
 
@@ -177,44 +168,6 @@ class SetManager:
             return EquipmentSet.from_dict(data, filename=os.path.basename(path))
         except (json.JSONDecodeError, OSError):
             return None
-
-
-    def fetch_remote_index(self) -> tuple[bool, str]:
-        try:
-            req = Request(SETS_INDEX_URL, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return False, f"Failed to fetch set index: {e}"
-
-        self._remote_index = []
-        for entry in data.get("sets", []):
-            self._remote_index.append(SetIndexEntry(
-                filename=entry.get("filename", ""),
-                name=entry.get("name", "Unnamed"),
-                author=entry.get("author", "Unknown"),
-                description=entry.get("description", ""),
-                item_count=entry.get("itemCount", 0),
-                version=entry.get("version", 1),
-            ))
-
-        return True, f"Found {len(self._remote_index)} community sets."
-
-    def get_remote_index(self) -> List[SetIndexEntry]:
-        return self._remote_index
-
-    def download_set(self, filename: str) -> tuple[Optional[EquipmentSet], str]:
-        url = SETS_BASE_URL + filename
-        try:
-            req = Request(url, headers={"User-Agent": "CrimsonSaveEditor/1.0"})
-            with urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (URLError, json.JSONDecodeError, OSError) as e:
-            return None, f"Download failed: {e}"
-
-        es = EquipmentSet.from_dict(data, filename=filename)
-        self.save_set(es, filename)
-        return es, f"Downloaded '{es.name}' ({len(es.items)} items)"
 
 
     def export_set_json(self, es: EquipmentSet) -> str:

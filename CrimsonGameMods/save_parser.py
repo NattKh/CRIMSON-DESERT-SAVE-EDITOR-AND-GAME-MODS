@@ -17,7 +17,7 @@ MAIN_BAG_HASH = 0xEBEA2CD2
 SOURCE_NAMES = ["Equipment", "Inventory", "Store", "Mercenary", "Other"]
 
 
-@dataclass
+@dataclass(slots=True)
 class FieldDef:
     name: str
     type_name: str
@@ -28,7 +28,7 @@ class FieldDef:
     end_offset: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class TypeDef:
     index: int
     name: str
@@ -37,7 +37,7 @@ class TypeDef:
     end_offset: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class TocEntry:
     index: int
     class_index: int
@@ -99,7 +99,7 @@ class BagSlot:
     blockSize: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class GenericFieldValue:
     field_index: int
     name: str
@@ -140,7 +140,7 @@ class GenericFieldValue:
     list_elements: list[GenericFieldValue] | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class ObjectBlock:
     entry_index: int
     class_index: int
@@ -783,10 +783,10 @@ def _decode_compact_list_element(
         start_offset=cursor,
         end_offset=child_end,
         value_repr=f"type={child_type_def.name} target=0x{child_payload_offset:X}",
-        child_prefix_u16=child_prefix_u16,
+        child_prefix_u16=0,
         child_prefix_u8=0,
-        child_mask_byte_count=1,
-        child_mask_bytes=bytes([child_mask_byte]),
+        child_mask_byte_count=child_mask_byte_count,
+        child_mask_bytes=child_mask_bytes,
         child_type_index=child_type_index,
         child_type_name=child_type_def.name,
         child_reserved_u8=child_reserved_u8,

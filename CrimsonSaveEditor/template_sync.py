@@ -1,68 +1,71 @@
 from __future__ import annotations
 
-import base64
-import hashlib
 import json
 import logging
 import os
-import platform
-import struct
 import sys
-import time
-from typing import Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
+from typing import Callable, Optional
 
 log = logging.getLogger(__name__)
 
-_REPO = "NattKh/CrimsonDesertCommunityItemMapping"
-_BRANCH = "main"
-_MASTER_URL = f"https://raw.githubusercontent.com/{_REPO}/{_BRANCH}/templates/master_templates.json"
-_API_BASE = f"https://api.github.com/repos/{_REPO}/contents"
-_TOKEN = os.environ.get("GH_TOKEN", "")
-
-_MY_DIR = os.path.dirname(os.path.abspath(__file__))
-_LOCAL_MASTER = os.path.join(_MY_DIR, 'master_templates.json')
-_LOCAL_DB = os.path.join(_MY_DIR, 'item_templates.json')
+_SOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
+_EXTERNAL_DIR = (
+    os.path.dirname(os.path.abspath(sys.executable))
+    if getattr(sys, "frozen", False)
+    else _SOURCE_DIR
+)
+_BUNDLE_DIR = getattr(sys, "_MEIPASS", _SOURCE_DIR)
+_LOCAL_MASTER = os.path.join(_EXTERNAL_DIR, "master_templates.json")
+_BUNDLED_MASTER = os.path.join(_BUNDLE_DIR, "master_templates.json")
+_LOCAL_DB = os.path.join(_EXTERNAL_DIR, "item_templates.json")
 
 _SAVE_DIRS = [
     os.path.expandvars(r"%LOCALAPPDATA%\Pearl Abyss\CD\save"),
 ]
 
 
-def _machine_id() -> str:
-    raw = f"{platform.node()}-{platform.machine()}-{os.getlogin()}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:12]
+def _empty_master() -> dict:
+    return {"version": 1, "total_items": 0, "templates": {}}
 
 
-def download_master() -> dict:
-    try:
-        log.info("Downloading master template DB...")
-        req = Request(_MASTER_URL)
-        resp = urlopen(req, timeout=15)
-        data = json.loads(resp.read())
-        with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-            json.dump(data, f, separators=(',', ':'))
-        count = len(data.get('templates', {}))
-        log.info("Master DB: %d templates (cached locally)", count)
-        return data
-    except Exception as e:
-        log.warning("Failed to download master DB: %s", e)
-        if os.path.isfile(_LOCAL_MASTER):
-            with open(_LOCAL_MASTER, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {'version': 1, 'total_items': 0, 'templates': {}}
+def _read_master(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as source:
+        data = json.load(source)
+    if not isinstance(data, dict):
+        raise ValueError("Template file must contain a JSON object.")
+    templates = data.get("templates", data)
+    if not isinstance(templates, dict):
+        raise ValueError("Template file has no valid templates object.")
+    if "templates" not in data:
+        data = {"version": 1, "total_items": len(templates), "templates": templates}
+    return data
 
 
 def load_local_master() -> dict:
-    if os.path.isfile(_LOCAL_MASTER):
-        with open(_LOCAL_MASTER, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {'version': 1, 'total_items': 0, 'templates': {}}
+    """Load an external master file first, then the bundled read-only copy."""
+    for path in (_LOCAL_MASTER, _BUNDLED_MASTER):
+        if os.path.isfile(path):
+            try:
+                return _read_master(path)
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                log.warning("Could not load local template file %s: %s", path, exc)
+    return _empty_master()
 
 
-def find_all_saves() -> list:
-    saves = []
+def import_master(source_path: str) -> tuple[bool, str]:
+    """Validate and install a user-selected local master-template JSON file."""
+    try:
+        data = _read_master(source_path)
+        templates = data.get("templates", {})
+        with open(_LOCAL_MASTER, "w", encoding="utf-8") as destination:
+            json.dump(data, destination, indent=2, ensure_ascii=False)
+        return True, f"Imported {len(templates)} templates from a local file."
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return False, f"Could not import template database: {exc}"
+
+
+def find_all_saves() -> list[str]:
+    saves: list[str] = []
     for base in _SAVE_DIRS:
         if not os.path.isdir(base):
             continue
@@ -74,10 +77,10 @@ def find_all_saves() -> list:
                 slot_dir = os.path.join(user_path, slot)
                 if not os.path.isdir(slot_dir):
                     continue
-                for fname in ['backups/save.save.PRISTINE.bak', 'save.save']:
-                    p = os.path.join(slot_dir, fname)
-                    if os.path.isfile(p):
-                        saves.append(p)
+                for relative_name in ("backups/save.save.PRISTINE.bak", "save.save"):
+                    candidate = os.path.join(slot_dir, relative_name)
+                    if os.path.isfile(candidate):
+                        saves.append(candidate)
                         break
     return saves
 
@@ -87,192 +90,118 @@ def scan_save_for_templates(save_path: str) -> dict:
         from save_crypto import load_save_file
         from item_template_db import extract_items_from_parse_tree, _get_parser
 
-        sp = _get_parser()
-        sd = load_save_file(save_path)
-        raw = bytes(sd.decompressed_blob)
-        result = sp.build_result_from_raw(raw, {'input_kind': 'raw_blob'})
-
+        parser = _get_parser()
+        save_data = load_save_file(save_path)
+        raw = bytes(save_data.decompressed_blob)
+        result = parser.build_result_from_raw(raw, {"input_kind": "raw_blob"})
         slot_name = os.path.basename(os.path.dirname(save_path))
         templates = extract_items_from_parse_tree(result, raw, slot_name)
 
-        clean = {}
-        for key, t in templates.items():
+        clean: dict = {}
+        for key, template in templates.items():
             clean[key] = {
-                'hex': t['hex'],
-                'mask': t['mask'],
-                'size': t['size'],
-                'item_key': t['item_key'],
-                'field_positions': t.get('field_positions', {}),
+                "hex": template["hex"],
+                "mask": template["mask"],
+                "size": template["size"],
+                "item_key": template["item_key"],
+                "field_positions": template.get("field_positions", {}),
             }
         return clean
-    except Exception as e:
-        log.warning("Failed to scan %s: %s", save_path, e)
+    except Exception as exc:
+        log.warning("Failed to scan %s: %s", save_path, exc)
         return {}
 
 
 def scan_all_saves() -> dict:
     saves = find_all_saves()
-    log.info("Found %d save files to scan", len(saves))
-
-    all_templates = {}
+    all_templates: dict = {}
     for save_path in saves:
-        try:
-            templates = scan_save_for_templates(save_path)
-            for key, t in templates.items():
-                if key not in all_templates or t['size'] < all_templates[key]['size']:
-                    all_templates[key] = t
-        except Exception as e:
-            log.warning("Error scanning %s: %s", save_path, e)
-
-    log.info("Scanned %d saves, found %d unique templates", len(saves), len(all_templates))
+        templates = scan_save_for_templates(save_path)
+        for key, template in templates.items():
+            if key not in all_templates or template["size"] < all_templates[key]["size"]:
+                all_templates[key] = template
+    log.info("Scanned %d saves and found %d unique templates", len(saves), len(all_templates))
     return all_templates
 
 
 def find_new_templates(local: dict, master: dict) -> dict:
-    master_templates = master.get('templates', {})
-    new = {}
-    for key, t in local.items():
-        if key not in master_templates:
-            new[key] = t
-        elif t['size'] < master_templates[key]['size']:
-            new[key] = t
-    return new
-
-
-def upload_contribution(new_templates: dict) -> tuple[bool, str]:
-    if not new_templates:
-        return True, "No new templates to contribute."
-
-    mid = _machine_id()
-    ts = int(time.time())
-    filename = f"contrib_{mid}_{ts}.json"
-
-    contrib = {
-        'submitted': ts,
-        'machine': mid,
-        'count': len(new_templates),
-        'templates': new_templates,
+    master_templates = master.get("templates", {})
+    return {
+        key: template
+        for key, template in local.items()
+        if key not in master_templates
+        or template["size"] < master_templates[key].get("size", 2**31)
     }
 
-    content = json.dumps(contrib, separators=(',', ':'))
-    encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
 
+def export_contribution(new_templates: dict, destination_path: str) -> tuple[bool, str]:
+    """Export discoveries for manual sharing; this function performs no network I/O."""
+    if not new_templates:
+        return True, "No templates are missing from the current local master database."
+    contribution = {
+        "version": 1,
+        "count": len(new_templates),
+        "templates": new_templates,
+    }
     try:
-        headers = {
-            'Authorization': f'token {_TOKEN}',
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-        }
-        data = json.dumps({
-            'message': f'Contribution: {len(new_templates)} templates from {mid}',
-            'content': encoded,
-        }).encode('utf-8')
-
-        path = f"contributions/{filename}"
-        req = Request(f"{_API_BASE}/{path}", data=data, headers=headers, method='PUT')
-        resp = urlopen(req, timeout=30)
-        result = json.loads(resp.read())
-
-        log.info("Uploaded %d templates as %s", len(new_templates), filename)
-        return True, f"Contributed {len(new_templates)} new templates! GitHub Action will merge them shortly."
-    except URLError as e:
-        log.error("Upload failed: %s", e)
-        return False, f"Upload failed: {e}"
-    except Exception as e:
-        log.error("Upload error: %s", e)
-        return False, f"Error: {e}"
+        with open(destination_path, "w", encoding="utf-8") as destination:
+            json.dump(contribution, destination, indent=2, ensure_ascii=False)
+        return True, f"Exported {len(new_templates)} templates to {destination_path}"
+    except OSError as exc:
+        return False, f"Could not export templates: {exc}"
 
 
 def get_sync_status() -> dict:
     master = load_local_master()
-    master_count = len(master.get('templates', {}))
+    master_count = len(master.get("templates", {}))
 
-    local_count = 0
+    local_db: dict = {}
     if os.path.isfile(_LOCAL_DB):
-        with open(_LOCAL_DB, 'r', encoding='utf-8') as f:
-            local_db = json.load(f)
-            local_count = len(local_db)
+        try:
+            with open(_LOCAL_DB, "r", encoding="utf-8") as source:
+                loaded = json.load(source)
+            if isinstance(loaded, dict):
+                local_db = loaded
+        except (OSError, json.JSONDecodeError):
+            pass
 
-    new_count = 0
-    if local_count > 0 and master_count > 0:
-        local_keys = set(str(k) for k in local_db.keys()) if local_count > 0 else set()
-        master_keys = set(master.get('templates', {}).keys())
-        new_count = len(local_keys - master_keys)
-
-    coverage = (master_count / 5993) * 100 if master_count > 0 else 0
-
+    master_keys = set(master.get("templates", {}))
+    local_keys = set(str(key) for key in local_db)
+    total_game_items = 6813
     return {
-        'master_count': master_count,
-        'local_count': local_count,
-        'new_count': new_count,
-        'coverage_pct': round(coverage, 1),
-        'total_game_items': 5993,
+        "master_count": master_count,
+        "local_count": len(local_db),
+        "new_count": len(local_keys - master_keys),
+        "coverage_pct": round((master_count / total_game_items) * 100, 1) if master_count else 0,
+        "total_game_items": total_game_items,
     }
 
 
-def full_sync(progress_callback=None) -> str:
+def full_sync(progress_callback: Optional[Callable[[str], None]] = None) -> str:
+    """Compatibility entry point: scan local saves and write only the local DB."""
     if progress_callback:
-        progress_callback("Downloading master template database...")
-
-    master = download_master()
-    master_count = len(master.get('templates', {}))
-
-    if progress_callback:
-        progress_callback(f"Master DB: {master_count} templates. Scanning saves...")
-
+        progress_callback("Scanning local saves for item templates...")
     local = scan_all_saves()
-
+    from item_template_db import save_db
+    save_db(local)
+    missing = find_new_templates(local, load_local_master())
+    message = (
+        f"Local scan complete: {len(local)} templates found; "
+        f"{len(missing)} are not in the installed master database."
+    )
     if progress_callback:
-        progress_callback(f"Found {len(local)} local templates. Checking for new...")
-
-    new = find_new_templates(local, master)
-
-    if not new:
-        msg = f"All {len(local)} local templates already in master DB ({master_count} total)."
-        if progress_callback:
-            progress_callback(msg)
-        return msg
-
-    if progress_callback:
-        progress_callback(f"Uploading {len(new)} new templates...")
-
-    ok, msg = upload_contribution(new)
-
-    if ok:
-        master_templates = master.get('templates', {})
-        master_templates.update(new)
-        master['templates'] = master_templates
-        master['total_items'] = len(master_templates)
-        with open(_LOCAL_MASTER, 'w', encoding='utf-8') as f:
-            json.dump(master, f, separators=(',', ':'))
-
-    return msg
+        progress_callback(message)
+    return message
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
-
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     import argparse
-    parser = argparse.ArgumentParser(description="Template Sync")
-    parser.add_argument('command', choices=['status', 'sync', 'download', 'scan'],
-                        help='Command to run')
-    args = parser.parse_args()
 
-    if args.command == 'status':
-        status = get_sync_status()
-        print(f"Master DB:    {status['master_count']} templates")
-        print(f"Local:        {status['local_count']} templates")
-        print(f"New to share: {status['new_count']}")
-        print(f"Coverage:     {status['coverage_pct']}% of {status['total_game_items']} game items")
-
-    elif args.command == 'download':
-        master = download_master()
-        print(f"Downloaded: {len(master.get('templates', {}))} templates")
-
-    elif args.command == 'scan':
-        templates = scan_all_saves()
-        print(f"Scanned: {len(templates)} unique templates")
-
-    elif args.command == 'sync':
-        msg = full_sync(progress_callback=print)
-        print(f"\n{msg}")
+    argument_parser = argparse.ArgumentParser(description="Local template tools")
+    argument_parser.add_argument("command", choices=["status", "scan"])
+    arguments = argument_parser.parse_args()
+    if arguments.command == "status":
+        print(json.dumps(get_sync_status(), indent=2))
+    else:
+        print(full_sync(progress_callback=print))

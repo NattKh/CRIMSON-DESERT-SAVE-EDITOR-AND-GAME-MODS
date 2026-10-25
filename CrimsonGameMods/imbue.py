@@ -217,6 +217,9 @@ def build_docking_child_data(target_item: dict, gimmick_info_key: int) -> Option
         'enable_collision': 0,
         'disable_collision_with_other_gimmick': int(canonical.get('canonical_disable_collision_with_other_gimmick', 1)),
         'docking_slot_key': '',
+        'inherit_summoner': 0,
+        'summon_tag_name_hash': [0, 0, 0, 0],
+        'animation_root_bone_name': '',
     }
 
 

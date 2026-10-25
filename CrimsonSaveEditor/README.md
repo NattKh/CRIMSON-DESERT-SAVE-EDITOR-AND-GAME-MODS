@@ -33,11 +33,13 @@ cd CRIMSON-DESERT-SAVE-EDITOR-AND-GAME-MODS/CrimsonSaveEditor
 python -m PyInstaller CrimsonSaveEditor.spec --noconfirm
 ```
 
-## Note on native extensions
+## Native C++ backend
 
-The tools use `dmm_parser` (Rust-based parser). Pre-built `.pyd` (Windows) and `.abi3.so` (Linux) binaries ship with the repo in `CrimsonGameMods/dmm_parser/`. You do not need Rust installed to build.
+This Python GUI uses `parc_parser.dll` (see `native_backend.py`) for save validation and validated writes. The DLL source is in `../CrimsonSaveEditorCpp` (`parc_dll.cpp`, `parc_engine.cpp`, `parc_engine_cli.cpp`).
+
+Ship `parc_parser.dll` next to the executable. Saving is disabled if the DLL is missing.
 
 ## Notes
 
-- The save editor shares parser/backend components with `CrimsonGameMods`.
-- The Linux build expects the native backend artifacts to be present in the sibling `CrimsonGameMods` tree.
+- Complex mutations (template swap, insertion, repurchase) may still run in Python; the C++ backend validates and writes the SAVE container.
+- `CHANGELOG.md` describes the standalone 2.1.0 hybrid testing build.

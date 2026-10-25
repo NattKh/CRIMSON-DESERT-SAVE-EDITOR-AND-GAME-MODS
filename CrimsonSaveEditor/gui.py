@@ -3055,7 +3055,7 @@ class MainWindow(QMainWindow):
         sidebar = QFrame()
         sidebar.setMinimumWidth(48)
         sidebar.setStyleSheet(
-            "background-color: #18181f; border-right: 1px solid #252535;")
+            "background-color: #10141a; border-right: 1px solid #232a34;")
         sb_layout = QVBoxLayout(sidebar)
         sb_layout.setContentsMargins(0, 0, 0, 0)
         sb_layout.setSpacing(0)
@@ -3065,13 +3065,14 @@ class MainWindow(QMainWindow):
         brand.setFixedHeight(52)
         brand_layout = QHBoxLayout(brand)
         brand_layout.setContentsMargins(16, 0, 12, 0)
-        brand.setStyleSheet("background: #1e1e26; border-bottom: 1px solid #252535;")
+        brand.setStyleSheet("background: #151a21; border-bottom: 1px solid #232a34;")
         brand_icon = QLabel("⚔")
-        brand_icon.setStyleSheet("font-size: 20px; background: transparent; color: #e07050;")
+        brand_icon.setStyleSheet("font-size: 18px; background: transparent; color: #e0654a;")
         brand_layout.addWidget(brand_icon)
         brand_text = QLabel("CrimsonSave")
         brand_text.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #e8e8ed; background: transparent;")
+            "font-size: 14px; font-weight: 600; color: #e7eaf0; background: transparent; "
+            "letter-spacing: 0.3px;")
         brand_layout.addWidget(brand_text, 1)
         sb_layout.addWidget(brand)
 
@@ -3120,19 +3121,19 @@ class MainWindow(QMainWindow):
                 sep_label = page_id.replace("_", " ").strip()
                 sep = QLabel(sep_label)
                 sep.setStyleSheet(
-                    "color: #6d6d80; font-size: 10px; font-weight: bold; letter-spacing: 0.8px; "
-                    "padding: 14px 16px 4px 16px; background: transparent;")
+                    "color: #6f7785; font-size: 10px; font-weight: 600; letter-spacing: 1px; "
+                    "padding: 16px 18px 4px 18px; background: transparent;")
                 nav_layout.addWidget(sep)
             else:
                 btn = QPushButton(label)
                 btn.setCursor(Qt.PointingHandCursor)
                 btn.setStyleSheet(
-                    "QPushButton { background: transparent; color: #aaaab8; border: none; "
-                    "text-align: left; padding: 8px 16px; font-size: 13px; "
-                    "border-left: 3px solid transparent; } "
-                    "QPushButton:hover { background: #252535; color: #e8e8ed; } "
-                    "QPushButton:pressed { background: #2a2a3a; }")
-                btn.setFixedHeight(36)
+                    "QPushButton { background: transparent; color: #8b93a1; border: none; "
+                    "text-align: left; padding: 6px 18px; font-size: 13px; "
+                    "border-left: 2px solid transparent; } "
+                    "QPushButton:hover { background: #1a2028; color: #e7eaf0; } "
+                    "QPushButton:pressed { background: #232b36; }")
+                btn.setFixedHeight(34)
                 btn.clicked.connect(lambda checked, p=page_id: self._navigate_to_page(p))
                 self._nav_buttons[page_id] = btn
                 nav_layout.addWidget(btn)
@@ -3149,15 +3150,15 @@ class MainWindow(QMainWindow):
 
                 filter_title = QLabel("INVENTORY FILTERS")
                 filter_title.setStyleSheet(
-                    "color: #606070; font-size: 10px; font-weight: bold; "
-                    "padding: 8px 16px 3px 16px; background: transparent;")
+                    "color: #6f7785; font-size: 10px; font-weight: 600; "
+                    "padding: 10px 18px 3px 18px; background: transparent;")
                 filter_layout.addWidget(filter_title)
                 self._inventory_filter_layout = filter_layout
                 self._inventory_filter_title = filter_title
                 empty_label = QLabel("Load a save to list its storage containers.")
                 empty_label.setWordWrap(True)
                 empty_label.setStyleSheet(
-                    "color: #606070; font-size: 11px; padding: 6px 16px 8px 28px; "
+                    "color: #6f7785; font-size: 11px; padding: 6px 18px 8px 30px; "
                     "background: transparent;")
                 filter_layout.addWidget(empty_label)
                 nav_layout.addWidget(self._inventory_filter_panel)
@@ -3171,38 +3172,38 @@ class MainWindow(QMainWindow):
         nav_scroll.setWidgetResizable(True)
         nav_scroll.setFrameShape(QFrame.NoFrame)
         nav_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        nav_scroll.setStyleSheet("QScrollArea { background: #18181f; border: none; }")
+        nav_scroll.setStyleSheet("QScrollArea { background: #10141a; border: none; }")
         nav_scroll.setWidget(nav_widget)
         sb_layout.addWidget(nav_scroll, 1)
 
         # Quick actions at bottom
         quick_actions = QWidget()
-        quick_actions.setStyleSheet("border-top: 1px solid #252535;")
+        quick_actions.setStyleSheet("border-top: 1px solid #232a34;")
         qa_layout = QVBoxLayout(quick_actions)
         qa_layout.setContentsMargins(8, 8, 8, 8)
         qa_layout.setSpacing(6)
 
         self._quick_save_btn = QPushButton("Save Changes")
         self._quick_save_btn.setStyleSheet(
-            "QPushButton { background: #e07050; color: #1a1a1a; font-weight: bold; "
-            "border: none; padding: 10px; border-radius: 6px; font-size: 12px; } "
-            "QPushButton:hover { background: #f08060; } "
-            "QPushButton:disabled { background: #3a3030; color: #606070; }")
+            "QPushButton { background: #e0654a; color: #0f1115; font-weight: 600; "
+            "border: none; padding: 9px; border-radius: 8px; font-size: 12px; } "
+            "QPushButton:hover { background: #f07a5f; } "
+            "QPushButton:disabled { background: #1a2028; color: #5c6472; }")
         self._quick_save_btn.setEnabled(False)
         self._quick_save_btn.clicked.connect(self._save_file)
         qa_layout.addWidget(self._quick_save_btn)
 
         settings_btn = QPushButton("Settings")
         settings_btn.setStyleSheet(
-            "QPushButton { background: transparent; color: #9898a4; "
-            "border: 1px solid #303040; padding: 8px; border-radius: 6px; font-size: 11px; } "
-            "QPushButton:hover { background: #252535; color: #e8e8ed; }")
+            "QPushButton { background: transparent; color: #8b93a1; "
+            "border: 1px solid #262d37; padding: 8px; border-radius: 8px; font-size: 11px; } "
+            "QPushButton:hover { background: #1a2028; color: #e7eaf0; }")
         settings_btn.clicked.connect(self._open_settings)
         qa_layout.addWidget(settings_btn)
 
         self._last_edit_label = QLabel("")
         self._last_edit_label.setStyleSheet(
-            "color: #e0a040; font-size: 10px; padding: 4px; background: transparent;")
+            "color: #e0b054; font-size: 10px; padding: 4px; background: transparent;")
         self._last_edit_label.setWordWrap(True)
         qa_layout.addWidget(self._last_edit_label)
 
@@ -3216,9 +3217,9 @@ class MainWindow(QMainWindow):
         self._save_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self._save_dock.setTitleBarWidget(QWidget())
         self._save_dock.setWidget(sidebar)
-        self._save_dock.setFixedWidth(200)
+        self._save_dock.setFixedWidth(232)
         self._save_dock.setStyleSheet(
-            "QDockWidget { border: none; border-right: 1px solid #252535; } "
+            "QDockWidget { border: none; border-right: 1px solid #232a34; } "
             "QDockWidget > QWidget { border: none; }")
         self.addDockWidget(Qt.LeftDockWidgetArea, self._save_dock)
         self._save_dock.show()
@@ -3231,36 +3232,37 @@ class MainWindow(QMainWindow):
 
         # Top bar with page info and game path
         top_bar = QWidget()
-        top_bar.setStyleSheet("background: #1a1a22; border-bottom: 1px solid #252535;")
+        top_bar.setStyleSheet("background: #0f1115; border-bottom: 1px solid #232a34;")
         top_bar_layout = QHBoxLayout(top_bar)
         top_bar_layout.setContentsMargins(16, 8, 16, 8)
         top_bar_layout.setSpacing(12)
 
         self._page_title = QLabel("Crimson Desert Save Editor")
         self._page_title.setStyleSheet(
-            "font-size: 18px; font-weight: bold; color: #e8e8ed; background: transparent;")
+            "font-size: 15px; font-weight: 600; color: #e7eaf0; background: transparent;")
         top_bar_layout.addWidget(self._page_title)
 
         top_bar_layout.addStretch()
 
         # Game path indicator
         gp_label = QLabel("Game:")
-        gp_label.setStyleSheet("color: #606070; font-size: 11px; background: transparent;")
+        gp_label.setStyleSheet("color: #6f7785; font-size: 11px; background: transparent;")
         top_bar_layout.addWidget(gp_label)
 
         self._global_game_path = QLabel("Not set")
         self._global_game_path.setStyleSheet(
-            "color: #9898a4; padding: 4px 8px; border: 1px solid #303040; "
-            "border-radius: 4px; background: #1a1a22; font-size: 11px;")
+            "color: #8b93a1; padding: 3px 8px; border: 1px solid #262d37; "
+            "border-radius: 6px; background: #11151b; font-size: 11px;")
+        self._global_game_path.setMaximumWidth(420)
         self._global_game_path.setToolTip("Game installation path")
         top_bar_layout.addWidget(self._global_game_path)
 
         gp_browse = QPushButton("Browse")
         gp_browse.setFixedWidth(60)
         gp_browse.setStyleSheet(
-            "QPushButton { background: #252530; color: #9898a4; "
-            "border: 1px solid #303040; padding: 4px 8px; border-radius: 4px; font-size: 11px; } "
-            "QPushButton:hover { background: #303040; color: #e8e8ed; }")
+            "QPushButton { background: #1a2028; color: #8b93a1; "
+            "border: 1px solid #262d37; padding: 4px 10px; border-radius: 6px; font-size: 11px; } "
+            "QPushButton:hover { background: #232b36; color: #e7eaf0; }")
         gp_browse.clicked.connect(self._global_browse_game_path)
         top_bar_layout.addWidget(gp_browse)
 
@@ -3270,9 +3272,9 @@ class MainWindow(QMainWindow):
         self._center_status = QLabel("Ready - Select a save from File > Open or use navigation")
         self._center_status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self._center_status.setStyleSheet(
-            "background-color: #1e1e26; color: #9898a4; font-size: 12px; "
-            "padding: 8px 16px; border-bottom: 1px solid #252535;")
-        self._center_status.setFixedHeight(36)
+            "background-color: #151a21; color: #8b93a1; font-size: 11px; "
+            "padding: 6px 16px; border-bottom: 1px solid #232a34;")
+        self._center_status.setFixedHeight(28)
         right_layout.addWidget(self._center_status)
 
         # Hidden game path storage
@@ -3437,11 +3439,12 @@ class MainWindow(QMainWindow):
         for btn_id, btn in self._nav_buttons.items():
             is_selected = (btn_id == page_id)
             btn.setStyleSheet(
-                f"QPushButton {{ background: transparent; color: {'#e8e8ed' if is_selected else '#9898a4'}; "
-                f"border: none; text-align: left; padding: 8px 16px; font-size: 13px; "
-                f"border-left: 3px solid {'#e07050' if is_selected else 'transparent'}; }} "
-                f"QPushButton:hover {{ background: #252535; color: #e8e8ed; }} "
-                f"QPushButton:pressed {{ background: #2a2a3a; }}")
+                f"QPushButton {{ background: {'#1a2028' if is_selected else 'transparent'}; "
+                f"color: {'#e7eaf0' if is_selected else '#8b93a1'}; "
+                f"border: none; text-align: left; padding: 6px 18px; font-size: 13px; "
+                f"border-left: 2px solid {'#e0654a' if is_selected else 'transparent'}; }} "
+                f"QPushButton:hover {{ background: #1a2028; color: #e7eaf0; }} "
+                f"QPushButton:pressed {{ background: #232b36; }}")
 
         # _save_tabs order: Inventory(0), Equipment(1), Sockets(2), Item Swap(3), Packs(4), Database(5), Repurchase(6), Dye(7), Mercenaries(8), Pets(9), Mounts(10)
         # _mods_tabs order: Mod Loader(0), Game Patches(1, experimental)
@@ -4498,119 +4501,138 @@ class MainWindow(QMainWindow):
 QMainWindow, QWidget {{
     background-color: {COLORS['bg']};
     color: {COLORS['text']};
-    font-family: Consolas, 'Courier New', monospace;
+    font-family: 'Segoe UI', 'Inter', sans-serif;
     font-size: {s(font_main)}px;
 }}
+QLabel {{
+    background: transparent;
+}}
 QMenuBar {{
-    background-color: {COLORS['header']};
-    color: {COLORS.get('primary_text', COLORS['text'])};
+    background-color: {COLORS['bg']};
+    color: {COLORS['text_dim']};
     border-bottom: 1px solid {COLORS['border']};
-    padding: {s(2)}px;
+    padding: {s(3)}px {s(8)}px;
+}}
+QMenuBar::item {{
+    padding: {s(4)}px {s(10)}px;
+    background: transparent;
+    border-radius: {s(4)}px;
 }}
 QMenuBar::item:selected {{
-    background-color: {COLORS['selected']};
+    background-color: {COLORS['panel']};
+    color: {COLORS['text']};
 }}
 QMenu {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
+    border-radius: {s(6)}px;
+    padding: {s(4)}px;
+}}
+QMenu::item {{
+    padding: {s(6)}px {s(20)}px {s(6)}px {s(12)}px;
+    border-radius: {s(4)}px;
 }}
 QMenu::item:selected {{
     background-color: {COLORS['selected']};
     color: {COLORS.get('selection_text', COLORS['text'])};
 }}
 QTabWidget::pane {{
-    border: 1px solid {COLORS['border']};
+    border: none;
     background-color: {COLORS['bg']};
 }}
 QTabBar::tab {{
-    background-color: {COLORS['panel']};
-    color: {COLORS.get('panel_text', COLORS['text'])};
+    background: transparent;
+    color: {COLORS['text_dim']};
     padding: {s(pad_tab_v)}px {s(pad_tab_h)}px;
-    margin-right: {s(2)}px;
-    border-top-left-radius: {s(4)}px;
-    border-top-right-radius: {s(4)}px;
-    border: 1px solid {COLORS['border']};
-    border-bottom: none;
+    margin-right: {s(4)}px;
+    border: none;
+    border-bottom: {s(2)}px solid transparent;
 }}
 QTabBar::tab:selected {{
-    background-color: {_TAB_SELECTED_BG};
-    color: {_TAB_SELECTED_COLOR};
-    border-bottom: {s(3)}px solid {_TAB_SELECTED_BORDER};
-    font-weight: bold;
+    color: {COLORS['text']};
+    border-bottom: {s(2)}px solid {COLORS['accent']};
+    font-weight: 600;
 }}
 QTabBar::tab:hover {{
-    background-color: {COLORS['selected']};
-    color: {COLORS.get('selection_text', COLORS['text'])};
-}}
-QTabBar::tab:disabled {{
-    background-color: {COLORS['panel']};
-    color: {COLORS.get('panel_text', COLORS['text'])};
-}}
-QTableWidget, QTableView {{
-    background-color: {COLORS['panel']};
     color: {COLORS['text']};
-    gridline-color: {COLORS['border']};
+}}
+QTableWidget, QTableView, QTreeWidget, QTreeView, QListWidget, QListView {{
+    background-color: {COLORS['panel']};
+    alternate-background-color: {COLORS['input_bg']};
+    color: {COLORS['text']};
+    gridline-color: transparent;
     selection-background-color: {COLORS['selected']};
     selection-color: {COLORS.get('selection_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
-    font-family: Consolas, monospace;
+    border-radius: {s(8)}px;
     font-size: {s(font_table)}px;
+    outline: 0;
 }}
-QTableWidget::item {{
+QTableWidget::item, QTreeWidget::item, QListWidget::item {{
     padding: {s(pad_cell_v)}px {s(pad_cell_h)}px;
 }}
 QHeaderView::section {{
     background-color: {COLORS['header']};
-    color: {COLORS.get('primary_text', COLORS['text'])};
-    padding: {s(pad_header_v)}px {s(pad_header_h)}px;
-    border: 1px solid {COLORS['border']};
-    font-weight: bold;
+    color: {COLORS['text_dim']};
+    padding: {s(pad_header_v + 2)}px {s(pad_header_h)}px;
+    border: none;
+    border-bottom: 1px solid {COLORS['border']};
+    font-size: {s(11)}px;
+    font-weight: 600;
+}}
+QTableCornerButton::section {{
+    background-color: {COLORS['header']};
+    border: none;
 }}
 QPushButton {{
-    background-color: {COLORS['header']};
-    color: {COLORS.get('primary_text', COLORS['text'])};
+    background-color: {COLORS['panel']};
+    color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
     padding: {s(pad_btn_v)}px {s(pad_btn_h)}px;
-    border-radius: {s(3)}px;
-    font-weight: bold;
+    border-radius: {s(6)}px;
+    font-weight: 500;
 }}
 QPushButton:hover {{
     background-color: {COLORS['selected']};
-    color: {COLORS.get('selection_text', COLORS['text'])};
-    border-color: {COLORS['accent']};
+    border-color: #333c49;
 }}
 QPushButton:pressed {{
-    background-color: {COLORS['accent']};
-    color: {COLORS.get('accent_text', '#111111')};
-}}
-QPushButton#accentBtn {{
-    background-color: {COLORS['accent']};
-    color: {COLORS.get('accent_text', '#111111')};
-}}
-QPushButton#accentBtn:hover {{
-    background-color: {COLORS['selected']};
-    color: {COLORS.get('selection_text', COLORS['text'])};
+    background-color: {COLORS['input_bg']};
 }}
 QPushButton:disabled {{
     background-color: {COLORS['panel']};
     color: {COLORS['text_dim']};
     border-color: {COLORS['border']};
 }}
-QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {{
+QPushButton#accentBtn {{
+    background-color: {COLORS['accent']};
+    color: {COLORS.get('accent_text', '#111111')};
+    border: none;
+    font-weight: 600;
+}}
+QPushButton#accentBtn:hover {{
+    background-color: #f07a5f;
+}}
+QPushButton#accentBtn:disabled {{
+    background-color: {COLORS['panel']};
+    color: {COLORS['text_dim']};
+}}
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QTextEdit {{
     background-color: {COLORS['input_bg']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
-    padding: {s(pad_input)}px {s(pad_input + 3)}px;
-    border-radius: {s(3)}px;
+    padding: {s(pad_input)}px {s(pad_input + 5)}px;
+    border-radius: {s(6)}px;
+    selection-background-color: {COLORS['selected']};
 }}
-QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus {{
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus, QTextEdit:focus {{
     border-color: {COLORS['accent']};
 }}
 QComboBox::drop-down {{
     border: none;
-    background-color: {COLORS['header']};
-    width: {s(24)}px;
+    background: transparent;
+    width: {s(22)}px;
 }}
 QComboBox QAbstractItemView {{
     background-color: {COLORS['panel']};
@@ -4618,89 +4640,99 @@ QComboBox QAbstractItemView {{
     selection-background-color: {COLORS['selected']};
     selection-color: {COLORS.get('selection_text', COLORS['text'])};
     border: 1px solid {COLORS['border']};
+    border-radius: {s(6)}px;
+    padding: {s(2)}px;
 }}
 QGroupBox {{
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
-    border-radius: {s(4)}px;
+    border-radius: {s(8)}px;
     margin-top: {s(pad_group_margin)}px;
     padding-top: {s(pad_group_top)}px;
-    font-weight: bold;
+    font-weight: 600;
 }}
 QGroupBox::title {{
     subcontrol-origin: margin;
-    left: {s(10)}px;
-    padding: 0 {s(5)}px;
+    left: {s(12)}px;
+    padding: 0 {s(6)}px;
+    color: {COLORS['text_dim']};
 }}
 QStatusBar {{
-    background-color: {COLORS['header']};
-    color: {COLORS.get('primary_text', COLORS['text'])};
+    background-color: {COLORS['bg']};
+    color: {COLORS['text_dim']};
     border-top: 1px solid {COLORS['border']};
+    font-size: {s(11)}px;
 }}
-QListWidget, QListView, QTreeWidget, QTreeView {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
-    selection-background-color: {COLORS['selected']};
-    selection-color: {COLORS.get('selection_text', COLORS['text'])};
+QStatusBar::item {{
+    border: none;
 }}
 QTextEdit, QTextBrowser {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
+    border-radius: {s(8)}px;
 }}
 QDockWidget {{
-    background-color: {COLORS['panel']};
-    color: {COLORS['text']};
-    border: 1px solid {COLORS['border']};
+    background: {COLORS['bg']};
+    border: none;
 }}
 QDockWidget::title {{
-    background-color: {COLORS['accent']};
-    color: {COLORS.get('accent_text', '#111111')};
+    background: {COLORS['bg']};
+    color: {COLORS['text_dim']};
     border-bottom: 1px solid {COLORS['border']};
-    padding: {s(4)}px;
+    padding: {s(6)}px;
 }}
 QProgressBar {{
     background-color: {COLORS['input_bg']};
     color: {COLORS['text']};
     border: 1px solid {COLORS['border']};
-    border-radius: {s(4)}px;
+    border-radius: {s(6)}px;
     text-align: center;
 }}
 QProgressBar::chunk {{
     background-color: {COLORS['accent']};
-    border-radius: {s(3)}px;
+    border-radius: {s(5)}px;
 }}
 QToolTip {{
     background-color: {COLORS['panel']};
     color: {COLORS['text']};
-    border: 1px solid {COLORS['accent']};
+    border: 1px solid {COLORS['border']};
+    padding: {s(4)}px {s(6)}px;
 }}
 QScrollBar:vertical {{
-    background-color: {COLORS['bg']};
+    background: transparent;
     width: {s(scrollbar_w)}px;
-    border: none;
+    margin: 0;
 }}
 QScrollBar::handle:vertical {{
-    background-color: {COLORS['border']};
-    border-radius: {s(4)}px;
+    background: {COLORS['border']};
+    border-radius: {s(5)}px;
     min-height: {s(30)}px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background: #39414d;
 }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0px;
 }}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+    background: transparent;
+}}
 QScrollBar:horizontal {{
-    background-color: {COLORS['bg']};
+    background: transparent;
     height: {s(scrollbar_w)}px;
-    border: none;
+    margin: 0;
 }}
 QScrollBar::handle:horizontal {{
-    background-color: {COLORS['border']};
-    border-radius: {s(4)}px;
+    background: {COLORS['border']};
+    border-radius: {s(5)}px;
     min-width: {s(30)}px;
+}}
+QScrollBar::handle:horizontal:hover {{
+    background: #39414d;
 }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
     width: 0px;
+}}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
+    background: transparent;
 }}
 QCheckBox {{
     color: {COLORS['text']};
@@ -4710,6 +4742,20 @@ QCheckBox::indicator {{
     width: {s(checkbox_sz)}px;
     height: {s(checkbox_sz)}px;
 }}
+QCheckBox::indicator:unchecked {{
+    background: {COLORS['input_bg']};
+    border: 1px solid {COLORS['border']};
+    border-radius: {s(3)}px;
+}}
+QCheckBox::indicator:checked {{
+    background: {COLORS['accent']};
+    border: 1px solid {COLORS['accent']};
+    border-radius: {s(3)}px;
+}}
+QSplitter::handle {{
+    background: {COLORS['border']};
+}}
+
 """
         self.setStyleSheet(sheet)
 

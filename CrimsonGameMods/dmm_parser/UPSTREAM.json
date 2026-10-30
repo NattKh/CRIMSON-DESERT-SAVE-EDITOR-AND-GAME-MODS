@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/exodiaprivate-eng/dmm-parser",
+  "revision": "9d1dab154c6a124e3e598f362b50d9840c42d689",
+  "game_version": "2.04.00",
+  "windows": {
+    "path": "python/dmm_parser/dmm_parser.pyd",
+    "git_blob": "d956785250a9cea38b1c3004436c19931ecbcda2",
+    "sha256": "1d914bf5fe023566affb3a1899a77dad4985722bebb796690f19b8cf2ecc64a3",
+    "bytes": 8270848
+  },
+  "type_stubs": {
+    "path": "python/dmm_parser/__init__.pyi",
+    "git_blob": "742138bb33f685a28090b3b1fb2e1162df0aef5e"
+  },
+  "linux": "Existing bundled abi3.so is unchanged; 2.04 requires a native rebuild from this revision."
+}

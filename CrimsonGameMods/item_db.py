@@ -205,73 +205,25 @@ class ItemNameDB:
     def sync_from_local_game(self, game_path: str) -> tuple[bool, str]:
         try:
             import crimson_rs
+            from crimson_rs.catalog import read_item_catalog, read_item_names
         except ImportError:
             return False, "crimson_rs module not available."
 
-        dp = "gamedata/binary__/client/bin"
+        dp = "gamedata/binarystaticinfo__/bin"
         try:
-            pabgh_data = crimson_rs.extract_file(game_path, "0008", dp, "iteminfo.pabgh")
-            pabgb_data = crimson_rs.extract_file(game_path, "0008", dp, "iteminfo.pabgb")
-        except Exception as e:
+            pabgh_data = crimson_rs.extract_file(game_path, "0008", dp, "iteminfo.staticinfoheader")
+            pabgb_data = crimson_rs.extract_file(game_path, "0008", dp, "iteminfo.staticinfobody")
+            catalog = read_item_catalog(pabgh_data, pabgb_data, crimson_rs.parse_iteminfo_from_bytes)
+        except (OSError, ValueError, struct.error) as e:
             return False, f"Failed to extract iteminfo: {e}"
-
-        count = struct.unpack_from('<H', pabgh_data, 0)[0]
-        header_entries = []
-        for i in range(count):
-            base = 2 + i * 8
-            key = struct.unpack_from('<I', pabgh_data, base)[0]
-            off = struct.unpack_from('<I', pabgh_data, base + 4)[0]
-            header_entries.append((key, off))
-
-        items_raw = []
-        for idx, (hdr_key, rec_off) in enumerate(header_entries):
-            try:
-                rec_end = header_entries[idx + 1][1] if idx + 1 < len(header_entries) else len(pabgb_data)
-                if rec_off + 20 > len(pabgb_data):
-                    continue
-                pos = rec_off
-                item_key = struct.unpack_from('<I', pabgb_data, pos)[0]; pos += 4
-                str_len = struct.unpack_from('<I', pabgb_data, pos)[0]; pos += 4
-                if str_len > 200 or pos + str_len > rec_end:
-                    continue
-                internal_name = pabgb_data[pos:pos + str_len].decode('ascii', errors='replace'); pos += str_len
-                pos += 1
-                max_stack = struct.unpack_from('<Q', pabgb_data, pos)[0]; pos += 8
-                pos += 1
-                if pos + 8 > rec_end:
-                    continue
-                loc_index = struct.unpack_from('<Q', pabgb_data, pos)[0]
-                items_raw.append((item_key, internal_name, loc_index, max_stack))
-            except Exception:
-                continue
-
-        if not items_raw:
-            return False, "No items found in iteminfo.pabgb."
 
         loc_map: Dict[int, str] = {}
         paloc_source = ""
         try:
-            paloc_data = crimson_rs.extract_file(
-                game_path, "0020", "gamedata", "localizationstring_eng.paloc")
-            pos = 0
-            while pos < len(paloc_data) - 12:
-                pos += 8
-                if pos + 4 > len(paloc_data):
-                    break
-                kl = struct.unpack_from('<I', paloc_data, pos)[0]; pos += 4
-                if kl == 0 or kl > 100 or pos + kl > len(paloc_data):
-                    break
-                ks = paloc_data[pos:pos + kl].decode('ascii', errors='replace'); pos += kl
-                if pos + 4 > len(paloc_data):
-                    break
-                vl = struct.unpack_from('<I', paloc_data, pos)[0]; pos += 4
-                if vl > 50000 or pos + vl > len(paloc_data):
-                    break
-                vs = paloc_data[pos:pos + vl].decode('utf-8', errors='replace'); pos += vl
-                if ks.isdigit():
-                    loc_map[int(ks)] = vs
+            loc_map = read_item_names(game_path, catalog.layout, crimson_rs)
             paloc_source = "game localization"
-        except Exception:
+        except (OSError, ValueError) as exc:
+            log.warning("Client item localization unavailable; trying bundled TSV: %s", exc)
             tsv_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "localizationstring_eng_items.tsv")
@@ -283,8 +235,8 @@ class ItemNameDB:
                             if len(parts) == 2 and parts[0].isdigit():
                                 loc_map[int(parts[0])] = parts[1]
                     paloc_source = "bundled TSV"
-                except Exception:
-                    pass
+                except OSError as exc:
+                    log.warning("Bundled item localization unavailable: %s", exc)
 
         if not loc_map:
             paloc_source = "none (using internal names)"
@@ -292,20 +244,18 @@ class ItemNameDB:
         old_keys = set(self.items.keys())
         self.items.clear()
         matched = 0
-        for item_key, internal_name, loc_index, max_stack in items_raw:
-            if item_key <= 0:
-                continue
-            display_name = loc_map.get(loc_index, '')
+        for item in catalog.items:
+            display_name = loc_map.get(item.name_index, '')
             if display_name:
                 matched += 1
             else:
-                display_name = internal_name.replace('_', ' ')
-            self.items[item_key] = ItemInfo(
-                item_key=item_key,
+                display_name = item.internal_name.replace('_', ' ')
+            self.items[item.key] = ItemInfo(
+                item_key=item.key,
                 name=display_name,
-                internal_name=internal_name,
-                category=_guess_item_category(internal_name),
-                max_stack=max_stack,
+                internal_name=item.internal_name,
+                category=_guess_item_category(item.internal_name),
+                max_stack=item.max_stack,
             )
 
         self.version += 1

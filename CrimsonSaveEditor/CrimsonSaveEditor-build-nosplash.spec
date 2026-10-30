@@ -1,7 +1,13 @@
+from pathlib import Path
+import sys
+
+_client_root = Path(SPECPATH).parent / 'CrimsonGameMods'
+_client_binary = 'dmm_parser.pyd' if sys.platform == 'win32' else 'dmm_parser.abi3.so'
+
 a = Analysis(
     ['main.py'],
-    pathex=[],
-    binaries=[],
+    pathex=[str(_client_root)],
+    binaries=[(str(_client_root / 'dmm_parser' / _client_binary), 'dmm_parser')],
     datas=[
         ('parc_parser.dll', '.'),
         ('item_names.json', '.'),
@@ -50,6 +56,12 @@ a = Analysis(
         'theme_support',
         'ben_save_decrypt',
         'crimson_rs',
+        'client_archive',
+        'crimson_rs.catalog',
+        'dmm_parser',
+        'dmm_parser.dmm_parser',
+        'dmm_parser.enums',
+        'table_layout',
         'crimson_rs.enums',
         'crimson_rs.create_pack',
         'crimson_rs.pack_mod',

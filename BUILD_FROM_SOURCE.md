@@ -20,7 +20,7 @@ python -m PyInstaller CrimsonGameMods.spec --noconfirm
 :: Build Save Editor
 cd ..\CrimsonSaveEditor
 python -m PyInstaller CrimsonSaveEditor.spec --noconfirm
-:: Output: CrimsonSaveEditor\dist\CrimsonSaveEditor.exe
+:: Output: CrimsonSaveEditor\dist\CrimsonSaveEditorStandalone.exe
 ```
 
 Or use `build.bat` inside `CrimsonGameMods/` — it clears caches and runs PyInstaller for you.
@@ -40,6 +40,18 @@ python -m PyInstaller CrimsonGameMods.spec --noconfirm
 ## Note on native extensions
 
 The tools use `dmm_parser` (Rust-based parser). Pre-built `.pyd` (Windows) and `.abi3.so` (Linux) binaries ship with the repo in `CrimsonGameMods/dmm_parser/`. You do not need Rust installed to build.
+
+The Windows client-data parser is pinned to the upstream revision recorded in
+`CrimsonGameMods/dmm_parser/UPSTREAM.json`, with support for game 2.04.00 archives
+and ItemInfo records. Both Save Editor specs include the sibling Game Mods
+package path and bundle this same native parser. Keep the two source folders
+together when building the standalone editor; installing an older `crimson_rs`
+package does not update the vendored dependency.
+
+The existing Linux `.abi3.so` has not been updated or verified for game 2.04.
+Before building a Linux/SteamOS release with current-client scanning, rebuild the
+native extension from that pinned upstream revision and replace the bundled
+Linux binary. The Windows dependency update does not establish Linux support.
 
 ## Troubleshooting
 

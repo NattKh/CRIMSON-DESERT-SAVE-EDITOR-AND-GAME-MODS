@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 import os
 import datetime
+import logging
+import struct
 from typing import Dict, List, Optional
 
 from models import ItemInfo
+
+log = logging.getLogger(__name__)
 
 import sys as _sys
 _exe_dir = os.path.dirname(os.path.abspath(_sys.executable)) if getattr(_sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
@@ -145,8 +149,9 @@ class ItemNameDB:
     def sync_from_local_game(self, game_path: str) -> tuple[bool, str]:
         """Add/update item keys by reading the installed game's local archives."""
         try:
-            import crimson_rs
-            import struct
+            from client_archive import load_backend
+            crimson_rs = load_backend()
+            from crimson_rs.catalog import read_item_catalog, read_item_names
             header = crimson_rs.extract_file(
                 game_path, "0008", "gamedata/binarystaticinfo__/bin",
                 "iteminfo.staticinfoheader",
@@ -155,49 +160,33 @@ class ItemNameDB:
                 game_path, "0008", "gamedata/binarystaticinfo__/bin",
                 "iteminfo.staticinfobody",
             )
-        except Exception as exc:
+            catalog = read_item_catalog(header, body, crimson_rs.parse_iteminfo_from_bytes)
+        except (ImportError, OSError, ValueError, struct.error) as exc:
             return False, f"Could not read local item data: {exc}"
 
-        if len(header) < 2:
-            return False, "Local item-data header is invalid."
-        count = struct.unpack_from("<H", header, 0)[0]
-        if len(header) < 2 + count * 8:
-            return False, "Local item-data header is truncated."
+        try:
+            names = read_item_names(game_path, catalog.layout, crimson_rs)
+        except (OSError, ValueError) as exc:
+            log.warning("Client item localization unavailable; retaining existing labels: %s", exc)
+            names = {}
 
         previous = dict(self.items)
-        added = updated = parsed = 0
+        added = updated = 0
         extracted_keys: set[int] = set()
-        for index in range(count):
-            key, offset = struct.unpack_from("<II", header, 2 + index * 8)
-            end = (struct.unpack_from("<I", header, 2 + (index + 1) * 8 + 4)[0]
-                   if index + 1 < count else len(body))
-            try:
-                record_key = struct.unpack_from("<I", body, offset)[0]
-                name_length = struct.unpack_from("<I", body, offset + 4)[0]
-                name_start = offset + 8
-                if not record_key or name_length > 512 or name_start + name_length > end:
-                    continue
-                internal = body[name_start:name_start + name_length].decode("ascii", "replace")
-                parsed += 1
-                extracted_keys.add(record_key)
-                existing = previous.get(record_key)
-                display = existing.name if existing and existing.name else internal.replace("_", " ")
-                self.items[record_key] = ItemInfo(
-                    item_key=record_key,
-                    name=display,
-                    internal_name=internal,
-                    category=(existing.category if existing else _guess_item_category(internal)),
-                    max_stack=(existing.max_stack if existing else 0),
-                )
-                if existing:
-                    updated += 1
-                else:
-                    added += 1
-            except (ValueError, struct.error):
-                continue
-
-        if not self.items:
-            return False, "No usable item records were found in the local game data."
+        for item in catalog.items:
+            extracted_keys.add(item.key)
+            existing = previous.get(item.key)
+            display = (existing.name if existing and existing.name else
+                       names.get(item.name_index, item.internal_name.replace("_", " ")))
+            self.items[item.key] = ItemInfo(
+                item_key=item.key, name=display, internal_name=item.internal_name,
+                category=(existing.category if existing else _guess_item_category(item.internal_name)),
+                max_stack=item.max_stack,
+            )
+            if existing:
+                updated += 1
+            else:
+                added += 1
         self.version += 1
         # A bundled one-file resource lives under PyInstaller's temporary
         # _MEIPASS directory.  Always persist refreshes beside the executable
@@ -211,8 +200,10 @@ class ItemNameDB:
             "archive": "0008",
             "headerPath": "gamedata/binarystaticinfo__/bin/iteminfo.staticinfoheader",
             "bodyPath": "gamedata/binarystaticinfo__/bin/iteminfo.staticinfobody",
-            "declaredRecords": count,
-            "parsedRecords": parsed,
+            "declaredRecords": catalog.declared_count,
+            "parsedRecords": len(catalog.items),
+            "itemLayout": catalog.layout,
+            "clientNames": len(names),
             "uniqueClientItemKeys": len(extracted_keys),
             "databaseItems": len(self.items),
             "added": added,
